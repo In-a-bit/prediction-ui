@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  username       String   @unique
+  email          String?  @unique
+  hashedPassword String
+  balance        Float    @default(1000.0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  positions Position[]
+  trades    Trade[]
+
+  @@map("users")
+}
+
+model Position {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  conditionId String   @map("condition_id")
+  tokenId     String   @map("token_id")
+  outcome     String
+  shares      Float
+  avgPrice    Float    @map("avg_price")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tokenId])
+  @@index([userId])
+  @@index([conditionId])
+  @@map("positions")
+}
+
+model Trade {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  conditionId String   @map("condition_id")
+  tokenId     String   @map("token_id")
+  outcome     String
+  side        String
+  price       Float
+  shares      Float
+  total       Float
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([conditionId])
+  @@map("trades")
+}

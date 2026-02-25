@@ -1,0 +1,149 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { signUp } from "@/actions/auth";
+
+export function SignupForm() {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const result = await signUp(formData);
+
+    if (result?.error) {
+      setError(result.error);
+      setLoading(false);
+    }
+    // On success, signUp redirects via signIn — no need to handle here
+  }
+
+  return (
+    <div className="rounded-2xl border border-card-border bg-card p-8 shadow-2xl shadow-black/20">
+      {/* Logo */}
+      <div className="mb-8 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+            <polyline points="16 7 22 7 22 13" />
+          </svg>
+        </div>
+        <span className="text-xl font-bold tracking-tight text-foreground">
+          Polymarket
+        </span>
+      </div>
+
+      <h1 className="mb-2 text-2xl font-bold text-foreground">
+        Create account
+      </h1>
+      <p className="mb-6 text-sm text-muted">
+        Join the world&apos;s largest prediction market
+      </p>
+
+      {error && (
+        <div className="mb-4 rounded-xl bg-red-dim p-3 text-sm text-red">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label
+            htmlFor="username"
+            className="mb-1.5 block text-sm font-medium text-muted"
+          >
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            required
+            minLength={2}
+            autoComplete="username"
+            className="w-full rounded-xl border border-input-border bg-input px-4 py-3 text-foreground transition-colors placeholder:text-muted/50 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30"
+            placeholder="Choose a username"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="password"
+            className="mb-1.5 block text-sm font-medium text-muted"
+          >
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minLength={1}
+            autoComplete="new-password"
+            className="w-full rounded-xl border border-input-border bg-input px-4 py-3 text-foreground transition-colors placeholder:text-muted/50 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30"
+            placeholder="Create a password"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-xl bg-brand py-3.5 text-sm font-semibold text-white transition-all hover:bg-brand-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg
+                className="h-4 w-4 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              Creating account...
+            </span>
+          ) : (
+            "Sign up"
+          )}
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-muted">
+        Already have an account?{" "}
+        <Link
+          href="/login"
+          className="font-medium text-brand transition-colors hover:text-brand-hover"
+        >
+          Log in
+        </Link>
+      </p>
+
+      <p className="mt-4 text-center text-xs text-muted/60">
+        You&apos;ll receive $1,000 in virtual funds to start trading
+      </p>
+    </div>
+  );
+}

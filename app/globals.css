@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000c2d;
+  --foreground: #f0f2f5;
+  --brand: #2462ff;
+  --brand-hover: #1a4fd6;
+  --green: #00ab67;
+  --green-dim: rgba(0, 171, 103, 0.15);
+  --red: #ff4d4d;
+  --red-dim: rgba(255, 77, 77, 0.15);
+  --card: #0d1b3e;
+  --card-hover: #122348;
+  --card-border: #1a2a52;
+  --muted: #7b8aa3;
+  --input: #0a1429;
+  --input-border: #1a2a52;
+  --sidebar: #060e24;
+  --header: rgba(6, 14, 36, 0.85);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-green: var(--green);
+  --color-green-dim: var(--green-dim);
+  --color-red: var(--red);
+  --color-red-dim: var(--red-dim);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-card-border: var(--card-border);
+  --color-muted: var(--muted);
+  --color-input: var(--input);
+  --color-input-border: var(--input-border);
+  --color-sidebar: var(--sidebar);
+  --color-header: var(--header);
+  --font-sans: var(--font-inter);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+html {
+  scroll-behavior: smooth;
 }

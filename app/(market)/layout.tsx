@@ -1,0 +1,18 @@
+import { Sidebar } from "@/components/layout/sidebar";
+import { Header } from "@/components/layout/header";
+
+export default function MarketLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen bg-background">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
+        <Header />
+        {children}
+      </main>
+    </div>
+  );
+}
