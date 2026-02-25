@@ -123,7 +123,7 @@ export default async function EventPage({ params }: EventPageProps) {
           <h2 className="mb-4 text-sm font-semibold text-muted">
             Recent Activity
           </h2>
-          <TradeTicker conditionId={market?.conditionId} />
+          <TradeTicker conditionId={market?.conditionId} tokenIds={tokenIds.length > 0 ? tokenIds : undefined} />
         </div>
       </div>
 

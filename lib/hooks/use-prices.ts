@@ -1,7 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMarketWS } from "@/components/providers/market-ws-provider";
 import type { PriceHistoryPoint } from "@/lib/types/orderbook";
+import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
 async function getPriceHistory(
   tokenId: string,
@@ -48,10 +51,57 @@ export function usePriceHistory(
 }
 
 export function useMidpoint(tokenId: string | undefined) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const ws = useMarketWS();
+
+  const query = useQuery({
     queryKey: ["midpoint", tokenId],
     queryFn: () => getMidpoint(tokenId!),
     enabled: !!tokenId,
-    refetchInterval: 5000,
+    refetchInterval: 60_000,
   });
+
+  const handleBestBidAsk: MarketEventCallback = useCallback(
+    (data) => {
+      if (data.asset_id !== tokenId) return;
+      const bestBid = parseFloat(data.best_bid as string);
+      const bestAsk = parseFloat(data.best_ask as string);
+      if (!isNaN(bestBid) && !isNaN(bestAsk)) {
+        queryClient.setQueryData(
+          ["midpoint", tokenId],
+          (bestBid + bestAsk) / 2
+        );
+      }
+    },
+    [tokenId, queryClient]
+  );
+
+  const handlePriceChange: MarketEventCallback = useCallback(
+    (data) => {
+      if (data.asset_id !== tokenId) return;
+      const bestBid = parseFloat(data.best_bid as string);
+      const bestAsk = parseFloat(data.best_ask as string);
+      if (!isNaN(bestBid) && !isNaN(bestAsk)) {
+        queryClient.setQueryData(
+          ["midpoint", tokenId],
+          (bestBid + bestAsk) / 2
+        );
+      }
+    },
+    [tokenId, queryClient]
+  );
+
+  useEffect(() => {
+    if (!tokenId) return;
+    ws.subscribe(tokenId);
+    ws.on("best_bid_ask", handleBestBidAsk);
+    ws.on("price_change", handlePriceChange);
+    return () => {
+      ws.off("best_bid_ask", handleBestBidAsk);
+      ws.off("price_change", handlePriceChange);
+      ws.unsubscribe(tokenId);
+    };
+  }, [tokenId, ws, handleBestBidAsk, handlePriceChange]);
+
+  return query;
 }

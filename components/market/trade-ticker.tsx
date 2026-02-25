@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/utils";
+import { useMarketWS } from "@/components/providers/market-ws-provider";
+import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
 interface TradeActivity {
   id: string;
@@ -15,11 +17,15 @@ interface TradeActivity {
 
 export function TradeTicker({
   conditionId,
+  tokenIds,
 }: {
   conditionId: string | undefined;
+  tokenIds?: string[];
 }) {
   const [trades, setTrades] = useState<TradeActivity[]>([]);
+  const ws = useMarketWS();
 
+  // REST fallback polling at 60s
   useEffect(() => {
     if (!conditionId) return;
 
@@ -39,9 +45,49 @@ export function TradeTicker({
     }
 
     fetchActivity();
-    const interval = setInterval(fetchActivity, 15000);
+    const interval = setInterval(fetchActivity, 60_000);
     return () => clearInterval(interval);
   }, [conditionId]);
+
+  // WebSocket real-time trade events
+  const handleTrade: MarketEventCallback = useCallback(
+    (data) => {
+      if (!tokenIds?.includes(data.asset_id as string)) return;
+      // WS timestamps are epoch milliseconds as strings
+      const rawTs = data.timestamp as string | undefined;
+      const tsMs = rawTs ? parseInt(rawTs, 10) : NaN;
+      const timestamp = !isNaN(tsMs)
+        ? new Date(tsMs).toISOString()
+        : new Date().toISOString();
+
+      const trade: TradeActivity = {
+        id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        side: (data.side as string) ?? "BUY",
+        outcome: data.asset_id === tokenIds[0] ? "Yes" : "No",
+        price: parseFloat(data.price as string) || 0,
+        size: parseFloat(data.size as string) || 0,
+        timestamp,
+      };
+      setTrades((prev) => [trade, ...prev].slice(0, 20));
+    },
+    [tokenIds]
+  );
+
+  useEffect(() => {
+    if (!tokenIds || tokenIds.length === 0) return;
+
+    for (const id of tokenIds) {
+      ws.subscribe(id);
+    }
+    ws.on("last_trade_price", handleTrade);
+
+    return () => {
+      ws.off("last_trade_price", handleTrade);
+      for (const id of tokenIds) {
+        ws.unsubscribe(id);
+      }
+    };
+  }, [tokenIds, ws, handleTrade]);
 
   if (!conditionId) {
     return <p className="text-sm text-muted">No activity data</p>;

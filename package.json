@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@polymarket/clob-client": "^5.2.4",
+    "@polymarket/real-time-data-client": "^1.4.0",
     "@prisma/client": "^6.19.2",
     "@tanstack/react-query": "^5.90.21",
     "bcryptjs": "^3.0.3",
