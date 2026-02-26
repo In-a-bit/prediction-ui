@@ -1,20 +1,31 @@
+import { Suspense } from "react";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TrendingCarousel } from "@/components/market/trending-carousel";
 import { EventGrid } from "@/components/market/event-grid";
 import { fetchEvents } from "@/lib/api/gamma";
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<{ tag?: string; q?: string }>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const { tag, q } = await searchParams;
+
   const [events, trending] = await Promise.all([
-    fetchEvents({ active: true, closed: false, limit: 21, order: "volume24hr", ascending: false }),
+    fetchEvents({ active: true, closed: false, limit: q ? 100 : 21, order: "volume24hr", ascending: false, tag_slug: tag }),
     fetchEvents({ active: true, closed: false, limit: 8, order: "volume24hr", ascending: false }),
   ]);
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar />
+      <Suspense>
+        <Sidebar />
+      </Suspense>
       <main className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
-        <Header />
+        <Suspense>
+          <Header />
+        </Suspense>
 
         {/* Trending */}
         <section className="mb-8">
@@ -36,7 +47,9 @@ export default async function HomePage() {
         {/* Markets Grid */}
         <section>
           <h2 className="mb-4 text-lg font-bold text-foreground">Markets</h2>
-          <EventGrid initialEvents={events} />
+          <Suspense>
+            <EventGrid initialEvents={events} tag={tag} searchQuery={q} />
+          </Suspense>
         </section>
       </main>
     </div>

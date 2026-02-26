@@ -10,7 +10,7 @@ async function getEvents(params: {
   offset?: number;
   order?: string;
   ascending?: boolean;
-  tag?: string;
+  tag_slug?: string;
 }): Promise<GammaEvent[]> {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -29,7 +29,7 @@ export function useEvents(params: {
   offset?: number;
   order?: string;
   ascending?: boolean;
-  tag?: string;
+  tag_slug?: string;
 }) {
   return useQuery({
     queryKey: ["events", params],

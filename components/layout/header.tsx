@@ -2,11 +2,58 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 export function Header() {
   const { data: session } = useSession();
-  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Sync input from URL on external navigation (back/forward, sidebar clicks)
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") ?? "");
+  }, [searchParams]);
+
+  const navigateSearch = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const trimmed = value.trim();
+
+      if (trimmed) {
+        params.set("q", trimmed);
+      } else {
+        params.delete("q");
+      }
+
+      const qs = params.toString();
+      // If on home page, replace so we don't pollute history per keystroke.
+      // From any other page, push so the user can go back.
+      if (pathname === "/") {
+        router.replace(qs ? `/?${qs}` : "/");
+      } else {
+        router.push(qs ? `/?${qs}` : "/");
+      }
+    },
+    [router, pathname, searchParams],
+  );
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => navigateSearch(value), 300);
+  }
+
+  function handleClear() {
+    clearTimeout(debounceRef.current);
+    setSearchQuery("");
+    navigateSearch("");
+  }
 
   return (
     <header className="sticky top-0 z-40 mb-6 flex items-center gap-4 border-b border-card-border bg-header py-3 backdrop-blur-xl">
@@ -25,10 +72,20 @@ export function Header() {
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleChange}
           placeholder="Search markets"
-          className="w-full rounded-xl border border-card-border bg-input py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
+          className="w-full rounded-xl border border-card-border bg-input py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
         />
+        {searchQuery && (
+          <button
+            onClick={handleClear}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-muted transition-colors hover:text-foreground"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Auth */}

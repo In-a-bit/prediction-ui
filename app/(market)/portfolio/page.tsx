@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Portfolio | Polymarket",
+  title: "Portfolio | DPM",
 };
 
 export default async function PortfolioPage() {

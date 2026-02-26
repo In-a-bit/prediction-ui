@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const offset = searchParams.get("offset");
   const order = searchParams.get("order");
   const ascending = searchParams.get("ascending");
-  const tag = searchParams.get("tag");
+  const tag_slug = searchParams.get("tag_slug");
 
   if (active !== null) params.active = active === "true";
   if (closed !== null) params.closed = closed === "true";
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (offset !== null) params.offset = parseInt(offset, 10);
   if (order !== null) params.order = order;
   if (ascending !== null) params.ascending = ascending === "true";
-  if (tag !== null) params.tag = tag;
+  if (tag_slug !== null) params.tag_slug = tag_slug;
 
   try {
     const events = await fetchEvents(params);

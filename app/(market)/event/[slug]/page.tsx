@@ -17,7 +17,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const event = await fetchEventBySlug(slug);
   return {
-    title: event ? `${event.title} | Polymarket` : "Market | Polymarket",
+    title: event ? `${event.title} | DPM` : "Market | DPM",
   };
 }
 

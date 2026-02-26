@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Polymarket",
+  title: "DPM",
   description: "Trade on the outcome of real-world events",
 };
 
