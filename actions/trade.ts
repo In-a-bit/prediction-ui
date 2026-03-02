@@ -3,7 +3,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { fetchMidpoint } from "@/lib/api/clob";
-import type { PrismaClient } from "@/app/generated/prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
