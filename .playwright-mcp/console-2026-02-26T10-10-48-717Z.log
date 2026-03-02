@@ -1,0 +1,151 @@
+[     391ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/:0
+[ 4989935ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/auth/session:0
+[ 4989937ms] [ERROR] n: There was a problem with the server configuration. Check the server logs for more information.. Read more at https://errors.authjs.dev#autherror
+    at o (http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:1:1004)
+    at async g (http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:1:2628)
+    at async l._getSession (http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:2:1633) @ http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:0
+[ 4989966ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/auth/session:0
+[ 4989967ms] [ERROR] n: There was a problem with the server configuration. Check the server logs for more information.. Read more at https://errors.authjs.dev#autherror
+    at o (http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:1:1004)
+    at async g (http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:1:2628)
+    at async l._getSession (http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:2:1633) @ http://localhost:3000/_next/static/chunks/65915c1bdff7caf2.js:0
+[ 5050626ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 5051629ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 5053632ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 5057636ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 5127418ms] Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rK (http://localhost:3000/_next/static/chunks/aee6c7720838f8a2.js:1:46764)
+    at io (http://localhost:3000/_next/static/chunks/aee6c7720838f8a2.js:1:97485)
+    at sf (http://localhost:3000/_next/static/chunks/aee6c7720838f8a2.js:1:138235)
+    at http://localhost:3000/_next/static/chunks/aee6c7720838f8a2.js:1:132438
+    at u9 (http://localhost:3000/_next/static/chunks/aee6c7720838f8a2.js:1:132947)
+    at sV (http://localhost:3000/_next/static/chunks/aee6c7720838f8a2.js:1:159329)
+    at MessagePort.O (http://localhost:3000/_next/static/chunks/aee6c7720838f8a2.js:1:8295)
+[ 6650034ms] An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.
+[ 8168414ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8169418ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8171422ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8175427ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8235432ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8236436ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8238441ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8242447ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8302451ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8303454ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8305458ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8309461ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8369466ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8370470ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8372473ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8376477ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8436482ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8437485ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8439487ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8443491ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8503497ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8504501ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8506504ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8510507ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8570511ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8571515ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8573518ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8577523ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8637527ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8638531ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8640536ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8644542ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8704546ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8705549ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8707553ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8711556ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8771561ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8772565ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8774568ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8778571ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8838574ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8839579ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8841582ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8845585ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8905590ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8906594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8908598ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8912602ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8972606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8973611ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8975614ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 8979618ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9039622ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9040625ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9042629ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9046632ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9106636ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9107639ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9109642ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9113646ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9173652ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9174656ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9176660ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9180664ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9240671ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9241675ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9243679ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9247684ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9307689ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9308694ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9310697ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9314701ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9374705ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9375709ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9377713ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9381717ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9441722ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9442725ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9444729ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9448734ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9508739ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9509743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9511747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9515751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9575755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9576758ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9578762ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9582766ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9642771ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9643775ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9645778ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9649782ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9709786ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9710789ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9712791ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9716796ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9776802ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9777805ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9779809ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9783813ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9843819ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9844824ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9846828ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9850832ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9910836ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9911840ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9913844ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9917848ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9977852ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9978855ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9980859ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[ 9984864ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10044868ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10045872ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10047876ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10051880ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10111884ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10112888ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10114892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10118897ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10178902ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10179907ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10181910ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10185914ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10245918ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10246923ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0
+[10248927ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/events?active=true&closed=false&limit=20&order=volume24hr&ascending=false:0

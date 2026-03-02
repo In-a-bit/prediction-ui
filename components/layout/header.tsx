@@ -23,19 +23,18 @@ export function Header() {
       const params = new URLSearchParams(searchParams.toString());
       const trimmed = value.trim();
 
+      const target = new URLSearchParams();
       if (trimmed) {
-        params.set("q", trimmed);
-      } else {
-        params.delete("q");
+        target.set("q", trimmed);
       }
 
-      const qs = params.toString();
-      // If on home page, replace so we don't pollute history per keystroke.
+      const qs = target.toString();
+      // If already on predictions, replace so we don't pollute history per keystroke.
       // From any other page, push so the user can go back.
-      if (pathname === "/") {
-        router.replace(qs ? `/?${qs}` : "/");
+      if (pathname === "/predictions") {
+        router.replace(qs ? `/predictions?${qs}` : "/predictions");
       } else {
-        router.push(qs ? `/?${qs}` : "/");
+        router.push(qs ? `/predictions?${qs}` : "/predictions");
       }
     },
     [router, pathname, searchParams],
@@ -73,7 +72,7 @@ export function Header() {
           type="text"
           value={searchQuery}
           onChange={handleChange}
-          placeholder="Search markets"
+          placeholder="Search prediction markets"
           className="w-full rounded-xl border border-card-border bg-input py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
         />
         {searchQuery && (

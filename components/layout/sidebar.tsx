@@ -19,10 +19,17 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const currentTag = searchParams.get("tag");
 
+  const isCasinoActive =
+    pathname === "/" || pathname.startsWith("/games/");
+  const isPredictionsActive =
+    pathname === "/predictions" ||
+    pathname.startsWith("/event/") ||
+    pathname === "/portfolio";
+
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 border-r border-card-border bg-sidebar p-4 lg:block">
       {/* Logo */}
-      <Link href="/" className="mb-8 flex items-center gap-2.5 px-2">
+      <Link href="/" className="mb-6 flex items-center gap-2.5 px-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand">
           <svg
             width="16"
@@ -45,48 +52,78 @@ export function Sidebar() {
         </span>
       </Link>
 
-      {/* Navigation */}
-      <nav className="space-y-1">
-        {categories.map((cat) => {
-          const href = cat.slug ? `/?tag=${cat.slug}` : "/";
-          const isActive =
-            cat.slug === ""
-              ? pathname === "/" && !currentTag
-              : currentTag === cat.slug;
+      {/* Tab Switcher */}
+      <div className="mb-6 flex rounded-xl bg-card-border/30 p-1">
+        <Link
+          href="/"
+          className={cn(
+            "flex-1 rounded-lg px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+            isCasinoActive
+              ? "bg-brand text-white"
+              : "text-muted hover:text-foreground"
+          )}
+        >
+          Casino
+        </Link>
+        <Link
+          href="/predictions"
+          className={cn(
+            "flex-1 rounded-lg px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+            isPredictionsActive
+              ? "bg-brand text-white"
+              : "text-muted hover:text-foreground"
+          )}
+        >
+          Predictions
+        </Link>
+      </div>
 
-          return (
-            <Link
-              key={cat.slug}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-brand/10 text-brand"
-                  : "text-muted hover:bg-card-hover hover:text-foreground"
-              )}
-            >
-              <svg
-                className="h-4.5 w-4.5 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.75}
-                strokeLinecap="round"
-                strokeLinejoin="round"
+      {/* Context-dependent navigation */}
+      {isPredictionsActive && (
+        <nav className="space-y-1">
+          {categories.map((cat) => {
+            const href = cat.slug
+              ? `/predictions?tag=${cat.slug}`
+              : "/predictions";
+            const isActive =
+              cat.slug === ""
+                ? pathname === "/predictions" && !currentTag
+                : currentTag === cat.slug;
+
+            return (
+              <Link
+                key={cat.slug}
+                href={href}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-brand/10 text-brand"
+                    : "text-muted hover:bg-card-hover hover:text-foreground"
+                )}
               >
-                <path d={cat.icon} />
-              </svg>
-              {cat.label}
-            </Link>
-          );
-        })}
-      </nav>
+                <svg
+                  className="h-4.5 w-4.5 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.75}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d={cat.icon} />
+                </svg>
+                {cat.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       {/* Bottom section */}
       <div className="absolute bottom-4 left-4 right-4">
         <div className="rounded-xl border border-card-border bg-card p-3">
           <p className="text-xs font-medium text-muted">
-            Trade on the outcome of real-world events
+            Casino games & prediction markets
           </p>
         </div>
       </div>
