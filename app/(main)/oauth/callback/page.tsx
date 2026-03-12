@@ -7,7 +7,7 @@ import { loginWithMagic } from "@/lib/gamma-api";
 import type { OAuthRedirectResult } from "@magic-ext/oauth2";
 
 export default function OAuthCallbackPage() {
-  const { magic, setWalletAddress } = useMagic();
+  const { magic, setWalletAddress, setUserProfile } = useMagic();
   const router = useRouter();
   const handled = useRef(false);
   // Use a ref so the value is always current inside async callbacks
@@ -45,11 +45,12 @@ export default function OAuthCallbackPage() {
 
         if (!token) throw new Error("No DID token in OAuth result");
 
-        // Exchange DID token for wallet address via gamma-api
-        const address = await loginWithMagic(token);
-        console.log("[Magic OAuth] login API address:", address);
+        // Exchange DID token for full profile via gamma-api
+        const profile = await loginWithMagic(token);
+        console.log("[Magic OAuth] login API profile:", profile);
 
-        setWalletAddress(address);
+        setWalletAddress(profile.proxyWallet);
+        setUserProfile(profile);
         router.replace(returnToRef.current);
       })
       .catch((err: unknown) => {

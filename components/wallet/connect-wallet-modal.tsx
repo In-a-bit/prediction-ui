@@ -10,7 +10,7 @@ type Props = {
 };
 
 export function ConnectWalletModal({ onClose }: Props) {
-  const { magic, setWalletAddress } = useMagic();
+  const { magic, setWalletAddress, setUserProfile } = useMagic();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,12 +58,13 @@ export function ConnectWalletModal({ onClose }: Props) {
 
       if (!didToken) throw new Error("No DID token returned from Magic");
 
-      // Step 2: Exchange DID token for wallet address via gamma-api
-      const address = await loginWithMagic(didToken);
-      console.log("[Magic] login API address:", address);
+      // Step 2: Exchange DID token for full profile via gamma-api
+      const profile = await loginWithMagic(didToken);
+      console.log("[Magic] login API profile:", profile);
 
-      // Step 3: Store address and close
-      setWalletAddress(address);
+      // Step 3: Store profile and close
+      setWalletAddress(profile.proxyWallet);
+      setUserProfile(profile);
       onClose();
     } catch (err) {
       console.error("[Magic] email login failed:", err);
