@@ -44,9 +44,13 @@ export function MagicProvider({ children }: { children: ReactNode }) {
     const key = process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY;
     if (!key) return;
 
+    const rpcUrl =
+      process.env.NEXT_PUBLIC_RPC_URL ?? "https://rpc-amoy.polygon.technology";
+    const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "80002");
+
     const instance = new Magic(key, {
       extensions: [new OAuthExtension()],
-      network: { rpcUrl: "https://polygon-rpc.com", chainId: 137 },
+      network: { rpcUrl, chainId },
     }) as MagicInstance;
 
     setMagic(instance);

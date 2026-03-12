@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMagic } from "@/components/providers/magic-provider";
+import { loginWithMagic } from "@/lib/gamma-api";
 
 type Props = {
   onClose: () => void;
@@ -13,9 +14,6 @@ export function ConnectWalletModal({ onClose }: Props) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [didToken, setDidToken] = useState<string | null>(null);
-  const [pendingAddress, setPendingAddress] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape — but not while OTP is in progress
@@ -53,55 +51,25 @@ export function ConnectWalletModal({ onClose }: Props) {
     setError(null);
     setLoading("email");
 
-    let token: string | null = null;
-
-    // Step 1: OTP login — resolves to DID token directly
     try {
-      token = await magic.auth.loginWithEmailOTP({ email: email.trim() });
-      console.log("[Magic] loginWithEmailOTP resolved, token:", token ? `${token.slice(0, 40)}…` : "null");
-    } catch (err) {
-      console.error("[Magic] loginWithEmailOTP failed:", err);
-      setError(`OTP login failed: ${err instanceof Error ? err.message : String(err)}`);
-      setLoading(null);
-      return;
-    }
+      // Step 1: OTP login — resolves to DID token directly
+      const didToken = await magic.auth.loginWithEmailOTP({ email: email.trim() });
+      console.log("[Magic] DID token:", didToken ? `${didToken.slice(0, 40)}…` : "null");
 
-    // Step 2: Get wallet address — store locally, NOT in context yet.
-    // Setting context here would re-render WalletButton into address-pill mode
-    // and unmount this modal before the token screen is shown.
-    try {
-      const info = await magic.user.getInfo();
-      console.log("[Magic] getInfo:", JSON.stringify(info));
-      const publicAddress =
-        info.wallets?.ethereum?.publicAddress ??
-        info.issuer?.split(":").pop() ??
-        null;
-      if (publicAddress) setPendingAddress(publicAddress);
-    } catch (err) {
-      console.warn("[Magic] getInfo failed (non-fatal):", err);
-    }
+      if (!didToken) throw new Error("No DID token returned from Magic");
 
-    // Step 3: Resolve DID token — use the one from Step 1, or fetch it
-    try {
-      if (!token) {
-        token = await magic.user.getIdToken();
-        console.log("[Magic] getIdToken fallback resolved:", token ? `${token.slice(0, 40)}…` : "null");
-      }
-      setDidToken(token ?? "token unavailable");
+      // Step 2: Exchange DID token for wallet address via gamma-api
+      const address = await loginWithMagic(didToken);
+      console.log("[Magic] login API address:", address);
+
+      // Step 3: Store address and close
+      setWalletAddress(address);
+      onClose();
     } catch (err) {
-      console.error("[Magic] getIdToken failed:", err);
-      // Still show success screen — just without the token
-      setDidToken("(token fetch failed — check console)");
-    } finally {
+      console.error("[Magic] email login failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
       setLoading(null);
     }
-  }
-
-  function handleCopy() {
-    if (!didToken) return;
-    navigator.clipboard.writeText(didToken);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   }
 
   const modal = (
@@ -130,61 +98,6 @@ export function ConnectWalletModal({ onClose }: Props) {
           </svg>
         </button>
 
-        {didToken ? (
-          /* ── DID Token reveal screen ── */
-          <div>
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green/20">
-                <svg className="h-4 w-4 text-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-base font-semibold text-foreground">Wallet connected!</h2>
-            </div>
-
-            <p className="mb-3 text-xs text-muted">
-              DID token (for backend use — temporary debug view):
-            </p>
-
-            <div className="relative rounded-xl border border-card-border bg-input p-3">
-              <p className="break-all font-mono text-[10px] leading-relaxed text-foreground">
-                {didToken}
-              </p>
-              <button
-                onClick={handleCopy}
-                className="mt-2 flex items-center gap-1.5 text-xs text-brand transition-colors hover:text-brand-hover"
-              >
-                {copied ? (
-                  <>
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <rect x="9" y="9" width="13" height="13" rx="2" />
-                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                    </svg>
-                    Copy token
-                  </>
-                )}
-              </button>
-            </div>
-
-            <button
-              onClick={() => {
-                if (pendingAddress) setWalletAddress(pendingAddress);
-                onClose();
-              }}
-              className="mt-4 w-full rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover"
-            >
-              Done
-            </button>
-          </div>
-        ) : (
-          /* ── Connect form ── */
           <>
             <div className="mb-6 pr-6">
               <h2 className="text-lg font-semibold text-foreground">Connect Wallet</h2>
@@ -240,7 +153,6 @@ export function ConnectWalletModal({ onClose }: Props) {
               No seed phrase required.
             </p>
           </>
-        )}
       </div>
     </div>
   );
