@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMagic } from "@/components/providers/magic-provider";
+import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { loginWithMagic } from "@/lib/gamma-api";
 
 type Props = {
@@ -65,6 +66,7 @@ export function ConnectWalletModal({ onClose }: Props) {
       // Step 3: Store profile and close
       setWalletAddress(profile.proxyWallet);
       setUserProfile(profile);
+      checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], profile).catch(() => {});
       onClose();
     } catch (err) {
       console.error("[Magic] email login failed:", err);

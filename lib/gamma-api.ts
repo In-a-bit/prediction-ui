@@ -1,5 +1,24 @@
 import type { UserProfile } from "@/components/providers/magic-provider";
 
+/** Raw GET /users response shape */
+type UserApiResponse = {
+  proxy_wallet: string;
+  email?: string | null;
+  name?: string | null;
+  usdce_allowance_status?: string | null;
+  ctf_allowance_status?: string | null;
+};
+
+function userResponseToProfile(user: UserApiResponse): UserProfile {
+  return {
+    proxyWallet: user.proxy_wallet,
+    email: user.email ?? null,
+    name: user.name ?? null,
+    usdceAllowanceStatus: user.usdce_allowance_status ?? null,
+    ctfAllowanceStatus: user.ctf_allowance_status ?? null,
+  };
+}
+
 export const GAMMA_API_URL =
   process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
 
@@ -41,19 +60,11 @@ export async function loginWithMagic(didToken: string): Promise<UserProfile> {
     throw new Error(`Failed to fetch user (${userRes.status}): ${errBody}`);
   }
 
-  const user = (await userRes.json()) as {
-    proxy_wallet: string;
-    email?: string | null;
-    name?: string | null;
-  };
+  const user = (await userRes.json()) as UserApiResponse;
 
   if (!user.proxy_wallet) throw new Error("User response missing proxy_wallet");
 
-  return {
-    proxyWallet: user.proxy_wallet,
-    email: user.email ?? null,
-    name: user.name ?? null,
-  };
+  return userResponseToProfile(user);
 }
 
 /**
@@ -65,15 +76,7 @@ export async function getUser(): Promise<UserProfile | null> {
     credentials: "include",
   });
   if (!res.ok) return null;
-  const user = (await res.json()) as {
-    proxy_wallet: string;
-    email?: string | null;
-    name?: string | null;
-  };
+  const user = (await res.json()) as UserApiResponse;
   if (!user.proxy_wallet) return null;
-  return {
-    proxyWallet: user.proxy_wallet,
-    email: user.email ?? null,
-    name: user.name ?? null,
-  };
+  return userResponseToProfile(user);
 }

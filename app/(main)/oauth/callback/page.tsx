@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMagic } from "@/components/providers/magic-provider";
+import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { loginWithMagic } from "@/lib/gamma-api";
 import type { OAuthRedirectResult } from "@magic-ext/oauth2";
 
@@ -51,6 +52,7 @@ export default function OAuthCallbackPage() {
 
         setWalletAddress(profile.proxyWallet);
         setUserProfile(profile);
+        checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], profile).catch(() => {});
         router.replace(returnToRef.current);
       })
       .catch((err: unknown) => {
