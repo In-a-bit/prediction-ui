@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { WalletButton } from "@/components/wallet/wallet-button";
+import { CollateralBalance } from "@/components/wallet/collateral-balance";
 
 export function Header() {
   const { data: session } = useSession();
@@ -99,6 +100,7 @@ export function Header() {
               Portfolio
             </Link>
             <WalletButton />
+            <CollateralBalance />
             <div className="flex items-center gap-3 rounded-xl border border-card-border px-4 py-2">
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
                 {session.user.name?.[0]?.toUpperCase() ?? "U"}

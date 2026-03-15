@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Magic } from "magic-sdk";
 import { OAuthExtension } from "@magic-ext/oauth2";
+import { getUser } from "@/lib/gamma-api";
 
 const WALLET_STORAGE_KEY = "magic_wallet_address";
 const PROFILE_STORAGE_KEY = "magic_user_profile";
@@ -84,12 +85,21 @@ export function MagicProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    magic.user.isLoggedIn().then((loggedIn: boolean) => {
+    magic.user.isLoggedIn().then(async (loggedIn: boolean) => {
       if (!loggedIn) {
         localStorage.removeItem(WALLET_STORAGE_KEY);
         localStorage.removeItem(PROFILE_STORAGE_KEY);
         setWalletAddressState(null);
         setUserProfileState(null);
+        return;
+      }
+      // Session is live — refresh profile from gamma-api to pick up latest data
+      const freshProfile = await getUser();
+      if (freshProfile) {
+        setWalletAddressState(freshProfile.proxyWallet);
+        setUserProfileState(freshProfile);
+        localStorage.setItem(WALLET_STORAGE_KEY, freshProfile.proxyWallet);
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(freshProfile));
       }
     });
   }, [magic]);

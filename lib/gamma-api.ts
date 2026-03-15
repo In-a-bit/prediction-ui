@@ -1,6 +1,6 @@
 import type { UserProfile } from "@/components/providers/magic-provider";
 
-const GAMMA_API_URL =
+export const GAMMA_API_URL =
   process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
 
 const BUILDER_ID = process.env.NEXT_PUBLIC_BUILDER_ID
@@ -49,6 +49,28 @@ export async function loginWithMagic(didToken: string): Promise<UserProfile> {
 
   if (!user.proxy_wallet) throw new Error("User response missing proxy_wallet");
 
+  return {
+    proxyWallet: user.proxy_wallet,
+    email: user.email ?? null,
+    name: user.name ?? null,
+  };
+}
+
+/**
+ * Fetches the current user profile using the existing session cookie.
+ * Returns null if the session is missing or expired (401).
+ */
+export async function getUser(): Promise<UserProfile | null> {
+  const res = await fetch(`${GAMMA_API_URL}/users`, {
+    credentials: "include",
+  });
+  if (!res.ok) return null;
+  const user = (await res.json()) as {
+    proxy_wallet: string;
+    email?: string | null;
+    name?: string | null;
+  };
+  if (!user.proxy_wallet) return null;
   return {
     proxyWallet: user.proxy_wallet,
     email: user.email ?? null,
