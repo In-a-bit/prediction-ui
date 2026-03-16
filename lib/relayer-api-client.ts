@@ -53,15 +53,19 @@ export type SubmitTransactionResponse = {
 };
 
 /**
- * Submit a PROXY transaction to the relayer API via our Next.js API route.
- * The route adds poly_* auth headers (server-side).
+ * Submit a PROXY transaction directly to the relayer API.
+ * Cookies (predictionsession) are forwarded by the browser via credentials: "include".
+ *
+ * If you ever want to re-enable the Next.js API proxy, you can:
+ * - add a `useProxy` flag here, and
+ * - send requests to `/api/relayer/submit` instead.
  */
 export async function submitTransaction(
   body: SubmitTransactionRequest,
-  apiRouteBase: string = ""
+  baseUrl: string = RELAYER_API_URL
 ): Promise<SubmitTransactionResponse> {
-  const path = apiRouteBase ? `${apiRouteBase}/api/relayer/submit` : "/api/relayer/submit";
-  const res = await fetch(path, {
+  const url = `${baseUrl.replace(/\/$/, "")}/submit`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
