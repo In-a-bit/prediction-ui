@@ -13,7 +13,7 @@ import {
 } from "./relayer-proxy";
 import { getRelayPayload, submitTransaction } from "./relayer-api-client";
 
-const DEFAULT_GAS_LIMIT = BigInt(10_000_000);
+const DEFAULT_GAS_LIMIT = BigInt(300_000);
 
 export type MagicLike = {
   rpcProvider: {

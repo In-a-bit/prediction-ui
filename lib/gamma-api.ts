@@ -33,7 +33,8 @@ const BUILDER_ID = process.env.NEXT_PUBLIC_BUILDER_ID
  */
 export async function loginWithMagic(didToken: string): Promise<UserProfile> {
   const body: Record<string, unknown> = {};
-  if (BUILDER_ID !== null) body.builder_id = BUILDER_ID;
+  // remove builder id for now, until we the contract add support for it
+  // if (BUILDER_ID !== null) body.builder_id = BUILDER_ID;
 
   const loginRes = await fetch(`${GAMMA_API_URL}/login`, {
     method: "POST",
