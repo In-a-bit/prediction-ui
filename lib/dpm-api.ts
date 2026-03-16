@@ -1,5 +1,5 @@
 const DPM_API_URL =
-  process.env.NEXT_PUBLIC_DPM_API_URL ?? "http://localhost:8085";
+  process.env.NEXT_PUBLIC_DPM_API_URL ?? "http://localhost:8086";
 
 export type CollateralBalanceResponse = {
   address: string;

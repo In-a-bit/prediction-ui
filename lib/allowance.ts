@@ -1,11 +1,16 @@
 import type { UserProfile } from "@/components/providers/magic-provider";
+import { submitUsdcCtfAllowance } from "@/lib/allowance-relayer";
 
-const COMPLETED = "Completed";
+const RELAYER_API_URL =
+  typeof process === "undefined"
+    ? undefined
+    : process.env.NEXT_PUBLIC_RELAYER_API_URL;
 
 /**
  * If either usdce_allowance_status or ctf_allowance_status is not "Completed",
- * logs that we need to sign and signs an empty message with the user's Magic wallet.
- * Accepts any Magic-like instance (rpcProvider.request + user.getInfo).
+ * submits a PROXY approval (USDC approve CTF) via the relayer-api: signs with
+ * Magic and sends the request to our relayer (builder-relayer-client–compatible flow).
+ * If relayer is not configured, skips.
  */
 export async function checkAllowanceAndSignIfNeeded(
   magic: {
@@ -18,22 +23,17 @@ export async function checkAllowanceAndSignIfNeeded(
   const needCtf = profile.ctfAllowanceStatus === null;
   if (!needUsdce && !needCtf) return;
 
-  console.log("[Allowance] We need to sign — usdce:", profile.usdceAllowanceStatus, "ctf:", profile.ctfAllowanceStatus);
-
-  const info = await magic.user.getInfo();
-  const signerAddress = info.wallets?.ethereum?.publicAddress ?? undefined;
-  if (!signerAddress) {
-    console.warn("[Allowance] No signer address from Magic, skipping sign");
+  if (!RELAYER_API_URL) {
+    console.warn("[Allowance] NEXT_PUBLIC_RELAYER_API_URL not set, skipping PROXY approval");
     return;
   }
 
+  console.log("[Allowance] Submitting USDC→CTF approval via relayer (PROXY)…");
+
   try {
-    const signature = await magic.rpcProvider.request({ 
-      method: "personal_sign",
-      params: ["0x", signerAddress],
-    });
-    console.log("[Allowance] Signed empty message:", signature?.slice(0, 20) + "…");
+    const result = await submitUsdcCtfAllowance(magic, RELAYER_API_URL);
+    console.log("[Allowance] Submitted:", result.transactionID, result.state);
   } catch (err) {
-    console.error("[Allowance] Sign failed:", err); 
+    console.error("[Allowance] Submit failed:", err);
   }
 }
