@@ -24,10 +24,8 @@ export type UserProfile = {
   proxyWallet: string;
   email: string | null;
   name: string | null;
-  /** e.g. "Completed" | "Processing" | null */
-  usdceAllowanceStatus: string | null;
-  /** e.g. "Completed" | "Processing" | null */
-  ctfAllowanceStatus: string | null;
+  /** Outbound tx status: PENDING, SENDING, SENT, MINED, FINALIZED, FAILED, DROPPED, REPLACED; null if never submitted */
+  allowanceStatus: string | null;
 };
 
 type MagicContextType = {
@@ -89,8 +87,7 @@ export function MagicProvider({ children }: { children: ReactNode }) {
           proxyWallet: parsed.proxyWallet as string,
           email: (parsed.email as string | null) ?? null,
           name: (parsed.name as string | null) ?? null,
-          usdceAllowanceStatus: (parsed.usdceAllowanceStatus as string | null) ?? null,
-          ctfAllowanceStatus: (parsed.ctfAllowanceStatus as string | null) ?? null,
+          allowanceStatus: (parsed.allowanceStatus as string | null) ?? null,
         });
       } catch {
         localStorage.removeItem(PROFILE_STORAGE_KEY);

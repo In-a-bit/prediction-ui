@@ -5,8 +5,7 @@ type UserApiResponse = {
   proxy_wallet: string;
   email?: string | null;
   name?: string | null;
-  usdce_allowance_status?: string | null;
-  ctf_allowance_status?: string | null;
+  allowance_status?: string | null;
 };
 
 function userResponseToProfile(user: UserApiResponse): UserProfile {
@@ -14,8 +13,7 @@ function userResponseToProfile(user: UserApiResponse): UserProfile {
     proxyWallet: user.proxy_wallet,
     email: user.email ?? null,
     name: user.name ?? null,
-    usdceAllowanceStatus: user.usdce_allowance_status ?? null,
-    ctfAllowanceStatus: user.ctf_allowance_status ?? null,
+    allowanceStatus: user.allowance_status ?? null,
   };
 }
 

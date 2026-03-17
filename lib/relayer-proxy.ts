@@ -71,29 +71,16 @@ export type ProxyContractConfig = {
 
 /** RelayHub and ProxyFactory – from env only */
 export function getProxyConfig(): ProxyContractConfig {
-  const hub =
-    typeof process !== "undefined"
-      ? process.env.NEXT_PUBLIC_RELAY_HUB_ADDRESS
-      : undefined;
-  const factory =
-    typeof process !== "undefined"
-      ? process.env.NEXT_PUBLIC_PROXY_WALLET_FACTORY_ADDRESS
-      : undefined;
+  const hub = typeof process
+    ? process.env.NEXT_PUBLIC_RELAY_HUB_ADDRESS
+    : undefined;
+  const factory = typeof process
+    ? process.env.NEXT_PUBLIC_PROXY_WALLET_FACTORY_ADDRESS
+    : undefined;
   if (hub && factory) return { RelayHub: hub, ProxyFactory: factory };
   throw new Error(
-    "Relayer proxy requires NEXT_PUBLIC_RELAY_HUB_ADDRESS and NEXT_PUBLIC_PROXY_WALLET_FACTORY_ADDRESS in env"
+    "Relayer proxy requires NEXT_PUBLIC_RELAY_HUB_ADDRESS and NEXT_PUBLIC_PROXY_WALLET_FACTORY_ADDRESS in env",
   );
-}
-
-export function deriveProxyWallet(
-  eoaAddress: string,
-  proxyFactory: string
-): string {
-  return getCreate2Address({
-    bytecodeHash: PROXY_INIT_CODE_HASH,
-    from: proxyFactory as Hex,
-    salt: keccak256(encodePacked(["address"], [eoaAddress as Hex])),
-  });
 }
 
 /** Struct hash for RelayHub / proxy meta-tx (same as builder-relayer-client). */
@@ -106,7 +93,7 @@ export function createProxyStructHash(
   gasLimit: string,
   nonce: string,
   relayHub: string,
-  relay: string
+  relay: string,
 ): Hex {
   const relayHubPrefix = toHex("rlx:");
   const encodedFrom = from as Hex;
@@ -136,7 +123,7 @@ export function createProxyStructHash(
 /** ERC20 approve(spender, amount) calldata. Target token is the "to" of the proxy call. */
 export function encodeApproveCalldata(
   spenderAddress: string,
-  amount: bigint = maxUint256
+  amount: bigint = maxUint256,
 ): Hex {
   return encodeFunctionData({
     abi: ERC20_APPROVE_ABI,
@@ -148,7 +135,7 @@ export function encodeApproveCalldata(
 /** ERC1155 setApprovalForAll(operator, approved) calldata. Target CTF is the "to" of the proxy call. */
 export function encodeSetApprovalForAllCalldata(
   operatorAddress: string,
-  approved: boolean = true
+  approved: boolean = true,
 ): Hex {
   return encodeFunctionData({
     abi: ERC1155_SET_APPROVAL_FOR_ALL_ABI,
@@ -162,7 +149,7 @@ export function encodeProxyCall(
   to: string,
   data: Hex,
   value: bigint = BigInt(0),
-  typeCode: number = 1
+  typeCode: number = 1,
 ): { typeCode: number; to: `0x${string}`; value: bigint; data: Hex } {
   return {
     typeCode,
@@ -174,7 +161,7 @@ export function encodeProxyCall(
 
 /** proxy(calls) calldata for the proxy factory */
 export function encodeProxyTransactionData(
-  calls: { typeCode: number; to: `0x${string}`; value: bigint; data: Hex }[]
+  calls: { typeCode: number; to: `0x${string}`; value: bigint; data: Hex }[],
 ): Hex {
   return encodeFunctionData({
     abi: PROXY_FACTORY_ABI,

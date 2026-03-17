@@ -7,9 +7,9 @@ const RELAYER_API_URL =
     : process.env.NEXT_PUBLIC_RELAYER_API_URL;
 
 /**
- * If either usdce_allowance_status or ctf_allowance_status is not "Completed",
- * submits a PROXY approval (USDC approve CTF) via the relayer-api: signs with
- * Magic and sends the request to our relayer (builder-relayer-client–compatible flow).
+ * Submits a PROXY approval (USDC approve CTF) via the relayer-api when
+ * allowance_status is empty or "FAILED". Skips if status is set and not failed
+ * (e.g. in progress or already finalized).
  * If relayer is not configured, skips.
  */
 export async function checkAllowanceAndSignIfNeeded(
@@ -19,19 +19,26 @@ export async function checkAllowanceAndSignIfNeeded(
   },
   profile: UserProfile,
 ): Promise<void> {
-  const needUsdce = profile.usdceAllowanceStatus === null;
-  const needCtf = profile.ctfAllowanceStatus === null;
-  if (!needUsdce && !needCtf) return;
+  if (profile.allowanceStatus && profile.allowanceStatus !== "FAILED") return;
 
   if (!RELAYER_API_URL) {
     console.warn("[Allowance] NEXT_PUBLIC_RELAYER_API_URL not set, skipping PROXY approval");
     return;
   }
 
+  if (!profile.proxyWallet) {
+    console.warn("[Allowance] No proxy wallet in profile, skipping PROXY approval");
+    return;
+  }
+
   console.log("[Allowance] Submitting USDC→CTF approval via relayer (PROXY)…");
 
   try {
-    const result = await submitUsdcCtfAllowance(magic, RELAYER_API_URL);
+    const result = await submitUsdcCtfAllowance(
+      magic,
+      RELAYER_API_URL,
+      profile.proxyWallet,
+    );
     console.log("[Allowance] Submitted:", result.transactionID, result.state);
   } catch (err) {
     console.error("[Allowance] Submit failed:", err);

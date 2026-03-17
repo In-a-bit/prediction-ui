@@ -4,7 +4,6 @@
  */
 import {
   getProxyConfig,
-  deriveProxyWallet,
   createProxyStructHash,
   encodeApproveCalldata,
   encodeSetApprovalForAllCalldata,
@@ -48,11 +47,15 @@ function getAllowanceAddresses(): {
 /**
  * Build and submit both allowances via one PROXY tx: (1) ERC-20 USDC approve CTF,
  * (2) ERC-1155 CTF setApprovalForAll(exchange). Uses Magic signing and relayer-api.
+ * proxyWallet must come from the user profile (getUser() / UserProfile.proxyWallet).
  */
 export async function submitUsdcCtfAllowance(
   magic: MagicLike,
-  relayerApiUrl?: string,
+  relayerApiUrl: string | undefined,
+  proxyWallet: string,
 ): Promise<{ transactionID: string; state: string }> {
+  if (!proxyWallet) throw new Error("Proxy wallet is required (use UserProfile.proxyWallet from getUser())");
+
   const info = await magic.user.getInfo();
   const from = info.wallets?.ethereum?.publicAddress ?? null;
   if (!from) throw new Error("Magic: no wallet address");
@@ -76,7 +79,6 @@ export async function submitUsdcCtfAllowance(
   );
 
   const proxyFactory = config.ProxyFactory;
-  const proxyWallet = deriveProxyWallet(from, proxyFactory);
   const data = encodeProxyTransactionData([callApprove, callApprovalForAll]);
 
   const structHash = createProxyStructHash(
