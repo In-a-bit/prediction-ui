@@ -13,6 +13,20 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Formats on-chain / normalized USDC-style balance for display: strips trailing zeros
+ * after the decimal (e.g. "2.000" → "$2", "2.003" → "$2.003").
+ */
+export function formatTradeBalanceUsd(
+  normalized: string | null | undefined,
+): string {
+  if (normalized == null || normalized === "") return "—";
+  const n = Number(normalized);
+  if (Number.isNaN(n)) return "—";
+  const trimmed = n.toFixed(18).replace(/\.?0+$/, "");
+  return `$${trimmed}`;
+}
+
 export function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }

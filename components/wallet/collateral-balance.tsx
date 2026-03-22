@@ -1,64 +1,50 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useMagic } from "@/components/providers/magic-provider";
-import { getCollateralBalance } from "@/lib/dpm-api";
+import Link from "next/link";
+import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
+import { formatTradeBalanceUsd } from "@/lib/utils";
 
 export function CollateralBalance() {
-  const { walletAddress } = useMagic();
-  const [balance, setBalance] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-
-  const fetchBalance = useCallback(async () => {
-    if (!walletAddress) {
-      setBalance(null);
-      setError(false);
-      return;
-    }
-    setLoading(true);
-    setError(false);
-    try {
-      const data = await getCollateralBalance(walletAddress);
-      if (data) {
-        setBalance(data.balance_normalized);
-      } else {
-        setError(true);
-        setBalance(null);
-      }
-    } catch {
-      setError(true);
-      setBalance(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [walletAddress]);
-
-  useEffect(() => {
-    fetchBalance();
-  }, [fetchBalance]);
+  const {
+    walletAddress,
+    balanceNormalized,
+    isPending,
+    isFetching,
+    isError,
+    refetch,
+  } = useCollateralBalance();
 
   if (!walletAddress) return null;
 
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-card-border bg-card px-3 py-2 text-sm">
-      <span className="text-muted">Balance</span>
-      {loading && balance === null && !error ? (
-        <span className="font-medium text-muted">—</span>
-      ) : error ? (
-        <span className="font-medium text-red">Error</span>
-      ) : (
-        <span className="font-medium text-foreground">{balance ?? "0"}</span>
-      )}
+    <div className="flex items-stretch overflow-hidden rounded-xl border border-card-border bg-card text-sm">
+      <Link
+        href="/portfolio"
+        className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 transition-colors hover:bg-card-hover"
+      >
+        <span className="shrink-0 text-muted">Portfolio</span>
+        {isPending && !balanceNormalized && !isError ? (
+          <span className="min-w-0 truncate font-medium text-muted">—</span>
+        ) : isError ? (
+          <span className="font-medium text-red">Error</span>
+        ) : (
+          <span className="min-w-0 truncate font-semibold text-foreground">
+            {formatTradeBalanceUsd(balanceNormalized ?? undefined)}
+          </span>
+        )}
+      </Link>
       <button
         type="button"
-        onClick={() => fetchBalance()}
-        disabled={loading}
+        onClick={(e) => {
+          e.preventDefault();
+          void refetch();
+        }}
+        disabled={isFetching}
         title="Refresh balance"
-        className="rounded p-1 text-muted transition-colors hover:bg-card-hover hover:text-foreground disabled:opacity-50"
+        className="border-l border-card-border px-2.5 py-2 text-muted transition-colors hover:bg-card-hover hover:text-foreground disabled:opacity-50"
       >
         <svg
-          className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+          className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

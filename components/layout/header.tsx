@@ -6,9 +6,11 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { CollateralBalance } from "@/components/wallet/collateral-balance";
+import { DepositModal } from "@/components/wallet/deposit-modal";
 
 export function Header() {
   const { data: session } = useSession();
+  const [depositOpen, setDepositOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -93,12 +95,13 @@ export function Header() {
       <div className="flex items-center gap-3">
         {session?.user ? (
           <>
-            <Link
-              href="/portfolio"
-              className="rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-hover"
+            <button
+              type="button"
+              onClick={() => setDepositOpen(true)}
+              className="rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white shadow-[0_2px_12px_rgba(36,98,255,0.45)] transition-colors hover:bg-brand-hover hover:shadow-[0_4px_16px_rgba(36,98,255,0.5)]"
             >
-              Portfolio
-            </Link>
+              Deposit
+            </button>
             <WalletButton />
             <CollateralBalance />
             <div className="flex items-center gap-3 rounded-xl border border-card-border px-4 py-2">
@@ -133,6 +136,8 @@ export function Header() {
           </>
         )}
       </div>
+
+      <DepositModal open={depositOpen} onClose={() => setDepositOpen(false)} />
     </header>
   );
 }

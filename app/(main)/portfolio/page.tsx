@@ -1,9 +1,10 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { TradingBalanceCard } from "@/components/portfolio/trading-balance-card";
+import { PortfolioSummaryCard } from "@/components/portfolio/portfolio-summary-card";
 import { PositionsTable } from "@/components/portfolio/positions-table";
 import { TradeHistory } from "@/components/portfolio/trade-history";
-import { formatCurrency } from "@/lib/utils";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -47,32 +48,14 @@ export default async function PortfolioPage() {
         <p className="text-sm text-muted">Welcome back, {user?.username}</p>
       </div>
 
-      {/* Balance cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-card-border bg-card p-5">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted">
-            Total Value
-          </p>
-          <p className="text-2xl font-bold text-foreground">
-            {formatCurrency(totalValue)}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-card-border bg-card p-5">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted">
-            Cash Balance
-          </p>
-          <p className="text-2xl font-bold text-green">
-            {formatCurrency(user?.balance ?? 0)}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-card-border bg-card p-5">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted">
-            Portfolio Value
-          </p>
-          <p className="text-2xl font-bold text-brand">
-            {formatCurrency(portfolioValue)}
-          </p>
-        </div>
+      {/* Left: deposit / withdraw · Right: summary (50/50 on large screens) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+        <TradingBalanceCard />
+        <PortfolioSummaryCard
+          totalValue={totalValue}
+          cashBalance={user?.balance ?? 0}
+          portfolioValue={portfolioValue}
+        />
       </div>
 
       {/* Positions */}

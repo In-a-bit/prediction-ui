@@ -17,6 +17,19 @@ import {
 const PROXY_INIT_CODE_HASH: Hex =
   "0xd21df8dc65880a8606f09fe0ce3df9b8869287ab0b058be05aa9e8af6330a00b";
 
+const ERC20_TRANSFER_ABI = [
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "transfer",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
 const ERC20_APPROVE_ABI = [
   {
     inputs: [
@@ -118,6 +131,18 @@ export function createProxyStructHash(
     encodedRelay,
   ]);
   return keccak256(dataToHash);
+}
+
+/** ERC20 transfer(to, amount) calldata. Target token is the "to" of the proxy call (USDC). */
+export function encodeTransferCalldata(
+  toAddress: string,
+  amount: bigint,
+): Hex {
+  return encodeFunctionData({
+    abi: ERC20_TRANSFER_ABI,
+    functionName: "transfer",
+    args: [toAddress as Hex, amount],
+  });
 }
 
 /** ERC20 approve(spender, amount) calldata. Target token is the "to" of the proxy call. */

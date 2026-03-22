@@ -14,6 +14,7 @@ import { getRelayPayload, submitTransaction } from "./relayer-api-client";
 
 const DEFAULT_GAS_LIMIT = BigInt(300_000);
 
+/** Minimal Magic instance shape for relayer signing (personal_sign + getInfo). */
 export type MagicLike = {
   rpcProvider: {
     request: (args: { method: string; params: unknown[] }) => Promise<string>;
