@@ -2,7 +2,6 @@
 
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { signIn } from "@/auth";
 
 export async function signUp(formData: FormData) {
   const username = formData.get("username") as string;
@@ -33,9 +32,5 @@ export async function signUp(formData: FormData) {
     },
   });
 
-  await signIn("credentials", {
-    username,
-    password,
-    redirectTo: "/",
-  });
+  return { success: true };
 }

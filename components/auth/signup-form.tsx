@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { signUp } from "@/actions/auth";
 
 export function SignupForm() {
@@ -14,13 +15,22 @@ export function SignupForm() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+    const username = formData.get("username") as string;
+    const password = formData.get("password") as string;
+
     const result = await signUp(formData);
 
     if (result?.error) {
       setError(result.error);
       setLoading(false);
+      return;
     }
-    // On success, signUp redirects via signIn — no need to handle here
+
+    await signIn("credentials", {
+      username,
+      password,
+      callbackUrl: "/",
+    });
   }
 
   return (
