@@ -6,9 +6,11 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { CollateralBalance } from "@/components/wallet/collateral-balance";
+import { useMagic } from "@/components/providers/magic-provider";
 
 export function Header() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const { disconnect } = useMagic();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -22,7 +24,6 @@ export function Header() {
 
   const navigateSearch = useCallback(
     (value: string) => {
-      const params = new URLSearchParams(searchParams.toString());
       const trimmed = value.trim();
 
       const target = new URLSearchParams();
@@ -91,7 +92,10 @@ export function Header() {
 
       {/* Auth */}
       <div className="flex items-center gap-3">
-        {session?.user ? (
+        {status === "loading" && (
+          <div className="h-10 w-24 animate-pulse rounded-xl border border-card-border bg-input" aria-hidden />
+        )}
+        {status !== "loading" && session?.user && (
           <>
             <Link
               href="/portfolio"
@@ -109,14 +113,18 @@ export function Header() {
                 {session.user.name}
               </span>
               <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={async () => {
+                  await disconnect();
+                  await signOut({ callbackUrl: "/login" });
+                }}
                 className="text-xs text-muted transition-colors hover:text-foreground"
               >
                 Log out
               </button>
             </div>
           </>
-        ) : (
+        )}
+        {status !== "loading" && !session?.user && (
           <>
             <Link
               href="/login"
