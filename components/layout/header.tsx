@@ -74,6 +74,7 @@ export function Header() {
           <path d="M21 21l-4.35-4.35" />
         </svg>
         <input
+          // suppressHydrationWarning={true}
           type="text"
           value={searchQuery}
           onChange={handleChange}

@@ -13,6 +13,8 @@ import { Magic } from "magic-sdk";
 import { OAuthExtension } from "@magic-ext/oauth2";
 import { getUser } from "@/lib/gamma-api";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
+import { useClobWs } from "@/lib/hooks/use-clob-ws";
+import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 
 const WALLET_STORAGE_KEY = "magic_wallet_address";
 const PROFILE_STORAGE_KEY = "magic_user_profile";
@@ -110,6 +112,7 @@ export function MagicProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(WALLET_STORAGE_KEY, freshProfile.proxyWallet);
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(freshProfile));
         checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], freshProfile).catch(() => {});
+        getOrDeriveClobCredentials(magic as Parameters<typeof getOrDeriveClobCredentials>[0]).catch(() => {});
       }
     });
   }, [magic]);
@@ -148,6 +151,8 @@ export function MagicProvider({ children }: { children: ReactNode }) {
     () => ({ magic, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect }),
     [magic, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect],
   );
+
+  useClobWs(magic, !!walletAddress);
 
   return (
     <MagicContext.Provider value={value}>{children}</MagicContext.Provider>
