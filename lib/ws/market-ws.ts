@@ -1,6 +1,6 @@
 import WebSocket from "isomorphic-ws";
 
-const WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
+const DEFAULT_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
 const PING_INTERVAL = 10_000;
 const RECONNECT_BASE_DELAY = 1_000;
 const RECONNECT_MAX_DELAY = 30_000;
@@ -14,6 +14,7 @@ export type MarketEventType =
 export type MarketEventCallback = (data: Record<string, unknown>) => void;
 
 export class MarketWS {
+  private wsUrl: string;
   private ws: WebSocket | null = null;
   private subscribedTokens = new Set<string>();
   private listeners = new Map<MarketEventType, Set<MarketEventCallback>>();
@@ -21,6 +22,10 @@ export class MarketWS {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private destroyed = false;
+
+  constructor(wsUrl?: string) {
+    this.wsUrl = wsUrl ?? DEFAULT_WS_URL;
+  }
 
   connect(tokenIds: string[]) {
     if (this.destroyed) return;
@@ -74,7 +79,7 @@ export class MarketWS {
     }
 
     try {
-      this.ws = new WebSocket(WS_URL);
+      this.ws = new WebSocket(this.wsUrl);
     } catch {
       this.scheduleReconnect();
       return;

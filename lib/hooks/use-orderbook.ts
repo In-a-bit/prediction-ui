@@ -3,13 +3,18 @@
 import { useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
+import { useDataSource } from "@/components/providers/data-source-provider";
 import type { OrderBook } from "@/lib/types/orderbook";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
-async function getOrderBook(tokenId: string): Promise<OrderBook> {
-  const res = await fetch(
-    `/api/clob?endpoint=book&token_id=${tokenId}`
-  );
+type BuildClobUrl = (endpoint: string, params: Record<string, string>) => string;
+
+async function getOrderBook(
+  buildClobUrl: BuildClobUrl,
+  tokenId: string
+): Promise<OrderBook> {
+  const url = buildClobUrl("book", { token_id: tokenId });
+  const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch order book");
   return res.json();
 }
@@ -17,10 +22,11 @@ async function getOrderBook(tokenId: string): Promise<OrderBook> {
 export function useOrderBook(tokenId: string | undefined) {
   const queryClient = useQueryClient();
   const ws = useMarketWS();
+  const { buildClobUrl } = useDataSource();
 
   const query = useQuery({
     queryKey: ["orderbook", tokenId],
-    queryFn: () => getOrderBook(tokenId!),
+    queryFn: () => getOrderBook(buildClobUrl, tokenId!),
     refetchInterval: 60_000,
     enabled: !!tokenId,
   });

@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
+import { useMagic } from "@/components/providers/magic-provider";
+import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
+import { submitOrder } from "@/lib/clob-order";
 import { cn } from "@/lib/utils";
 
 export function TradePanel({
@@ -19,9 +22,12 @@ export function TradePanel({
   initialNoPrice: number;
 }) {
   const { data: session } = useSession();
+  const { magic, walletAddress } = useMagic();
   const [outcome, setOutcome] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [orderResult, setOrderResult] = useState<string | null>(null);
 
   const currentTokenId = outcome === "yes" ? yesTokenId : noTokenId;
   const { data: midpoint } = useMidpoint(currentTokenId);
@@ -37,6 +43,36 @@ export function TradePanel({
   const shares = amountNum > 0 ? amountNum / pricePerShare : 0;
   const potentialReturn =
     side === "buy" ? shares * 1 - amountNum : amountNum - shares * 0;
+
+  const handleSubmit = useCallback(async () => {
+    if (!magic || !currentTokenId || amountNum <= 0 || pricePerShare <= 0) return;
+
+    const clobBaseUrl = process.env.NEXT_PUBLIC_CLOB_API_URL;
+    if (!clobBaseUrl) {
+      setOrderResult("CLOB API URL not configured");
+      return;
+    }
+
+    setSubmitting(true);
+    setOrderResult(null);
+
+    try {
+      const creds = await getOrDeriveClobCredentials(magic);
+      const result = await submitOrder(magic, creds, clobBaseUrl, {
+        side: side === "buy" ? 0 : 1,
+        tokenId: currentTokenId,
+        amount: amountNum,
+        price: pricePerShare,
+      });
+
+      setOrderResult(`Order ${result.status} (${result.orderHash.slice(0, 10)}…)`);
+      setAmount("");
+    } catch (err) {
+      setOrderResult(err instanceof Error ? err.message : "Order failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [magic, currentTokenId, amountNum, pricePerShare, side]);
 
   if (!session?.user) {
     return (
@@ -148,7 +184,8 @@ export function TradePanel({
 
       {/* Submit */}
       <button
-        disabled={amountNum <= 0}
+        disabled={amountNum <= 0 || submitting || !walletAddress}
+        onClick={handleSubmit}
         className={cn(
           "w-full rounded-xl py-3.5 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40",
           side === "buy"
@@ -156,10 +193,20 @@ export function TradePanel({
             : "bg-red hover:bg-red/90"
         )}
       >
-        {side === "buy" ? "Buy" : "Sell"}{" "}
-        {outcome === "yes" ? "Yes" : "No"}
-        {amountNum > 0 ? ` — $${amountNum.toFixed(2)}` : ""}
+        {submitting
+          ? "Submitting…"
+          : `${side === "buy" ? "Buy" : "Sell"} ${outcome === "yes" ? "Yes" : "No"}${amountNum > 0 ? ` — $${amountNum.toFixed(2)}` : ""}`}
       </button>
+
+      {!walletAddress && session?.user && (
+        <p className="mt-2 text-center text-xs text-muted">
+          Connect your wallet to trade
+        </p>
+      )}
+
+      {orderResult && (
+        <p className="mt-2 text-center text-xs text-muted">{orderResult}</p>
+      )}
     </div>
   );
 }

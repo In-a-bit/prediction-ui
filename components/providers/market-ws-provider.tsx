@@ -24,13 +24,19 @@ interface MarketWSContextValue {
 
 const MarketWSContext = createContext<MarketWSContextValue | null>(null);
 
-export function MarketWSProvider({ children }: { children: React.ReactNode }) {
+export function MarketWSProvider({
+  children,
+  wsUrl,
+}: {
+  children: React.ReactNode;
+  wsUrl?: string;
+}) {
   const wsRef = useRef<MarketWS | null>(null);
   const refCounts = useRef(new Map<string, number>());
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const ws = new MarketWS();
+    const ws = new MarketWS(wsUrl);
     wsRef.current = ws;
 
     // Poll connection status (lightweight since it just checks readyState)

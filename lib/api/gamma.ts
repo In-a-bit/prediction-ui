@@ -39,17 +39,17 @@ export async function fetchEvents(
 }
 
 export async function fetchEventBySlug(
-  slug: string
+  slug: string,
+  baseUrl: string = GAMMA_BASE
 ): Promise<GammaEvent | null> {
   try {
-    const res = await fetch(`${GAMMA_BASE}/events?slug=${slug}`, {
+    const res = await fetch(`${baseUrl}/events/slug/${slug}`, {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) return null;
-    const data = await res.json();
-    return data[0] ?? null;
+    return res.json();
   } catch {
     return null;
   }

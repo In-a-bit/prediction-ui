@@ -3,10 +3,14 @@
 import { useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
+import { useDataSource } from "@/components/providers/data-source-provider";
 import type { PriceHistoryPoint } from "@/lib/types/orderbook";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
+type BuildClobUrl = (endpoint: string, params: Record<string, string>) => string;
+
 async function getPriceHistory(
+  buildClobUrl: BuildClobUrl,
   tokenId: string,
   fidelity: number = 60,
   days: number = 7
@@ -14,24 +18,25 @@ async function getPriceHistory(
   const now = Math.floor(Date.now() / 1000);
   const startTs = now - days * 24 * 60 * 60;
 
-  const params = new URLSearchParams({
-    endpoint: "prices-history",
+  const url = buildClobUrl("prices-history", {
     token_id: tokenId,
     startTs: String(startTs),
     endTs: String(now),
     fidelity: String(fidelity),
   });
 
-  const res = await fetch(`/api/clob?${params}`);
+  const res = await fetch(url);
   if (!res.ok) return [];
   const data = await res.json();
   return data.history ?? [];
 }
 
-async function getMidpoint(tokenId: string): Promise<number> {
-  const res = await fetch(
-    `/api/clob?endpoint=midpoint&token_id=${tokenId}`
-  );
+async function getMidpoint(
+  buildClobUrl: BuildClobUrl,
+  tokenId: string
+): Promise<number> {
+  const url = buildClobUrl("midpoint", { token_id: tokenId });
+  const res = await fetch(url);
   if (!res.ok) return 0;
   const data = await res.json();
   return parseFloat(data.mid);
@@ -42,9 +47,11 @@ export function usePriceHistory(
   fidelity: number = 60,
   days: number = 7
 ) {
+  const { buildClobUrl } = useDataSource();
+
   return useQuery({
     queryKey: ["priceHistory", tokenId, fidelity, days],
-    queryFn: () => getPriceHistory(tokenId!, fidelity, days),
+    queryFn: () => getPriceHistory(buildClobUrl, tokenId!, fidelity, days),
     enabled: !!tokenId,
     refetchInterval: 30000,
   });
@@ -53,10 +60,11 @@ export function usePriceHistory(
 export function useMidpoint(tokenId: string | undefined) {
   const queryClient = useQueryClient();
   const ws = useMarketWS();
+  const { buildClobUrl } = useDataSource();
 
   const query = useQuery({
     queryKey: ["midpoint", tokenId],
-    queryFn: () => getMidpoint(tokenId!),
+    queryFn: () => getMidpoint(buildClobUrl, tokenId!),
     enabled: !!tokenId,
     refetchInterval: 60_000,
   });
