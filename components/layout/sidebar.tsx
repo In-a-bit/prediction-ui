@@ -25,6 +25,8 @@ export function Sidebar() {
     pathname === "/predictions" ||
     pathname.startsWith("/event/") ||
     pathname === "/portfolio";
+  const isPlaeActive =
+    pathname === "/plae" || pathname.startsWith("/plae/");
 
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 border-r border-card-border bg-sidebar p-4 lg:block">
@@ -52,15 +54,15 @@ export function Sidebar() {
         </span>
       </Link>
 
-      {/* Tab Switcher */}
+      {/* 3-Tab Switcher */}
       <div className="mb-6 flex rounded-xl bg-card-border/30 p-1">
         <Link
           href="/"
           className={cn(
-            "flex-1 rounded-lg px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+            "flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
             isCasinoActive
               ? "bg-brand text-white"
-              : "text-muted hover:text-foreground"
+              : "text-muted hover:text-foreground",
           )}
         >
           Casino
@@ -68,17 +70,28 @@ export function Sidebar() {
         <Link
           href="/predictions"
           className={cn(
-            "flex-1 rounded-lg px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+            "flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
             isPredictionsActive
               ? "bg-brand text-white"
-              : "text-muted hover:text-foreground"
+              : "text-muted hover:text-foreground",
           )}
         >
           Predictions
         </Link>
+        <Link
+          href="/plae"
+          className={cn(
+            "flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
+            isPlaeActive
+              ? "bg-brand text-white"
+              : "text-muted hover:text-foreground",
+          )}
+        >
+          Plaee
+        </Link>
       </div>
 
-      {/* Context-dependent navigation */}
+      {/* Category nav for Predictions tab */}
       {isPredictionsActive && (
         <nav className="space-y-1">
           {categories.map((cat) => {
@@ -98,7 +111,7 @@ export function Sidebar() {
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-brand/10 text-brand"
-                    : "text-muted hover:bg-card-hover hover:text-foreground"
+                    : "text-muted hover:bg-card-hover hover:text-foreground",
                 )}
               >
                 <svg

@@ -134,6 +134,8 @@ export default async function EventPage({ params }: EventPageProps) {
           noTokenId={noTokenId}
           initialYesPrice={yesPrice}
           initialNoPrice={noPrice}
+          tickSize={market?.orderPriceMinTickSize ?? 0.01}
+          minOrderSize={market?.orderMinSize ?? 1}
         />
       </div>
     </div>

@@ -1,35 +1,8 @@
 import { Suspense } from "react";
 import { TrendingCarousel } from "@/components/market/trending-carousel";
 import { EventGrid } from "@/components/market/event-grid";
-import { fetchEvents } from "@/lib/api/gamma";
 
-interface PredictionsPageProps {
-  searchParams: Promise<{ tag?: string; q?: string }>;
-}
-
-export default async function PredictionsPage({
-  searchParams,
-}: PredictionsPageProps) {
-  const { tag, q } = await searchParams;
-
-  const [events, trending] = await Promise.all([
-    fetchEvents({
-      active: true,
-      closed: false,
-      limit: q ? 100 : 21,
-      order: "volume24hr",
-      ascending: false,
-      tag_slug: tag,
-    }),
-    fetchEvents({
-      active: true,
-      closed: false,
-      limit: 8,
-      order: "volume24hr",
-      ascending: false,
-    }),
-  ]);
-
+export default function PredictionsPage() {
   return (
     <>
       {/* Trending */}
@@ -46,14 +19,16 @@ export default async function PredictionsPage({
           </svg>
           <h2 className="text-lg font-bold text-foreground">Trending</h2>
         </div>
-        <TrendingCarousel events={trending} />
+        <Suspense>
+          <TrendingCarousel />
+        </Suspense>
       </section>
 
       {/* Markets Grid */}
       <section>
         <h2 className="mb-4 text-lg font-bold text-foreground">Markets</h2>
         <Suspense>
-          <EventGrid initialEvents={events} tag={tag} searchQuery={q} />
+          <EventGrid />
         </Suspense>
       </section>
     </>

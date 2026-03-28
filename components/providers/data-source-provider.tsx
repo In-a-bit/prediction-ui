@@ -11,12 +11,15 @@ interface DataSourceContextValue {
   buildClobUrl: BuildClobUrl;
 }
 
+const CLOB_BASE =
+  process.env.NEXT_PUBLIC_CLOB_API_URL ?? "http://localhost:8083";
+
 function defaultBuildClobUrl(
   endpoint: string,
   params: Record<string, string>
 ): string {
-  const sp = new URLSearchParams({ endpoint, ...params });
-  return `/api/clob?${sp}`;
+  const sp = new URLSearchParams(params);
+  return `${CLOB_BASE}/${endpoint}?${sp}`;
 }
 
 const DataSourceContext = createContext<DataSourceContextValue>({

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { GammaEvent } from "@/lib/types/event";
+import { useEvents } from "@/lib/hooks/use-events";
 import { formatCompactNumber } from "@/lib/utils";
 
 function parseYesPrice(event: GammaEvent): number {
@@ -29,8 +30,29 @@ function parseYesPrice(event: GammaEvent): number {
   }
 }
 
-export function TrendingCarousel({ events }: { events: GammaEvent[] }) {
-  if (!events.length) return null;
+export function TrendingCarousel() {
+  const { data: events, isLoading } = useEvents({
+    active: true,
+    closed: false,
+    limit: 8,
+    order: "volume24hr",
+    ascending: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-[82px] min-w-[280px] shrink-0 animate-pulse rounded-2xl border border-card-border bg-card"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (!events?.length) return null;
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">

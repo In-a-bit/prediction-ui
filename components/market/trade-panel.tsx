@@ -12,16 +12,33 @@ import { cn } from "@/lib/utils";
 
 type OrderType = "market" | "limit";
 
+/** Round a number to the nearest tick size step */
+function roundToTick(value: number, tick: number): number {
+  if (tick <= 0) return value;
+  return Math.round(value / tick) * tick;
+}
+
+/** Round to 6 decimal places (USDC precision) */
+function round6(value: number): number {
+  return Math.round(value * 1e6) / 1e6;
+}
+
 export function TradePanel({
   yesTokenId,
   noTokenId,
   initialYesPrice,
   initialNoPrice,
+  tickSize = 0.01,
+  minOrderSize = 1,
 }: {
   yesTokenId: string | undefined;
   noTokenId: string | undefined;
   initialYesPrice: number;
   initialNoPrice: number;
+  /** Price min tick size as a decimal (e.g. 0.01 = 1¢). Default 0.01 */
+  tickSize?: number;
+  /** Minimum order size in shares. Default 1 */
+  minOrderSize?: number;
 }) {
   const { data: session } = useSession();
   const { magic, walletAddress } = useMagic();
@@ -37,6 +54,9 @@ export function TradePanel({
   const currentTokenId = outcome === "yes" ? yesTokenId : noTokenId;
   const { data: midpoint } = useMidpoint(currentTokenId);
 
+  // Tick size in cents for display (e.g. 0.01 -> 1, 0.1 -> 10)
+  const tickCents = round6(tickSize * 100);
+
   const livePriceCents = midpoint
     ? Math.round(midpoint * 100)
     : outcome === "yes"
@@ -47,13 +67,13 @@ export function TradePanel({
     if (orderType === "market") {
       const dollarAmount = parseFloat(amount) || 0;
       const price = livePriceCents / 100;
-      const shares = dollarAmount > 0 && price > 0 ? dollarAmount / price : 0;
+      const shares = dollarAmount > 0 && price > 0 ? round6(dollarAmount / price) : 0;
       return { dollarAmount, price, shares };
     }
     const priceCents = parseFloat(limitPrice) || 0;
     const shares = parseFloat(limitShares) || 0;
-    const price = priceCents / 100;
-    const dollarAmount = shares * price;
+    const price = round6(priceCents / 100);
+    const dollarAmount = round6(shares * price);
     return { dollarAmount, price, shares };
   }, [orderType, amount, limitPrice, limitShares, livePriceCents]);
 
@@ -62,10 +82,41 @@ export function TradePanel({
       ? order.shares * 1 - order.dollarAmount
       : order.dollarAmount - order.shares * 0;
 
-  const canSubmit = order.dollarAmount > 0 && order.price > 0 && !submitting && !!walletAddress;
+  const priceValid = order.price > 0 && order.price < 1;
+  const sharesValid = orderType === "market" || order.shares >= minOrderSize;
+  const canSubmit = order.dollarAmount > 0 && priceValid && sharesValid && !submitting && !!walletAddress;
+
+  /** Snap the limit price input to the nearest tick */
+  const handleLimitPriceBlur = useCallback(() => {
+    const raw = parseFloat(limitPrice);
+    if (!raw && raw !== 0) return;
+    // Clamp to [tickCents, 100-tickCents] then snap to tick
+    const clamped = Math.min(Math.max(raw, tickCents), 100 - tickCents);
+    const snapped = roundToTick(clamped, tickCents);
+    setLimitPrice(String(round6(snapped)));
+  }, [limitPrice, tickCents]);
+
+  /** Snap limit shares to 6 decimals and enforce min */
+  const handleLimitSharesBlur = useCallback(() => {
+    const raw = parseFloat(limitShares);
+    if (!raw && raw !== 0) return;
+    const snapped = round6(Math.max(raw, 0));
+    setLimitShares(snapped > 0 ? String(snapped) : "");
+  }, [limitShares]);
+
+  /** Increment / decrement price by one tick */
+  const adjustPrice = useCallback(
+    (direction: 1 | -1) => {
+      const current = parseFloat(limitPrice) || livePriceCents;
+      const next = round6(current + direction * tickCents);
+      const clamped = Math.min(Math.max(next, tickCents), 100 - tickCents);
+      setLimitPrice(String(round6(clamped)));
+    },
+    [limitPrice, livePriceCents, tickCents],
+  );
 
   const handleSubmit = useCallback(async () => {
-    if (!magic || !currentTokenId || order.dollarAmount <= 0 || order.price <= 0) return;
+    if (!magic || !currentTokenId || order.dollarAmount <= 0 || !priceValid) return;
 
     const clobBaseUrl = process.env.NEXT_PUBLIC_CLOB_API_URL;
     if (!clobBaseUrl) {
@@ -89,11 +140,12 @@ export function TradePanel({
       if (orderType === "market") setAmount("");
       else setLimitShares("");
     } catch (err) {
+      console.error("[TradePanel] order submission error:", err);
       setOrderResult(err instanceof Error ? err.message : "Order failed");
     } finally {
       setSubmitting(false);
     }
-  }, [magic, currentTokenId, order, side, orderType]);
+  }, [magic, currentTokenId, order, priceValid, side, orderType]);
 
   if (!session?.user) {
     return (
@@ -203,30 +255,51 @@ export function TradePanel({
       ) : (
         /* ── Limit order: price + shares inputs ── */
         <div className="mb-4 space-y-3">
+          {/* Price */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-muted">
-              Price
-            </label>
-            <div className="relative">
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-sm font-medium text-muted">Price</label>
+              <span className="text-[11px] text-muted/70">
+                Tick: {tickCents}¢
+              </span>
+            </div>
+            <div className="relative flex items-center">
+              <button
+                type="button"
+                onClick={() => adjustPrice(-1)}
+                className="absolute left-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-sm font-bold text-muted transition-colors hover:border-brand hover:text-foreground"
+              >
+                −
+              </button>
               <input
                 type="number"
                 value={limitPrice}
                 onChange={(e) => setLimitPrice(e.target.value)}
+                onBlur={handleLimitPriceBlur}
                 placeholder={String(livePriceCents)}
-                min="1"
-                max="99"
-                step="1"
-                className="w-full rounded-xl border border-input-border bg-input py-3 pl-4 pr-8 text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
+                min={tickCents}
+                max={100 - tickCents}
+                step={tickCents}
+                className="w-full rounded-xl border border-input-border bg-input py-3 pl-11 pr-11 text-center text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
               />
-              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">
-                ¢
-              </span>
+              <button
+                type="button"
+                onClick={() => adjustPrice(1)}
+                className="absolute right-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-sm font-bold text-muted transition-colors hover:border-brand hover:text-foreground"
+              >
+                +
+              </button>
             </div>
+            {limitPrice && (parseFloat(limitPrice) <= 0 || parseFloat(limitPrice) >= 100) && (
+              <p className="mt-1 text-[11px] text-red">
+                Price must be between {tickCents}¢ and {round6(100 - tickCents)}¢
+              </p>
+            )}
             <div className="mt-2 flex gap-2">
               {[10, 25, 50, 75].map((v) => (
                 <button
                   key={v}
-                  onClick={() => setLimitPrice(String(v))}
+                  onClick={() => setLimitPrice(String(roundToTick(v, tickCents)))}
                   className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-brand hover:text-foreground"
                 >
                   {v}¢
@@ -234,24 +307,40 @@ export function TradePanel({
               ))}
             </div>
           </div>
+
+          {/* Shares */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-muted">
-              Shares
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-sm font-medium text-muted">Shares</label>
+              <span className="text-[11px] text-muted/70">
+                Min: {minOrderSize}
+              </span>
+            </div>
             <input
               type="number"
               value={limitShares}
               onChange={(e) => setLimitShares(e.target.value)}
-              placeholder="0"
-              min="0"
-              step="1"
-              className="w-full rounded-xl border border-input-border bg-input py-3 px-4 text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
+              onBlur={handleLimitSharesBlur}
+              placeholder={String(minOrderSize)}
+              min={minOrderSize}
+              step="0.000001"
+              className={cn(
+                "w-full rounded-xl border bg-input py-3 px-4 text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
+                limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize
+                  ? "border-red/50"
+                  : "border-input-border",
+              )}
             />
+            {limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize && (
+              <p className="mt-1 text-[11px] text-red">
+                Minimum order size is {minOrderSize} shares
+              </p>
+            )}
             <div className="mt-2 flex gap-2">
               {[10, 50, 100, 500].map((v) => (
                 <button
                   key={v}
-                  onClick={() => setLimitShares(String(v))}
+                  onClick={() => setLimitShares(String(Math.max(v, minOrderSize)))}
                   className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-brand hover:text-foreground"
                 >
                   {v}
@@ -271,16 +360,16 @@ export function TradePanel({
           </div>
           <div className="flex justify-between text-xs text-muted">
             <span>Shares</span>
-            <span>{order.shares.toFixed(2)}</span>
+            <span>{order.shares.toFixed(6)}</span>
           </div>
           <div className="flex justify-between text-xs text-muted">
             <span>Total</span>
-            <span>${order.dollarAmount.toFixed(2)}</span>
+            <span>${order.dollarAmount.toFixed(6)}</span>
           </div>
           <div className="flex justify-between text-xs font-medium text-foreground">
             <span>Potential return</span>
             <span className="text-green">
-              ${potentialReturn.toFixed(2)} ({((potentialReturn / order.dollarAmount) * 100).toFixed(0)}%)
+              ${potentialReturn.toFixed(2)} ({order.dollarAmount > 0 ? ((potentialReturn / order.dollarAmount) * 100).toFixed(0) : 0}%)
             </span>
           </div>
         </div>

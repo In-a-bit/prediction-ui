@@ -184,9 +184,21 @@ async function buildHmacHeaders(
  * Look up the clob market ID for a given token by calling GET /book.
  */
 async function fetchMarketId(clobBaseUrl: string, tokenId: string): Promise<string> {
-  const res = await fetch(`${clobBaseUrl}/book?token_id=${tokenId}`);
-  if (!res.ok) throw new Error("Failed to fetch order book for market ID lookup");
+  const url = `${clobBaseUrl}/book?token_id=${tokenId}`;
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    throw new Error(`Network error fetching ${url}: ${err instanceof Error ? err.message : err}`);
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`GET /book failed (${res.status}): ${body}`);
+  }
   const data = await res.json();
+  if (!data.market) {
+    throw new Error(`No market ID in /book response: ${JSON.stringify(data)}`);
+  }
   return data.market;
 }
 

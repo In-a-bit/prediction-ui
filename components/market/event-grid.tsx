@@ -4,20 +4,13 @@ import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useEvents } from "@/lib/hooks/use-events";
 import { EventCard } from "@/components/market/event-card";
-import type { GammaEvent } from "@/lib/types/event";
 
-export function EventGrid({
-  initialEvents,
-}: {
-  initialEvents: GammaEvent[];
-  tag?: string;
-  searchQuery?: string;
-}) {
+export function EventGrid() {
   const searchParams = useSearchParams();
   const tag = searchParams.get("tag") ?? undefined;
   const q = searchParams.get("q") ?? undefined;
 
-  const { data: events } = useEvents({
+  const { data: events, isLoading } = useEvents({
     active: true,
     closed: false,
     limit: q ? 100 : 20,
@@ -27,11 +20,24 @@ export function EventGrid({
   });
 
   const displayEvents = useMemo(() => {
-    const source = events ?? initialEvents;
+    const source = events ?? [];
     if (!q) return source;
     const lower = q.toLowerCase();
     return source.filter((e) => e.title.toLowerCase().includes(lower));
-  }, [events, initialEvents, q]);
+  }, [events, q]);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-64 animate-pulse rounded-2xl border border-card-border bg-card"
+          />
+        ))}
+      </div>
+    );
+  }
 
   if (!displayEvents.length) {
     return (
