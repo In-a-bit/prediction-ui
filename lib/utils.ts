@@ -23,7 +23,7 @@ export function formatTradeBalanceUsd(
   if (normalized == null || normalized === "") return "—";
   const n = Number(normalized);
   if (Number.isNaN(n)) return "—";
-  const trimmed = n.toFixed(18).replace(/\.?0+$/, "");
+  const trimmed = n.toFixed(6).replace(/\.?0+$/, "");
   return `$${trimmed}`;
 }
 

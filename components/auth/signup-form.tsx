@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { signUp } from "@/actions/auth";
 
 export function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,11 +28,21 @@ export function SignupForm() {
       return;
     }
 
-    await signIn("credentials", {
+    // Sign in on the client side so the session is immediately available
+    const signInResult = await signIn("credentials", {
       username,
       password,
-      callbackUrl: "/",
+      redirect: false,
     });
+
+    if (signInResult?.error) {
+      setError("Account created but failed to sign in. Please log in manually.");
+      setLoading(false);
+      return;
+    }
+
+    router.push("/");
+    router.refresh();
   }
 
   return (

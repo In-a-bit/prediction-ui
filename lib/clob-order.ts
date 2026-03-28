@@ -61,12 +61,11 @@ function randomSalt(): string {
 }
 
 /**
- * Convert a floating-point amount to an 1e18-scaled integer string.
- * e.g. 10.5 -> "10500000000000000000"
+ * Convert a floating-point amount to a 1e6-scaled integer string.
+ * USDC (the collateral token) has 6 decimals, so e.g. 10.5 -> "10500000".
  */
-function to1e18(value: number): string {
-  const scaled = BigInt(Math.round(value * 1e9)) * BigInt(1e9);
-  return scaled.toString();
+function to1e6(value: number): string {
+  return BigInt(Math.round(value * 1e6)).toString();
 }
 
 function buildOrderFields(params: OrderParams, maker: string): OrderFields {
@@ -80,11 +79,11 @@ function buildOrderFields(params: OrderParams, maker: string): OrderFields {
   let takerAmount: string;
 
   if (side === 0) {
-    makerAmount = to1e18(amount);
-    takerAmount = to1e18(amount / price);
+    makerAmount = to1e6(amount);
+    takerAmount = to1e6(amount / price);
   } else {
-    makerAmount = to1e18(amount / price);
-    takerAmount = to1e18(amount);
+    makerAmount = to1e6(amount / price);
+    takerAmount = to1e6(amount);
   }
 
   return {
