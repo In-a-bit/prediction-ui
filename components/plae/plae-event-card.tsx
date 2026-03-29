@@ -36,7 +36,7 @@ export function PlaeEventCard({ event }: { event: GammaEvent }) {
 
   return (
     <Link
-      href={`/plae/${event.slug}`}
+      href={`/plaee/${event.slug}`}
       className="group flex flex-col rounded-2xl border border-card-border bg-card transition-all hover:border-brand/30 hover:bg-card-hover"
     >
       {event.image && (

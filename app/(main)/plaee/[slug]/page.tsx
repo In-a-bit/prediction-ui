@@ -48,7 +48,7 @@ export default function PlaeEventPage() {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-card-border bg-card px-8 py-16">
         <p className="text-sm text-muted">Event not found</p>
-        <Link href="/plae" className="mt-4 text-sm text-brand hover:text-brand-hover">
+        <Link href="/plaee" className="mt-4 text-sm text-brand hover:text-brand-hover">
           Back to Plaee
         </Link>
       </div>
@@ -93,7 +93,7 @@ export default function PlaeEventPage() {
     <div>
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-muted">
-        <Link href="/plae" className="transition-colors hover:text-foreground">
+        <Link href="/plaee" className="transition-colors hover:text-foreground">
           Plaee
         </Link>
         <span>/</span>

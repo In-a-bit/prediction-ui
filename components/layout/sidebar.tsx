@@ -26,7 +26,7 @@ export function Sidebar() {
     pathname.startsWith("/event/") ||
     pathname === "/portfolio";
   const isPlaeActive =
-    pathname === "/plae" || pathname.startsWith("/plae/");
+    pathname === "/plaee" || pathname.startsWith("/plaee/");
 
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 border-r border-card-border bg-sidebar p-4 lg:block">
@@ -79,7 +79,7 @@ export function Sidebar() {
           Predictions
         </Link>
         <Link
-          href="/plae"
+          href="/plaee"
           className={cn(
             "flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
             isPlaeActive
