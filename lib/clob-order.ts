@@ -224,15 +224,20 @@ export async function submitOrder(
   creds: ClobCredentials,
   clobBaseUrl: string,
   params: OrderParams,
+  proxyWallet: string,
 ): Promise<SubmitOrderResult> {
   const info = await magic.user.getInfo();
-  const maker = info.wallets?.ethereum?.publicAddress;
-  if (!maker) throw new Error("No Magic wallet address found");
+  const eoa = info.wallets?.ethereum?.publicAddress;
+  if (!eoa) throw new Error("No Magic wallet address found");
+  if (!proxyWallet) throw new Error("No proxy wallet address found");
 
   const marketId = await fetchMarketId(clobBaseUrl, params.tokenId);
 
-  const order = buildOrderFields(params, maker);
-  const signature = await signOrder(magic.rpcProvider, maker, order);
+  // maker = proxy wallet (smart account that holds funds on-chain)
+  // signer = EOA (the key that signs the EIP-712 message)
+  const order = buildOrderFields(params, proxyWallet);
+  order.signer = eoa;
+  const signature = await signOrder(magic.rpcProvider, eoa, order);
 
   const hmacHeaders = await buildHmacHeaders(creds, "POST", "/order");
 

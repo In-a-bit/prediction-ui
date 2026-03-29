@@ -41,7 +41,7 @@ export function TradePanel({
   minOrderSize?: number;
 }) {
   const { data: session } = useSession();
-  const { magic, walletAddress } = useMagic();
+  const { magic, userProfile } = useMagic();
   const [outcome, setOutcome] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [orderType, setOrderType] = useState<OrderType>("market");
@@ -84,7 +84,7 @@ export function TradePanel({
 
   const priceValid = order.price > 0 && order.price < 1;
   const sharesValid = orderType === "market" || order.shares >= minOrderSize;
-  const canSubmit = order.dollarAmount > 0 && priceValid && sharesValid && !submitting && !!walletAddress;
+  const canSubmit = order.dollarAmount > 0 && priceValid && sharesValid && !submitting && !!userProfile?.proxyWallet;
 
   /** Snap the limit price input to the nearest tick */
   const handleLimitPriceBlur = useCallback(() => {
@@ -116,7 +116,7 @@ export function TradePanel({
   );
 
   const handleSubmit = useCallback(async () => {
-    if (!magic || !currentTokenId || order.dollarAmount <= 0 || !priceValid) return;
+    if (!magic || !currentTokenId || order.dollarAmount <= 0 || !priceValid || !userProfile?.proxyWallet) return;
 
     const clobBaseUrl = process.env.NEXT_PUBLIC_CLOB_API_URL;
     if (!clobBaseUrl) {
@@ -134,7 +134,7 @@ export function TradePanel({
         tokenId: currentTokenId,
         amount: order.dollarAmount,
         price: order.price,
-      });
+      }, userProfile.proxyWallet);
 
       setOrderResult(`Order ${result.status} (${result.orderHash.slice(0, 10)}…)`);
       if (orderType === "market") setAmount("");
@@ -145,7 +145,7 @@ export function TradePanel({
     } finally {
       setSubmitting(false);
     }
-  }, [magic, currentTokenId, order, priceValid, side, orderType]);
+  }, [magic, currentTokenId, order, priceValid, side, orderType, userProfile]);
 
   if (!session?.user) {
     return (
@@ -391,7 +391,7 @@ export function TradePanel({
           : `${side === "buy" ? "Buy" : "Sell"} ${outcome === "yes" ? "Yes" : "No"}${order.dollarAmount > 0 ? ` — $${order.dollarAmount.toFixed(2)}` : ""}`}
       </button>
 
-      {!walletAddress && session?.user && (
+      {!userProfile?.proxyWallet && session?.user && (
         <p className="mt-2 text-center text-xs text-muted">
           Connect your wallet to trade
         </p>
