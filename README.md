@@ -7,7 +7,7 @@ Next.js frontend for the DPM prediction market & casino platform.
 - **Next.js 16** (App Router) + React 19 + TypeScript
 - **NextAuth v5** — casino login (username/password, JWT sessions)
 - **Magic SDK** — embedded Web3 wallet (email OTP + Google SSO)
-- **Prisma** + PostgreSQL — user accounts, positions, trades
+- **Prisma** + PostgreSQL — user accounts, positions, trades (Vercel Postgres in prod, Docker locally)
 - **TanStack Query** — client-side data fetching
 - **Tailwind CSS v4**
 
@@ -80,7 +80,16 @@ After wallet connection, the app shows the Magic DID token — this is used by t
 
 ## Database
 
-The local PostgreSQL runs in Docker on port **5437** (avoids conflicts with other local databases).
+### Two environments
+
+| Environment | Connection vars | Source |
+|---|---|---|
+| **Local dev** | `DATABASE_URL` / `DIRECT_URL` | `.env.local` — Docker Postgres on port 5437 |
+| **Vercel (prod)** | `VERCEL_PRISMA_DATABASE_URL` / `VERCEL_POSTGRES_URL` | Set automatically by Vercel Postgres addon |
+
+The app checks `process.env.VERCEL` (auto-set by Vercel) to decide which vars to use. Locally it always uses the Docker database.
+
+### Local database
 
 ```bash
 # Start
@@ -95,10 +104,35 @@ docker compose up -d
 npx prisma migrate deploy
 ```
 
+### Migrations
+
+```bash
+# Apply migrations to local DB
+npx prisma migrate deploy
+
+# Create a new migration (local DB)
+npx prisma migrate dev --name <migration_name>
+
+# Apply migrations to Vercel DB (from local machine)
+VERCEL=1 npx prisma migrate dev --name <migration_name>
+```
+
+Migrations run automatically on push to `main` via GitHub Actions (see `.github/workflows/prisma-migrate.yml`). The workflow runs `prisma migrate deploy` against the Vercel Postgres database.
+
+### Pulling Vercel env vars
+
+```bash
+# Link project (one-time)
+npx vercel link
+
+# Pull Vercel env vars into a separate file (won't touch .env.local)
+npx vercel env pull .env.development.local
+```
+
 ## Deploy on Vercel
 
-The easiest way to deploy is via the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme).
+Deployments are automatic on push to `main`. The Vercel Postgres addon provides `VERCEL_PRISMA_DATABASE_URL` and `VERCEL_POSTGRES_URL` automatically — no manual DB config needed.
 
-Make sure to add all environment variables from the `.env.local` section above in your Vercel project settings, and swap `DATABASE_URL` / `DIRECT_URL` for your production database connection strings.
+Database migrations are applied automatically by the CI pipeline before each deployment.
 
 See the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

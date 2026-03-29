@@ -1,0 +1,29 @@
+name: Prisma Migrate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prisma/**"
+
+jobs:
+  migrate:
+    name: Apply database migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations to Vercel Postgres
+        run: npx prisma migrate deploy
+        env:
+          VERCEL: "1"
+          VERCEL_PRISMA_DATABASE_URL: ${{ secrets.VERCEL_PRISMA_DATABASE_URL }}
+          VERCEL_POSTGRES_URL: ${{ secrets.VERCEL_POSTGRES_URL }}
