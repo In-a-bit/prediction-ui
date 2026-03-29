@@ -98,7 +98,7 @@ function buildOrderFields(params: OrderParams, maker: string): OrderFields {
     nonce: "0",
     feeRateBps: "0",
     side,
-    signatureType: 0,
+    signatureType: 1,
   };
 }
 
