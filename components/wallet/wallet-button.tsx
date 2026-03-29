@@ -3,16 +3,21 @@
 import { useState } from "react";
 import { useMagic } from "@/components/providers/magic-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";
+import { submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
+import { getUser } from "@/lib/gamma-api";
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function WalletButton() {
-  const { walletAddress, userProfile, disconnect } = useMagic();
+  const { magic, walletAddress, userProfile, setUserProfile, disconnect } =
+    useMagic();
   const [showProfile, setShowProfile] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [allowanceBusy, setAllowanceBusy] = useState(false);
+  const [allowanceMsg, setAllowanceMsg] = useState<string | null>(null);
 
   function handleCopy() {
     if (!walletAddress) return;
@@ -94,6 +99,51 @@ export function WalletButton() {
                   </button>
                 </div>
               </div>
+
+              {userProfile && magic && (
+                <div className="border-t border-card-border px-4 py-2">
+                  <p className="mb-1 text-xs text-muted">
+                    Allowance status
+                    {userProfile.allowanceStatus ? (
+                      <span className="ml-1 font-mono text-foreground">
+                        {userProfile.allowanceStatus}
+                      </span>
+                    ) : (
+                      <span className="ml-1 text-muted">—</span>
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={allowanceBusy}
+                    onClick={async () => {
+                      setAllowanceMsg(null);
+                      if (!magic || !userProfile) return;
+                      setAllowanceBusy(true);
+                      try {
+                        const result = await submitAllowanceRegardlessOfStatus(
+                          magic,
+                          userProfile,
+                        );
+                        setAllowanceMsg(`Submitted (${result.state})`);
+                        const fresh = await getUser();
+                        if (fresh) setUserProfile(fresh);
+                      } catch (e) {
+                        setAllowanceMsg(
+                          e instanceof Error ? e.message : "Request failed",
+                        );
+                      } finally {
+                        setAllowanceBusy(false);
+                      }
+                    }}
+                    className="text-xs font-medium text-brand underline-offset-2 transition-colors hover:underline disabled:opacity-50"
+                  >
+                    {allowanceBusy ? "Signing…" : "Sign allowance again"}
+                  </button>
+                  {allowanceMsg && (
+                    <p className="mt-1 text-xs text-muted">{allowanceMsg}</p>
+                  )}
+                </div>
+              )}
 
               {/* Disconnect */}
               <div className="border-t border-card-border px-2 py-1.5">

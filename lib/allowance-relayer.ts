@@ -72,7 +72,12 @@ export async function submitUsdcCtfAllowance(
   // 1) ERC-20: USDC (collateral) approve CTF as spender
   const approveData = encodeApproveCalldata(ctf);
   const callApprove = encodeProxyCall(collateral as `0x${string}`, approveData);
-  // 2) ERC-1155: CTF setApprovalForAll(exchange) so exchange can move outcome tokens
+
+  // 2) add approval for CTF exchange to spend CTF
+  const approveDataCtfExchange = encodeApproveCalldata(ctfExchange);
+  const callApproveCtfExchange = encodeProxyCall(collateral as `0x${string}`, approveDataCtfExchange);
+
+  // 3) ERC-1155: CTF setApprovalForAll(exchange) so exchange can move outcome tokens
   const approvalForAllData = encodeSetApprovalForAllCalldata(ctfExchange);
   const callApprovalForAll = encodeProxyCall(
     ctf as `0x${string}`,
@@ -80,7 +85,7 @@ export async function submitUsdcCtfAllowance(
   );
 
   const proxyFactory = config.ProxyFactory;
-  const data = encodeProxyTransactionData([callApprove, callApprovalForAll]);
+  const data = encodeProxyTransactionData([callApprove, callApproveCtfExchange, callApprovalForAll]);
 
   const structHash = createProxyStructHash(
     from,

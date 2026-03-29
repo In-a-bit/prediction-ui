@@ -44,3 +44,23 @@ export async function checkAllowanceAndSignIfNeeded(
     console.error("[Allowance] Submit failed:", err);
   }
 }
+
+/**
+ * Submits the PROXY USDC + CTF allowance tx regardless of `allowanceStatus`.
+ * Use when the backend says "done" but on-chain state is wrong.
+ */
+export async function submitAllowanceRegardlessOfStatus(
+  magic: {
+    rpcProvider: { request: (args: { method: string; params: unknown[] }) => Promise<string> };
+    user: { getInfo: () => Promise<{ wallets?: { ethereum?: { publicAddress?: string | null } } }> };
+  },
+  profile: UserProfile,
+): Promise<{ transactionID: string; state: string }> {
+  if (!RELAYER_API_URL) {
+    throw new Error("NEXT_PUBLIC_RELAYER_API_URL is not set");
+  }
+  if (!profile.proxyWallet) {
+    throw new Error("No proxy wallet on profile");
+  }
+  return submitUsdcCtfAllowance(magic, RELAYER_API_URL, profile.proxyWallet);
+}
