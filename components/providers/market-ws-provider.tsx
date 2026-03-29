@@ -49,7 +49,7 @@ export function MarketWSProvider({
       ws.destroy();
       wsRef.current = null;
     };
-  }, []);
+  }, [wsUrl]);
 
   const subscribe = useCallback((tokenId: string) => {
     const ws = wsRef.current;

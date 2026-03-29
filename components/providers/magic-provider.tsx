@@ -13,7 +13,7 @@ import { Magic } from "magic-sdk";
 import { OAuthExtension } from "@magic-ext/oauth2";
 import { getUser } from "@/lib/gamma-api";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
-import { useClobWs } from "@/lib/hooks/use-clob-ws";
+import { useUserWs } from "@/lib/hooks/use-user-ws";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 
 const WALLET_STORAGE_KEY = "magic_wallet_address";
@@ -152,7 +152,7 @@ export function MagicProvider({ children }: { children: ReactNode }) {
     [magic, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect],
   );
 
-  useClobWs(magic, !!walletAddress);
+  useUserWs(magic, !!walletAddress);
 
   return (
     <MagicContext.Provider value={value}>{children}</MagicContext.Provider>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { MagicLike } from "../allowance-relayer";
 import { getOrDeriveClobCredentials } from "../clob-auth";
 
-export function useClobWs(magic: MagicLike | null, enabled: boolean) {
+export function useUserWs(magic: MagicLike | null, enabled: boolean) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -18,9 +18,9 @@ export function useClobWs(magic: MagicLike | null, enabled: boolean) {
         const credentials = await getOrDeriveClobCredentials(magic);
         if (!isMounted) return;
 
-        const wsUrl = process.env.NEXT_PUBLIC_CLOB_WS_URL;
+        const wsUrl = process.env.NEXT_PUBLIC_USER_WS_URL;
         if (!wsUrl) {
-          console.error("NEXT_PUBLIC_CLOB_WS_URL is not set");
+          console.error("NEXT_PUBLIC_USER_WS_URL is not set");
           return;
         }
 

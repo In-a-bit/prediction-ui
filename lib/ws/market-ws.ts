@@ -1,6 +1,23 @@
 import WebSocket from "isomorphic-ws";
 
 const DEFAULT_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
+const LOCAL_MARKET_PATH = "/ws/market";
+
+/** prediction-go public-ws listens on /ws/market; env often sets only host:port. */
+export function normalizeMarketWebSocketUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return DEFAULT_WS_URL;
+  try {
+    const u = new URL(trimmed);
+    if (!u.pathname || u.pathname === "/") {
+      u.pathname = LOCAL_MARKET_PATH;
+    }
+    return u.href;
+  } catch {
+    return trimmed;
+  }
+}
+
 const PING_INTERVAL = 10_000;
 const RECONNECT_BASE_DELAY = 1_000;
 const RECONNECT_MAX_DELAY = 30_000;
@@ -24,7 +41,8 @@ export class MarketWS {
   private destroyed = false;
 
   constructor(wsUrl?: string) {
-    this.wsUrl = wsUrl ?? DEFAULT_WS_URL;
+    const custom = wsUrl?.trim();
+    this.wsUrl = custom ? normalizeMarketWebSocketUrl(custom) : DEFAULT_WS_URL;
   }
 
   connect(tokenIds: string[]) {

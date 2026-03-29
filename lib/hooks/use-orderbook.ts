@@ -4,6 +4,10 @@ import { useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
 import { useDataSource } from "@/components/providers/data-source-provider";
+import {
+  normalizeRestBookLevel,
+  normalizeWsBookLevel,
+} from "@/lib/orderbook-scaled";
 import type { OrderBook } from "@/lib/types/orderbook";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
@@ -26,21 +30,40 @@ export function useOrderBook(tokenId: string | undefined) {
 
   const query = useQuery({
     queryKey: ["orderbook", tokenId],
-    queryFn: () => getOrderBook(buildClobUrl, tokenId!),
-    refetchInterval: 60_000,
+    queryFn: async () => {
+      const book = await getOrderBook(buildClobUrl, tokenId!);
+      return {
+        ...book,
+        bids: book.bids.map((e) => normalizeRestBookLevel(e)),
+        asks: book.asks.map((e) => normalizeRestBookLevel(e)),
+      };
+    },
+    // Live `book` events replace the cache; polling/focus refetch caused visible “jumping”
+    // when timing raced the WebSocket or replayed slightly different snapshots.
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: false,
     enabled: !!tokenId,
   });
 
   const handleBook: MarketEventCallback = useCallback(
     (data) => {
       if (data.asset_id !== tokenId) return;
+      const rawBids = (data.bids as OrderBook["bids"]) ?? [];
+      const rawAsks = (data.asks as OrderBook["asks"]) ?? [];
+      const toLevel = (e: OrderBook["bids"][number]) =>
+        normalizeWsBookLevel({
+          price: String(e.price),
+          size: String(e.size),
+        });
       const book: OrderBook = {
         market: (data.market as string) ?? "",
         asset_id: data.asset_id as string,
         hash: (data.hash as string) ?? "",
         timestamp: (data.timestamp as string) ?? new Date().toISOString(),
-        bids: (data.bids as OrderBook["bids"]) ?? [],
-        asks: (data.asks as OrderBook["asks"]) ?? [],
+        bids: rawBids.map(toLevel),
+        asks: rawAsks.map(toLevel),
       };
       queryClient.setQueryData(["orderbook", tokenId], book);
     },
