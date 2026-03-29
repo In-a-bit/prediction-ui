@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { authNavOutlineClass } from "@/components/auth/auth-nav-styles";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { signUp } from "@/actions/auth";
@@ -157,10 +158,7 @@ export function SignupForm() {
 
       <p className="mt-6 text-center text-sm text-muted">
         Already have an account?{" "}
-        <Link
-          href="/login"
-          className="font-medium text-brand transition-colors hover:text-brand-hover"
-        >
+        <Link href="/login" className={authNavOutlineClass}>
           Log in
         </Link>
       </p>
