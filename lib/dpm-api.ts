@@ -21,3 +21,30 @@ export async function getCollateralBalance(
   if (!res.ok) return null;
   return res.json() as Promise<CollateralBalanceResponse>;
 }
+
+export type ConditionalTokenBalanceItem = {
+  address: string;
+  token_id: string;
+  balance: string;
+};
+
+export type ConditionalTokenBalanceBatchResponse = {
+  balances: ConditionalTokenBalanceItem[];
+};
+
+/**
+ * Fetches conditional token balances for (owner, tokenId) pairs in one call.
+ * POST /conditional-tokens/balance-batch
+ */
+export async function getConditionalTokenBalanceBatch(
+  owners: string[],
+  ids: string[],
+): Promise<ConditionalTokenBalanceBatchResponse | null> {
+  const res = await fetch(`${DPM_API_URL}/conditional-tokens/balance-batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ owners, ids }),
+  });
+  if (!res.ok) return null;
+  return res.json() as Promise<ConditionalTokenBalanceBatchResponse>;
+}

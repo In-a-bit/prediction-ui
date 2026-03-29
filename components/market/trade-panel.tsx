@@ -6,6 +6,8 @@ import Link from "next/link";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useMagic } from "@/components/providers/magic-provider";
+import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
+import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 import { submitOrder } from "@/lib/clob-order";
 import { cn } from "@/lib/utils";
@@ -51,6 +53,12 @@ export function TradePanel({
   const [submitting, setSubmitting] = useState(false);
   const [orderResult, setOrderResult] = useState<string | null>(null);
 
+  const { balanceNormalized: usdcBalanceStr } = useCollateralBalance();
+  const { yesBalance, noBalance } = useTokenBalances(yesTokenId, noTokenId);
+
+  const usdcBalance = usdcBalanceStr ? parseFloat(usdcBalanceStr) : 0;
+  const currentTokenBalance = outcome === "yes" ? yesBalance : noBalance;
+
   const currentTokenId = outcome === "yes" ? yesTokenId : noTokenId;
   const { data: midpoint } = useMidpoint(currentTokenId);
 
@@ -84,7 +92,19 @@ export function TradePanel({
 
   const priceValid = order.price > 0 && order.price < 1;
   const sharesValid = orderType === "market" || order.shares >= minOrderSize;
-  const canSubmit = order.dollarAmount > 0 && priceValid && sharesValid && !submitting && !!userProfile?.proxyWallet;
+
+  const exceedsBalance =
+    side === "buy"
+      ? order.dollarAmount > 0 && order.dollarAmount > usdcBalance
+      : order.shares > 0 && order.shares > currentTokenBalance;
+
+  const canSubmit =
+    order.dollarAmount > 0 &&
+    priceValid &&
+    sharesValid &&
+    !exceedsBalance &&
+    !submitting &&
+    !!userProfile?.proxyWallet;
 
   /** Snap the limit price input to the nearest tick */
   const handleLimitPriceBlur = useCallback(() => {
@@ -220,6 +240,18 @@ export function TradePanel({
         ))}
       </div>
 
+      {/* Available balance */}
+      {userProfile?.proxyWallet && (
+        <div className="mb-3 flex items-center justify-between text-xs">
+          <span className="text-muted">Available</span>
+          <span className={cn("font-medium", exceedsBalance ? "text-red" : "text-foreground")}>
+            {side === "buy"
+              ? `$${usdcBalance.toFixed(2)} USDC.e`
+              : `${currentTokenBalance.toFixed(2)} ${outcome === "yes" ? "Yes" : "No"} shares`}
+          </span>
+        </div>
+      )}
+
       {orderType === "market" ? (
         /* ── Market order: dollar amount input ── */
         <div className="mb-4">
@@ -250,6 +282,14 @@ export function TradePanel({
                 ${v}
               </button>
             ))}
+            {side === "buy" && usdcBalance > 0 && (
+              <button
+                onClick={() => setAmount(String(Math.floor(usdcBalance * 100) / 100))}
+                className="flex-1 rounded-lg border border-brand/40 bg-brand/5 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand hover:bg-brand/10"
+              >
+                Max
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -346,6 +386,14 @@ export function TradePanel({
                   {v}
                 </button>
               ))}
+              {side === "sell" && currentTokenBalance > 0 && (
+                <button
+                  onClick={() => setLimitShares(String(Math.floor(currentTokenBalance * 1e6) / 1e6))}
+                  className="flex-1 rounded-lg border border-brand/40 bg-brand/5 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand hover:bg-brand/10"
+                >
+                  Max
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -373,6 +421,15 @@ export function TradePanel({
             </span>
           </div>
         </div>
+      )}
+
+      {/* Balance warning */}
+      {exceedsBalance && (
+        <p className="mb-3 text-center text-xs font-medium text-red">
+          {side === "buy"
+            ? "Insufficient USDC.e balance"
+            : `Insufficient ${outcome === "yes" ? "Yes" : "No"} token balance`}
+        </p>
       )}
 
       {/* Submit */}
