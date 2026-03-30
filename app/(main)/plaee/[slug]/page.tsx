@@ -15,6 +15,7 @@ export default function PlaeEventPage() {
   const { slug } = useParams<{ slug: string }>();
   const [event, setEvent] = useState<GammaEvent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -127,9 +128,22 @@ export default function PlaeEventPage() {
                 {event.title}
               </h1>
               {event.description && (
-                <p className="mt-2 line-clamp-3 text-sm text-muted">
-                  {event.description}
-                </p>
+                <>
+                  <p
+                    className={`mt-2 text-sm text-muted ${
+                      descriptionExpanded ? "" : "line-clamp-3"
+                    }`}
+                  >
+                    {event.description}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionExpanded((prev) => !prev)}
+                    className="mt-1 text-xs font-medium text-brand transition-colors hover:text-brand-hover"
+                  >
+                    {descriptionExpanded ? "Show less" : "Show more"}
+                  </button>
+                </>
               )}
             </div>
           </div>
