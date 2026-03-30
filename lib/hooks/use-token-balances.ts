@@ -4,15 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useMagic } from "@/components/providers/magic-provider";
 import { getConditionalTokenBalanceBatch } from "@/lib/dpm-api";
 
-const ONE_E18 = BigInt("1000000000000000000");
+const ONE_E6 = BigInt("1000000");
 
-/** Convert a raw 1e18 balance string to a human-readable number. */
+/** Convert a raw 1e6 balance string to a human-readable number. */
 function rawToShares(raw: string): number {
   try {
     const val = BigInt(raw);
-    const whole = val / ONE_E18;
-    const frac = val % ONE_E18;
-    return Number(whole) + Number(frac) / 1e18;
+    const whole = val / ONE_E6;
+    const frac = val % ONE_E6;
+    return Number(whole) + Number(frac) / 1e6;
   } catch {
     return 0;
   }

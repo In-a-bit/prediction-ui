@@ -104,8 +104,15 @@ export function TradePanel({
 
   const order = useMemo(() => {
     if (orderType === "market") {
-      const dollarAmount = parseFloat(amount) || 0;
       const price = livePriceCents / 100;
+      if (side === "sell") {
+        // For market sell, amount is shares
+        const shares = parseFloat(amount) || 0;
+        const dollarAmount = shares > 0 && price > 0 ? round6(shares * price) : 0;
+        return { dollarAmount, price, shares };
+      }
+      // For market buy, amount is dollars
+      const dollarAmount = parseFloat(amount) || 0;
       const shares = dollarAmount > 0 && price > 0 ? round6(dollarAmount / price) : 0;
       return { dollarAmount, price, shares };
     }
@@ -114,7 +121,7 @@ export function TradePanel({
     const price = round6(priceCents / 100);
     const dollarAmount = round6(shares * price);
     return { dollarAmount, price, shares };
-  }, [orderType, amount, limitPrice, limitShares, livePriceCents]);
+  }, [orderType, amount, limitPrice, limitShares, livePriceCents, side]);
 
   const potentialReturn =
     side === "buy"
@@ -234,7 +241,7 @@ export function TradePanel({
           {(["buy", "sell"] as const).map((s) => (
             <button
               key={s}
-              onClick={() => setSide(s)}
+              onClick={() => { setSide(s); setAmount(""); }}
               className={cn(
                 "pb-1 text-sm font-semibold capitalize transition-colors",
                 side === s
@@ -433,12 +440,16 @@ export function TradePanel({
         /* ── Market order ── */
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label className="text-sm font-medium text-foreground">Amount</label>
+            <label className="text-sm font-medium text-foreground">
+              {side === "sell" ? "Shares" : "Amount"}
+            </label>
           </div>
           <div className="relative">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted">
-              $
-            </span>
+            {side === "buy" && (
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted">
+                $
+              </span>
+            )}
             <input
               type="number"
               value={amount}
@@ -446,26 +457,57 @@ export function TradePanel({
               placeholder="0.00"
               min="0"
               step="0.01"
-              className="w-full rounded-lg border border-card-border bg-input py-2.5 pl-8 pr-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
+              className={cn(
+                "w-full rounded-lg border border-card-border bg-input py-2.5 pr-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
+                side === "buy" ? "pl-8" : "pl-4",
+              )}
             />
           </div>
           <div className="mt-2 flex gap-2">
-            {[10, 25, 50, 100].map((v) => (
-              <button
-                key={v}
-                onClick={() => setAmount(String(v))}
-                className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
-              >
-                ${v}
-              </button>
-            ))}
-            {side === "buy" && usdcBalance > 0 && (
-              <button
-                onClick={() => setAmount(String(maxMarketDollars))}
-                className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
-              >
-                Max
-              </button>
+            {side === "buy" ? (
+              <>
+                {[10, 25, 50, 100].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAmount(String(v))}
+                    className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                  >
+                    ${v}
+                  </button>
+                ))}
+                {usdcBalance > 0 && (
+                  <button
+                    onClick={() => setAmount(String(maxMarketDollars))}
+                    className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                  >
+                    Max
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {[0.25, 0.5].map((pct) => (
+                  <button
+                    key={pct}
+                    onClick={() => {
+                      const shares = Math.floor(currentTokenBalance * pct * 1e6) / 1e6;
+                      setAmount(shares > 0 ? String(shares) : "");
+                    }}
+                    className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                  >
+                    {pct * 100}%
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    const shares = Math.floor(currentTokenBalance * 1e6) / 1e6;
+                    setAmount(shares > 0 ? String(shares) : "");
+                  }}
+                  className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                >
+                  Max
+                </button>
+              </>
             )}
           </div>
         </div>
