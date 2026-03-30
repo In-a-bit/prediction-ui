@@ -14,7 +14,7 @@ interface Position {
 export function PositionsTable({ positions }: { positions: Position[] }) {
   if (positions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-card-border bg-card px-8 py-16">
+      <div className="flex flex-col items-center justify-center px-8 py-16">
         <svg
           className="mb-3 h-10 w-10 text-muted/30"
           fill="none"
@@ -33,7 +33,7 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-card-border bg-card">
+    <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-card-border">

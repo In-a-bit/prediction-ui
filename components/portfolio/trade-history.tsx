@@ -17,14 +17,14 @@ interface Trade {
 export function TradeHistory({ trades }: { trades: Trade[] }) {
   if (trades.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-card-border bg-card px-8 py-12">
+      <div className="flex flex-col items-center justify-center px-8 py-12">
         <p className="text-sm text-muted">No trades yet</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-card-border bg-card">
+    <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-card-border">
