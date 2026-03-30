@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { PriceChart } from "@/components/market/price-chart";
+
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import Link from "next/link";
 import type { GammaEvent } from "@/lib/types/event";
@@ -203,13 +203,6 @@ export default function PlaeEventPage() {
           </div>
         )}
 
-        {/* Price Chart */}
-        <div className="rounded-2xl border border-card-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold text-muted">
-            Price History
-          </h2>
-          <PriceChart tokenId={yesTokenId} />
-        </div>
       </MarketTradingSection>
     </div>
   );

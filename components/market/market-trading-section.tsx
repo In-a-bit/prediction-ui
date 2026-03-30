@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { OrderBookView } from "@/components/market/order-book";
+import { PriceChart } from "@/components/market/price-chart";
 import { TradePanel } from "@/components/market/trade-panel";
 import { TradeTicker } from "@/components/market/trade-ticker";
 
@@ -50,6 +51,14 @@ export function MarketTradingSection({
             </span>
           </h2>
           <OrderBookView tokenId={orderbookTokenId} />
+        </div>
+
+        {/* Price Chart */}
+        <div className="rounded-2xl border border-card-border bg-card p-6">
+          <h2 className="mb-4 text-sm font-semibold text-muted">
+            Price History
+          </h2>
+          <PriceChart tokenId={yesTokenId} />
         </div>
 
         {/* Recent Activity */}
