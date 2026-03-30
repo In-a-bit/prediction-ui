@@ -8,6 +8,7 @@ import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useMagic } from "@/components/providers/magic-provider";
 import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
 import { useTokenBalances } from "@/lib/hooks/use-token-balances";
+import { useOrderBook } from "@/lib/hooks/use-orderbook";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 import { submitOrder } from "@/lib/clob-order";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ export function TradePanel({
   initialNoPrice,
   tickSize = 0.01,
   minOrderSize = 1,
+  onOutcomeChange,
 }: {
   yesTokenId: string | undefined;
   noTokenId: string | undefined;
@@ -41,17 +43,25 @@ export function TradePanel({
   tickSize?: number;
   /** Minimum order size in shares. Default 1 */
   minOrderSize?: number;
+  /** Called when the user switches outcome (yes/no) — parent can use this to sync orderbook */
+  onOutcomeChange?: (outcome: "yes" | "no") => void;
 }) {
   const { data: session } = useSession();
   const { magic, userProfile } = useMagic();
-  const [outcome, setOutcome] = useState<"yes" | "no">("yes");
+  const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
+
+  const setOutcome = useCallback((o: "yes" | "no") => {
+    setOutcomeState(o);
+    onOutcomeChange?.(o);
+  }, [onOutcomeChange]);
   const [orderType, setOrderType] = useState<OrderType>("market");
   const [amount, setAmount] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [limitShares, setLimitShares] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [orderResult, setOrderResult] = useState<string | null>(null);
+  const [showOrderTypeMenu, setShowOrderTypeMenu] = useState(false);
 
   const { balanceNormalized: usdcBalanceStr } = useCollateralBalance();
   const { yesBalance, noBalance } = useTokenBalances(yesTokenId, noTokenId);
@@ -61,6 +71,27 @@ export function TradePanel({
 
   const currentTokenId = outcome === "yes" ? yesTokenId : noTokenId;
   const { data: midpoint } = useMidpoint(currentTokenId);
+
+  // Orderbook data for best bid/ask prices
+  const { data: yesBook } = useOrderBook(yesTokenId);
+  const { data: noBook } = useOrderBook(noTokenId);
+
+  // Best prices from orderbook: buy = best ask (lowest sell), sell = best bid (highest buy)
+  const bestPrices = useMemo(() => {
+    const yesBestAsk = yesBook?.asks?.[0] ? Math.round(parseFloat(yesBook.asks[0].price) * 100) : 0;
+    const yesBestBid = yesBook?.bids?.[0] ? Math.round(parseFloat(yesBook.bids[0].price) * 100) : 0;
+    const noBestAsk = noBook?.asks?.[0] ? Math.round(parseFloat(noBook.asks[0].price) * 100) : 0;
+    const noBestBid = noBook?.bids?.[0] ? Math.round(parseFloat(noBook.bids[0].price) * 100) : 0;
+
+    return {
+      yesPrice: side === "buy"
+        ? (yesBestAsk || initialYesPrice)
+        : (yesBestBid || initialYesPrice),
+      noPrice: side === "buy"
+        ? (noBestAsk || initialNoPrice)
+        : (noBestBid || initialNoPrice),
+    };
+  }, [yesBook, noBook, side, initialYesPrice, initialNoPrice]);
 
   // Tick size in cents for display (e.g. 0.01 -> 1, 0.1 -> 10)
   const tickCents = round6(tickSize * 100);
@@ -110,7 +141,6 @@ export function TradePanel({
   const handleLimitPriceBlur = useCallback(() => {
     const raw = parseFloat(limitPrice);
     if (!raw && raw !== 0) return;
-    // Clamp to [tickCents, 100-tickCents] then snap to tick
     const clamped = Math.min(Math.max(raw, tickCents), 100 - tickCents);
     const snapped = roundToTick(clamped, tickCents);
     setLimitPrice(String(round6(snapped)));
@@ -134,6 +164,18 @@ export function TradePanel({
     },
     [limitPrice, livePriceCents, tickCents],
   );
+
+  /** Compute max shares user can buy at current limit price */
+  const maxBuyShares = useMemo(() => {
+    const price = (parseFloat(limitPrice) || livePriceCents) / 100;
+    if (price <= 0) return 0;
+    return Math.floor((usdcBalance / price) * 1e6) / 1e6;
+  }, [limitPrice, livePriceCents, usdcBalance]);
+
+  /** Compute max shares for market order */
+  const maxMarketDollars = useMemo(() => {
+    return Math.floor(usdcBalance * 100) / 100;
+  }, [usdcBalance]);
 
   const handleSubmit = useCallback(async () => {
     if (!magic || !currentTokenId || order.dollarAmount <= 0 || !priceValid || !userProfile?.proxyWallet) return;
@@ -186,78 +228,213 @@ export function TradePanel({
 
   return (
     <div className="rounded-2xl border border-card-border bg-card p-6">
-      {/* Buy/Sell toggle */}
-      <div className="mb-4 flex rounded-xl bg-input p-1">
-        <button
-          onClick={() => setSide("buy")}
-          className={cn(
-            "flex-1 rounded-lg py-2 text-sm font-semibold transition-colors",
-            side === "buy"
-              ? "bg-green text-white"
-              : "text-muted hover:text-foreground"
+      {/* Header: Buy/Sell tabs + Order type dropdown */}
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex gap-1">
+          {(["buy", "sell"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSide(s)}
+              className={cn(
+                "pb-1 text-sm font-semibold capitalize transition-colors",
+                side === s
+                  ? "border-b-2 border-foreground text-foreground"
+                  : "text-muted hover:text-foreground",
+                s === "buy" ? "mr-3" : "",
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        {/* Order type dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowOrderTypeMenu((v) => !v)}
+            className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+          >
+            <span className="capitalize">{orderType}</span>
+            <svg className="h-3.5 w-3.5" viewBox="0 0 12 12" fill="none">
+              <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {showOrderTypeMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowOrderTypeMenu(false)} />
+              <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-card-border bg-card py-1 shadow-lg">
+                {(["market", "limit"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => { setOrderType(t); setShowOrderTypeMenu(false); }}
+                    className={cn(
+                      "block w-full px-4 py-1.5 text-left text-sm capitalize transition-colors",
+                      orderType === t ? "text-foreground" : "text-muted hover:text-foreground",
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
-        >
-          Buy
-        </button>
-        <button
-          onClick={() => setSide("sell")}
-          className={cn(
-            "flex-1 rounded-lg py-2 text-sm font-semibold transition-colors",
-            side === "sell"
-              ? "bg-red text-white"
-              : "text-muted hover:text-foreground"
-          )}
-        >
-          Sell
-        </button>
+        </div>
       </div>
 
-      {/* Outcome toggle */}
+      {/* Outcome toggle — shows best ask (buy) or best bid (sell) from orderbook */}
       <div className="mb-4">
         <OutcomeToggle
           selected={outcome}
           onSelect={setOutcome}
-          yesPrice={initialYesPrice}
-          noPrice={initialNoPrice}
+          yesPrice={bestPrices.yesPrice}
+          noPrice={bestPrices.noPrice}
         />
       </div>
 
-      {/* Market / Limit toggle */}
-      <div className="mb-4 flex gap-1 border-b border-card-border">
-        {(["market", "limit"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setOrderType(t)}
-            className={cn(
-              "px-3 pb-2 text-sm font-medium capitalize transition-colors",
-              orderType === t
-                ? "border-b-2 border-brand text-foreground"
-                : "text-muted hover:text-foreground"
-            )}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {/* Available balance */}
+      {/* Balances */}
       {userProfile?.proxyWallet && (
-        <div className="mb-3 flex items-center justify-between text-xs">
-          <span className="text-muted">Available</span>
-          <span className={cn("font-medium", exceedsBalance ? "text-red" : "text-foreground")}>
-            {side === "buy"
-              ? `$${usdcBalance.toFixed(2)} USDC.e`
-              : `${currentTokenBalance.toFixed(2)} ${outcome === "yes" ? "Yes" : "No"} shares`}
-          </span>
+        <div className="mb-4 space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted">USDC.e Balance</span>
+            <span className="font-medium text-foreground">${usdcBalance.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted">{outcome === "yes" ? "Yes" : "No"} Shares</span>
+            <span className="font-medium text-foreground">{currentTokenBalance.toFixed(2)}</span>
+          </div>
         </div>
       )}
 
-      {orderType === "market" ? (
-        /* ── Market order: dollar amount input ── */
-        <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-muted">
-            Amount
-          </label>
+      {orderType === "limit" ? (
+        /* ── Limit order ── */
+        <div className="space-y-4">
+          {/* Limit Price */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Limit Price</label>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => adjustPrice(-1)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-card-border text-lg font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                −
+              </button>
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  value={limitPrice}
+                  onChange={(e) => setLimitPrice(e.target.value)}
+                  onBlur={handleLimitPriceBlur}
+                  placeholder={String(livePriceCents)}
+                  min={tickCents}
+                  max={100 - tickCents}
+                  step={tickCents}
+                  className="w-full rounded-lg border border-card-border bg-input py-2.5 pl-4 pr-8 text-center text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted">
+                  ¢
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => adjustPrice(1)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-card-border text-lg font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                +
+              </button>
+            </div>
+            {limitPrice && (parseFloat(limitPrice) <= 0 || parseFloat(limitPrice) >= 100) && (
+              <p className="mt-1 text-[11px] text-red">
+                Price must be between {tickCents}¢ and {round6(100 - tickCents)}¢
+              </p>
+            )}
+          </div>
+
+          {/* Shares */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Shares</label>
+            </div>
+            <input
+              type="number"
+              value={limitShares}
+              onChange={(e) => setLimitShares(e.target.value)}
+              onBlur={handleLimitSharesBlur}
+              placeholder={String(minOrderSize)}
+              min={minOrderSize}
+              step="1"
+              className={cn(
+                "w-full rounded-lg border bg-input py-2.5 px-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
+                limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize
+                  ? "border-red/50"
+                  : "border-card-border",
+              )}
+            />
+            {limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize && (
+              <p className="mt-1 text-[11px] text-red">
+                Minimum order size is {minOrderSize} shares
+              </p>
+            )}
+            <div className="mt-2 flex gap-2">
+              {side === "buy" ? (
+                <>
+                  {[0.25, 0.5].map((pct) => (
+                    <button
+                      key={pct}
+                      onClick={() => {
+                        const shares = Math.floor(maxBuyShares * pct * 1e6) / 1e6;
+                        setLimitShares(shares > 0 ? String(shares) : "");
+                      }}
+                      className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                    >
+                      {pct * 100}%
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      const shares = maxBuyShares;
+                      setLimitShares(shares > 0 ? String(shares) : "");
+                    }}
+                    className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                  >
+                    Max
+                  </button>
+                </>
+              ) : (
+                <>
+                  {[0.25, 0.5].map((pct) => (
+                    <button
+                      key={pct}
+                      onClick={() => {
+                        const shares = Math.floor(currentTokenBalance * pct * 1e6) / 1e6;
+                        setLimitShares(shares > 0 ? String(shares) : "");
+                      }}
+                      className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                    >
+                      {pct * 100}%
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      const shares = Math.floor(currentTokenBalance * 1e6) / 1e6;
+                      setLimitShares(shares > 0 ? String(shares) : "");
+                    }}
+                    className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                  >
+                    Max
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── Market order ── */
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-sm font-medium text-foreground">Amount</label>
+          </div>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted">
               $
@@ -269,7 +446,7 @@ export function TradePanel({
               placeholder="0.00"
               min="0"
               step="0.01"
-              className="w-full rounded-xl border border-input-border bg-input py-3 pl-8 pr-4 text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
+              className="w-full rounded-lg border border-card-border bg-input py-2.5 pl-8 pr-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
             />
           </div>
           <div className="mt-2 flex gap-2">
@@ -277,147 +454,32 @@ export function TradePanel({
               <button
                 key={v}
                 onClick={() => setAmount(String(v))}
-                className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-brand hover:text-foreground"
+                className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
               >
                 ${v}
               </button>
             ))}
             {side === "buy" && usdcBalance > 0 && (
               <button
-                onClick={() => setAmount(String(Math.floor(usdcBalance * 100) / 100))}
-                className="flex-1 rounded-lg border border-brand/40 bg-brand/5 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand hover:bg-brand/10"
+                onClick={() => setAmount(String(maxMarketDollars))}
+                className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
               >
                 Max
               </button>
             )}
           </div>
         </div>
-      ) : (
-        /* ── Limit order: price + shares inputs ── */
-        <div className="mb-4 space-y-3">
-          {/* Price */}
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-medium text-muted">Price</label>
-              <span className="text-[11px] text-muted/70">
-                Tick: {tickCents}¢
-              </span>
-            </div>
-            <div className="relative flex items-center">
-              <button
-                type="button"
-                onClick={() => adjustPrice(-1)}
-                className="absolute left-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-sm font-bold text-muted transition-colors hover:border-brand hover:text-foreground"
-              >
-                −
-              </button>
-              <input
-                type="number"
-                value={limitPrice}
-                onChange={(e) => setLimitPrice(e.target.value)}
-                onBlur={handleLimitPriceBlur}
-                placeholder={String(livePriceCents)}
-                min={tickCents}
-                max={100 - tickCents}
-                step={tickCents}
-                className="w-full rounded-xl border border-input-border bg-input py-3 pl-11 pr-11 text-center text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => adjustPrice(1)}
-                className="absolute right-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-sm font-bold text-muted transition-colors hover:border-brand hover:text-foreground"
-              >
-                +
-              </button>
-            </div>
-            {limitPrice && (parseFloat(limitPrice) <= 0 || parseFloat(limitPrice) >= 100) && (
-              <p className="mt-1 text-[11px] text-red">
-                Price must be between {tickCents}¢ and {round6(100 - tickCents)}¢
-              </p>
-            )}
-            <div className="mt-2 flex gap-2">
-              {[10, 25, 50, 75].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setLimitPrice(String(roundToTick(v, tickCents)))}
-                  className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-brand hover:text-foreground"
-                >
-                  {v}¢
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Shares */}
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-medium text-muted">Shares</label>
-              <span className="text-[11px] text-muted/70">
-                Min: {minOrderSize}
-              </span>
-            </div>
-            <input
-              type="number"
-              value={limitShares}
-              onChange={(e) => setLimitShares(e.target.value)}
-              onBlur={handleLimitSharesBlur}
-              placeholder={String(minOrderSize)}
-              min={minOrderSize}
-              step="0.000001"
-              className={cn(
-                "w-full rounded-xl border bg-input py-3 px-4 text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
-                limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize
-                  ? "border-red/50"
-                  : "border-input-border",
-              )}
-            />
-            {limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize && (
-              <p className="mt-1 text-[11px] text-red">
-                Minimum order size is {minOrderSize} shares
-              </p>
-            )}
-            <div className="mt-2 flex gap-2">
-              {[10, 50, 100, 500].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setLimitShares(String(Math.max(v, minOrderSize)))}
-                  className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-brand hover:text-foreground"
-                >
-                  {v}
-                </button>
-              ))}
-              {side === "sell" && currentTokenBalance > 0 && (
-                <button
-                  onClick={() => setLimitShares(String(Math.floor(currentTokenBalance * 1e6) / 1e6))}
-                  className="flex-1 rounded-lg border border-brand/40 bg-brand/5 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand hover:bg-brand/10"
-                >
-                  Max
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       )}
 
-      {/* Order summary */}
+      {/* Summary: "You'll receive" */}
       {order.dollarAmount > 0 && (
-        <div className="mb-4 space-y-2 rounded-xl bg-input p-3">
-          <div className="flex justify-between text-xs text-muted">
-            <span>{orderType === "limit" ? "Limit price" : "Avg price"}</span>
-            <span>{Math.round(order.price * 100)}¢</span>
-          </div>
-          <div className="flex justify-between text-xs text-muted">
-            <span>Shares</span>
-            <span>{order.shares.toFixed(6)}</span>
-          </div>
-          <div className="flex justify-between text-xs text-muted">
-            <span>Total</span>
-            <span>${order.dollarAmount.toFixed(6)}</span>
-          </div>
-          <div className="flex justify-between text-xs font-medium text-foreground">
-            <span>Potential return</span>
-            <span className="text-green">
-              ${potentialReturn.toFixed(2)} ({order.dollarAmount > 0 ? ((potentialReturn / order.dollarAmount) * 100).toFixed(0) : 0}%)
+        <div className="mt-5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-foreground">You&apos;ll receive</span>
+            <span className="font-semibold text-green">
+              {side === "buy"
+                ? `$${order.shares.toFixed(2)}`
+                : `$${order.dollarAmount.toFixed(2)}`}
             </span>
           </div>
         </div>
@@ -425,7 +487,7 @@ export function TradePanel({
 
       {/* Balance warning */}
       {exceedsBalance && (
-        <p className="mb-3 text-center text-xs font-medium text-red">
+        <p className="mt-3 text-center text-xs font-medium text-red">
           {side === "buy"
             ? "Insufficient USDC.e balance"
             : `Insufficient ${outcome === "yes" ? "Yes" : "No"} token balance`}
@@ -437,15 +499,13 @@ export function TradePanel({
         disabled={!canSubmit}
         onClick={handleSubmit}
         className={cn(
-          "w-full rounded-xl py-3.5 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40",
+          "mt-5 w-full rounded-xl py-3.5 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40",
           side === "buy"
             ? "bg-green hover:bg-green/90"
             : "bg-red hover:bg-red/90"
         )}
       >
-        {submitting
-          ? "Submitting…"
-          : `${side === "buy" ? "Buy" : "Sell"} ${outcome === "yes" ? "Yes" : "No"}${order.dollarAmount > 0 ? ` — $${order.dollarAmount.toFixed(2)}` : ""}`}
+        {submitting ? "Submitting…" : "Trade"}
       </button>
 
       {!userProfile?.proxyWallet && session?.user && (

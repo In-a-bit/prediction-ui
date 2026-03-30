@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { PriceChart } from "@/components/market/price-chart";
-import { OrderBookView } from "@/components/market/order-book";
-import { TradePanel } from "@/components/market/trade-panel";
-import { TradeTicker } from "@/components/market/trade-ticker";
+import { MarketTradingSection } from "@/components/market/market-trading-section";
 import Link from "next/link";
 import type { GammaEvent } from "@/lib/types/event";
 
@@ -100,144 +98,119 @@ export default function PlaeEventPage() {
         <span className="truncate text-foreground">{event.title}</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left column */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* Event header */}
-          <div className="rounded-2xl border border-card-border bg-card p-6">
-            <div className="mb-4 flex items-start gap-4">
-              {event.image && (
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={event.image}
-                    alt={event.title}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
+      <MarketTradingSection
+        yesTokenId={yesTokenId}
+        noTokenId={noTokenId}
+        initialYesPrice={yesPrice}
+        initialNoPrice={noPrice}
+        tickSize={market?.orderPriceMinTickSize ?? 0.01}
+        minOrderSize={market?.orderMinSize ?? 1}
+        conditionId={market?.conditionId}
+        tokenIds={tokenIds.length > 0 ? tokenIds : undefined}
+      >
+        {/* Event header */}
+        <div className="rounded-2xl border border-card-border bg-card p-6">
+          <div className="mb-4 flex items-start gap-4">
+            {event.image && (
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={event.image}
+                  alt={event.title}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            )}
+            <div>
+              <h1 className="text-xl font-bold text-foreground lg:text-2xl">
+                {event.title}
+              </h1>
+              {event.description && (
+                <p className="mt-2 line-clamp-3 text-sm text-muted">
+                  {event.description}
+                </p>
               )}
-              <div>
-                <h1 className="text-xl font-bold text-foreground lg:text-2xl">
-                  {event.title}
-                </h1>
-                {event.description && (
-                  <p className="mt-2 line-clamp-3 text-sm text-muted">
-                    {event.description}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Quick stats */}
-            <div className="flex flex-wrap items-center gap-4 border-t border-card-border pt-4">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-green">
-                  {yesPrice}¢
-                </span>
-                <span className="text-sm text-muted">Yes</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-red">
-                  {noPrice}¢
-                </span>
-                <span className="text-sm text-muted">No</span>
-              </div>
-              {event.markets?.length > 1 && (
-                <span className="rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
-                  {event.markets.length} markets
-                </span>
-              )}
-              <div className="ml-auto text-sm text-muted">
-                Vol. ${((event.volume || 0) / 1e6).toFixed(1)}M
-              </div>
             </div>
           </div>
 
-          {/* All markets list (if multi-market event) */}
-          {event.markets?.length > 1 && (
-            <div className="rounded-2xl border border-card-border bg-card p-6">
-              <h2 className="mb-4 text-sm font-semibold text-muted">
-                Markets
-              </h2>
-              <div className="space-y-3">
-                {event.markets.map((m) => {
-                  let mYes = 50;
-                  let mNo = 50;
-                  if (m.outcomePrices) {
-                    try {
-                      const p = JSON.parse(m.outcomePrices);
-                      mYes = Math.round(parseFloat(p[0]) * 100);
-                      mNo = Math.round(parseFloat(p[1]) * 100);
-                    } catch {}
-                  }
-                  const isSelected = m.id === market?.id;
-                  return (
-                    <div
-                      key={m.id}
-                      className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
-                        isSelected
-                          ? "border-brand/40 bg-brand/5"
-                          : "border-card-border"
-                      }`}
-                    >
-                      <span className="text-sm font-medium text-foreground">
-                        {m.question}
+          {/* Quick stats */}
+          <div className="flex flex-wrap items-center gap-4 border-t border-card-border pt-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-green">
+                {yesPrice}¢
+              </span>
+              <span className="text-sm text-muted">Yes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-red">
+                {noPrice}¢
+              </span>
+              <span className="text-sm text-muted">No</span>
+            </div>
+            {event.markets?.length > 1 && (
+              <span className="rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
+                {event.markets.length} markets
+              </span>
+            )}
+            <div className="ml-auto text-sm text-muted">
+              Vol. ${((event.volume || 0) / 1e6).toFixed(1)}M
+            </div>
+          </div>
+        </div>
+
+        {/* All markets list (if multi-market event) */}
+        {event.markets?.length > 1 && (
+          <div className="rounded-2xl border border-card-border bg-card p-6">
+            <h2 className="mb-4 text-sm font-semibold text-muted">
+              Markets
+            </h2>
+            <div className="space-y-3">
+              {event.markets.map((m) => {
+                let mYes = 50;
+                let mNo = 50;
+                if (m.outcomePrices) {
+                  try {
+                    const p = JSON.parse(m.outcomePrices);
+                    mYes = Math.round(parseFloat(p[0]) * 100);
+                    mNo = Math.round(parseFloat(p[1]) * 100);
+                  } catch {}
+                }
+                const isSelected = m.id === market?.id;
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                      isSelected
+                        ? "border-brand/40 bg-brand/5"
+                        : "border-card-border"
+                    }`}
+                  >
+                    <span className="text-sm font-medium text-foreground">
+                      {m.question}
+                    </span>
+                    <div className="flex gap-3">
+                      <span className="text-sm font-bold text-green">
+                        {mYes}¢
                       </span>
-                      <div className="flex gap-3">
-                        <span className="text-sm font-bold text-green">
-                          {mYes}¢
-                        </span>
-                        <span className="text-sm font-bold text-red">
-                          {mNo}¢
-                        </span>
-                      </div>
+                      <span className="text-sm font-bold text-red">
+                        {mNo}¢
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-
-          {/* Price Chart */}
-          <div className="rounded-2xl border border-card-border bg-card p-6">
-            <h2 className="mb-4 text-sm font-semibold text-muted">
-              Price History
-            </h2>
-            <PriceChart tokenId={yesTokenId} />
           </div>
+        )}
 
-          {/* Order Book */}
-          <div className="rounded-2xl border border-card-border bg-card p-6">
-            <h2 className="mb-4 text-sm font-semibold text-muted">
-              Order Book
-            </h2>
-            <OrderBookView tokenId={yesTokenId} />
-          </div>
-
-          {/* Recent Activity */}
-          <div className="rounded-2xl border border-card-border bg-card p-6">
-            <h2 className="mb-4 text-sm font-semibold text-muted">
-              Recent Activity
-            </h2>
-            <TradeTicker
-              conditionId={market?.conditionId}
-              tokenIds={tokenIds.length > 0 ? tokenIds : undefined}
-            />
-          </div>
+        {/* Price Chart */}
+        <div className="rounded-2xl border border-card-border bg-card p-6">
+          <h2 className="mb-4 text-sm font-semibold text-muted">
+            Price History
+          </h2>
+          <PriceChart tokenId={yesTokenId} />
         </div>
-
-        {/* Right column: Trade panel */}
-        <div className="lg:sticky lg:top-4 lg:self-start">
-          <TradePanel
-            yesTokenId={yesTokenId}
-            noTokenId={noTokenId}
-            initialYesPrice={yesPrice}
-            initialNoPrice={noPrice}
-            tickSize={market?.orderPriceMinTickSize ?? 0.01}
-            minOrderSize={market?.orderMinSize ?? 1}
-          />
-        </div>
-      </div>
+      </MarketTradingSection>
     </div>
   );
 }

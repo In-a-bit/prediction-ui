@@ -44,7 +44,10 @@ export function useTokenBalances(
 
       const owners = ids.map(() => walletAddress!);
       const data = await getConditionalTokenBalanceBatch(owners, ids);
-      if (!data) return { yes: 0, no: 0 };
+      if (!data) {
+        console.warn("[useTokenBalances] balance-batch returned null — API may be down or returned non-200", { wallet: walletAddress, ids });
+        return { yes: 0, no: 0 };
+      }
 
       let yes = 0;
       let no = 0;

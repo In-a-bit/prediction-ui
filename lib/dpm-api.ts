@@ -40,11 +40,21 @@ export async function getConditionalTokenBalanceBatch(
   owners: string[],
   ids: string[],
 ): Promise<ConditionalTokenBalanceBatchResponse | null> {
-  const res = await fetch(`${DPM_API_URL}/conditional-tokens/balance-batch`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ owners, ids }),
-  });
-  if (!res.ok) return null;
+  let res: Response;
+  try {
+    res = await fetch(`${DPM_API_URL}/conditional-tokens/balance-batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owners, ids }),
+    });
+  } catch (err) {
+    console.error("[dpm-api] balance-batch network error:", err);
+    return null;
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[dpm-api] balance-batch failed (${res.status}):`, body);
+    return null;
+  }
   return res.json() as Promise<ConditionalTokenBalanceBatchResponse>;
 }
