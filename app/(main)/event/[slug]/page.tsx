@@ -1,5 +1,5 @@
 import { fetchEventBySlug } from "@/lib/api/gamma";
-
+import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -95,14 +95,12 @@ export default async function EventPage({ params }: EventPageProps) {
 
         {/* Quick stats */}
         <div className="flex flex-wrap items-center gap-4 border-t border-card-border pt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-green">{yesPrice}¢</span>
-            <span className="text-sm text-muted">Yes</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-red">{noPrice}¢</span>
-            <span className="text-sm text-muted">No</span>
-          </div>
+          <LivePrices
+            yesTokenId={yesTokenId}
+            noTokenId={noTokenId}
+            initialYesPrice={yesPrice}
+            initialNoPrice={noPrice}
+          />
           <div className="ml-auto text-sm text-muted">
             Vol. ${((event.volume || 0) / 1e6).toFixed(1)}M
           </div>

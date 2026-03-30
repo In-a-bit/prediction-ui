@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
+import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import Link from "next/link";
 import type { GammaEvent } from "@/lib/types/event";
@@ -135,18 +136,12 @@ export default function PlaeEventPage() {
 
           {/* Quick stats */}
           <div className="flex flex-wrap items-center gap-4 border-t border-card-border pt-4">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-green">
-                {yesPrice}¢
-              </span>
-              <span className="text-sm text-muted">Yes</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-red">
-                {noPrice}¢
-              </span>
-              <span className="text-sm text-muted">No</span>
-            </div>
+            <LivePrices
+              yesTokenId={yesTokenId}
+              noTokenId={noTokenId}
+              initialYesPrice={yesPrice}
+              initialNoPrice={noPrice}
+            />
             {event.markets?.length > 1 && (
               <span className="rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
                 {event.markets.length} markets
