@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const timeRanges = [
@@ -29,6 +29,15 @@ export function PriceChart({ tokenId }: { tokenId: string | undefined }) {
     range.days
   );
 
+  // Tick every second so the chart's right edge always shows "now",
+  // extending the last known price to the current timestamp.
+  const [now, setNow] = useState(Date.now());
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    tickRef.current = setInterval(() => setNow(Date.now()), 1000);
+    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+  }, []);
+
   if (!tokenId) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-muted">
@@ -37,15 +46,20 @@ export function PriceChart({ tokenId }: { tokenId: string | undefined }) {
     );
   }
 
-  const chartData = (history ?? []).map((point) => ({
+  const baseData = (history ?? []).map((point) => ({
     time: point.t * 1000,
     price: Math.round(point.p * 100),
   }));
 
-  const currentPrice = chartData.length
-    ? chartData[chartData.length - 1].price
-    : 0;
-  const firstPrice = chartData.length ? chartData[0].price : 0;
+  // Append a "now" point carrying the last known price so the line
+  // stretches to the current second.
+  const lastPoint = baseData.length ? baseData[baseData.length - 1] : null;
+  const chartData = lastPoint
+    ? [...baseData, { time: now, price: lastPoint.price }]
+    : baseData;
+
+  const currentPrice = lastPoint?.price ?? 0;
+  const firstPrice = baseData.length ? baseData[0].price : 0;
   const priceChange = currentPrice - firstPrice;
   const isPositive = priceChange >= 0;
 

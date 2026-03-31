@@ -1,17 +1,33 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { useOrderBook } from "@/lib/hooks/use-orderbook";
+
+const INITIAL_LEVELS = 8;
+const LOAD_MORE = 8;
+const SCROLL_THRESHOLD = 40;
 
 export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
   const { data: book, isLoading } = useOrderBook(tokenId);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const spreadRef = useRef<HTMLDivElement>(null);
+  const hasScrolled = useRef(false);
+  const prevScrollHeight = useRef(0);
 
-  // Parse and compute cumulative totals
+  const [visibleAsks, setVisibleAsks] = useState(INITIAL_LEVELS);
+  const [visibleBids, setVisibleBids] = useState(INITIAL_LEVELS);
+
+  // Reset visible window when token changes
+  useEffect(() => {
+    setVisibleAsks(INITIAL_LEVELS);
+    setVisibleBids(INITIAL_LEVELS);
+    hasScrolled.current = false;
+  }, [tokenId]);
+
   const { asks, bids, spread, lastPrice, volume } = useMemo(() => {
-    const rawBids = (book?.bids ?? []).slice(0, 8);
-    const rawAsks = (book?.asks ?? []).slice(0, 8);
+    const rawBids = book?.bids ?? [];
+    const rawAsks = book?.asks ?? [];
 
-    // Bids: sorted high→low (API usually returns this way)
     const parsedBids = rawBids
       .map((b) => ({
         price: parseFloat(b.price),
@@ -19,7 +35,6 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
       }))
       .sort((a, b) => b.price - a.price);
 
-    // Asks: sorted low→high, then reversed so highest ask is on top
     const parsedAsks = rawAsks
       .map((a) => ({
         price: parseFloat(a.price),
@@ -27,14 +42,11 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
       }))
       .sort((a, b) => a.price - b.price);
 
-    // Cumulative totals: for asks cumulate from bottom (lowest ask) up,
-    // for bids cumulate from top (highest bid) down
     let askCumulative = 0;
     const asksWithTotal = parsedAsks.map((a) => {
       askCumulative += a.price * a.size;
       return { ...a, total: askCumulative };
     });
-    // Reverse so highest ask appears at top
     asksWithTotal.reverse();
 
     let bidCumulative = 0;
@@ -43,25 +55,67 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
       return { ...b, total: bidCumulative };
     });
 
-    // Spread = lowest ask - highest bid
     const bestBid = parsedBids[0]?.price ?? 0;
     const bestAsk = parsedAsks[0]?.price ?? 0;
     const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
-
-    // Volume = sum of all order sizes * prices
     const vol = askCumulative + bidCumulative;
 
     return {
       asks: asksWithTotal,
       bids: bidsWithTotal,
       spread,
-      lastPrice: bestBid, // last traded ≈ best bid
+      lastPrice: bestBid,
       volume: vol,
     };
   }, [book]);
 
-  const maxAskTotal = asks.length > 0 ? Math.max(...asks.map((a) => a.total)) : 1;
-  const maxBidTotal = bids.length > 0 ? Math.max(...bids.map((b) => b.total)) : 1;
+  // Slice to visible window: asks closest to spread are at the END of the array,
+  // bids closest to spread are at the START.
+  const displayedAsks = asks.length <= visibleAsks ? asks : asks.slice(asks.length - visibleAsks);
+  const displayedBids = bids.length <= visibleBids ? bids : bids.slice(0, visibleBids);
+
+  const maxAskTotal = displayedAsks.length > 0 ? Math.max(...displayedAsks.map((a) => a.total)) : 1;
+  const maxBidTotal = displayedBids.length > 0 ? Math.max(...displayedBids.map((b) => b.total)) : 1;
+
+  // Scroll to spread on first data load
+  useLayoutEffect(() => {
+    if (hasScrolled.current || !spreadRef.current || !scrollRef.current) return;
+    if (displayedAsks.length === 0 && displayedBids.length === 0) return;
+    const container = scrollRef.current;
+    const el = spreadRef.current;
+    container.scrollTop = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+    hasScrolled.current = true;
+  }, [displayedAsks.length, displayedBids.length]);
+
+  // When asks are prepended (scroll up to load more), preserve scroll position
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !prevScrollHeight.current) return;
+    const diff = el.scrollHeight - prevScrollHeight.current;
+    if (diff > 0) {
+      el.scrollTop += diff;
+    }
+    prevScrollHeight.current = 0;
+  }, [visibleAsks]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // Near top → reveal more asks
+    if (el.scrollTop < SCROLL_THRESHOLD && visibleAsks < asks.length) {
+      prevScrollHeight.current = el.scrollHeight;
+      setVisibleAsks((prev) => Math.min(prev + LOAD_MORE, asks.length));
+    }
+
+    // Near bottom → reveal more bids
+    if (
+      el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD &&
+      visibleBids < bids.length
+    ) {
+      setVisibleBids((prev) => Math.min(prev + LOAD_MORE, bids.length));
+    }
+  }, [asks.length, bids.length, visibleAsks, visibleBids]);
 
   if (!tokenId) {
     return <p className="text-sm text-muted">No order book data available</p>;
@@ -98,92 +152,100 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
         <span className="w-20 text-right">Total</span>
       </div>
 
-      {/* Asks (highest at top, lowest near spread) */}
-      <div className="space-y-0">
-        {asks.length === 0 ? (
-          <p className="py-4 text-center text-xs text-muted">No asks</p>
-        ) : (
-          asks.map((ask, i) => {
-            const depthPct = (ask.total / maxAskTotal) * 100;
-            return (
-              <div
-                key={i}
-                className="relative grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 px-2 py-[3px]"
-              >
-                {/* Depth bar from left */}
-                <div className="relative h-5">
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-sm bg-red-dim"
-                    style={{ width: `${depthPct}%` }}
-                  />
-                  {i === asks.length - 1 && (
-                    <span className="relative flex h-full items-center text-[10px] font-medium text-red">
-                      Asks
-                    </span>
-                  )}
+      {/* Scrollable book — starts centered on spread */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="max-h-[340px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-card-border"
+      >
+        {/* Asks (less attractive at top, best ask near spread) */}
+        <div>
+          {displayedAsks.length === 0 ? (
+            <p className="py-4 text-center text-xs text-muted">No asks</p>
+          ) : (
+            displayedAsks.map((ask, i) => {
+              const depthPct = (ask.total / maxAskTotal) * 100;
+              return (
+                <div
+                  key={ask.price}
+                  className="relative grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 px-2 py-[3px]"
+                >
+                  <div className="relative h-5">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-sm bg-red-dim"
+                      style={{ width: `${depthPct}%` }}
+                    />
+                    {i === displayedAsks.length - 1 && (
+                      <span className="relative flex h-full items-center text-[10px] font-medium text-red">
+                        Asks
+                      </span>
+                    )}
+                  </div>
+                  <span className="w-16 text-center text-xs font-medium text-red">
+                    {(ask.price * 100).toFixed(0)}¢
+                  </span>
+                  <span className="w-20 text-right text-xs text-foreground/70">
+                    {ask.size.toFixed(2)}
+                  </span>
+                  <span className="w-20 text-right text-xs text-foreground/70">
+                    ${ask.total.toFixed(2)}
+                  </span>
                 </div>
-                <span className="w-16 text-center text-xs font-medium text-red">
-                  {(ask.price * 100).toFixed(0)}¢
-                </span>
-                <span className="w-20 text-right text-xs text-foreground/70">
-                  {ask.size.toFixed(2)}
-                </span>
-                <span className="w-20 text-right text-xs text-foreground/70">
-                  ${ask.total.toFixed(2)}
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
 
-      {/* Spread / Last price separator */}
-      <div className="my-1 flex items-center justify-between border-y border-card-border px-2 py-1.5 text-xs text-muted">
-        <span>
-          Last: <span className="text-foreground">{(lastPrice * 100).toFixed(0)}¢</span>
-        </span>
-        <span>
-          Spread: <span className="text-foreground">{(spread * 100).toFixed(0)}¢</span>
-        </span>
-      </div>
+        {/* Spread / Last price separator */}
+        <div
+          ref={spreadRef}
+          className="sticky top-0 z-10 my-1 flex items-center justify-between border-y border-card-border bg-card px-2 py-1.5 text-xs text-muted"
+        >
+          <span>
+            Last: <span className="text-foreground">{(lastPrice * 100).toFixed(0)}¢</span>
+          </span>
+          <span>
+            Spread: <span className="text-foreground">{(spread * 100).toFixed(0)}¢</span>
+          </span>
+        </div>
 
-      {/* Bids (highest at top, lowest at bottom) */}
-      <div className="space-y-0">
-        {bids.length === 0 ? (
-          <p className="py-4 text-center text-xs text-muted">No bids</p>
-        ) : (
-          bids.map((bid, i) => {
-            const depthPct = (bid.total / maxBidTotal) * 100;
-            return (
-              <div
-                key={i}
-                className="relative grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 px-2 py-[3px]"
-              >
-                {/* Depth bar from left */}
-                <div className="relative h-5">
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-sm bg-green-dim"
-                    style={{ width: `${depthPct}%` }}
-                  />
-                  {i === 0 && (
-                    <span className="relative flex h-full items-center text-[10px] font-medium text-green">
-                      Bids
-                    </span>
-                  )}
+        {/* Bids (best bid near spread, less attractive at bottom) */}
+        <div>
+          {displayedBids.length === 0 ? (
+            <p className="py-4 text-center text-xs text-muted">No bids</p>
+          ) : (
+            displayedBids.map((bid, i) => {
+              const depthPct = (bid.total / maxBidTotal) * 100;
+              return (
+                <div
+                  key={bid.price}
+                  className="relative grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 px-2 py-[3px]"
+                >
+                  <div className="relative h-5">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-sm bg-green-dim"
+                      style={{ width: `${depthPct}%` }}
+                    />
+                    {i === 0 && (
+                      <span className="relative flex h-full items-center text-[10px] font-medium text-green">
+                        Bids
+                      </span>
+                    )}
+                  </div>
+                  <span className="w-16 text-center text-xs font-medium text-green">
+                    {(bid.price * 100).toFixed(0)}¢
+                  </span>
+                  <span className="w-20 text-right text-xs text-foreground/70">
+                    {bid.size.toFixed(2)}
+                  </span>
+                  <span className="w-20 text-right text-xs text-foreground/70">
+                    ${bid.total.toFixed(2)}
+                  </span>
                 </div>
-                <span className="w-16 text-center text-xs font-medium text-green">
-                  {(bid.price * 100).toFixed(0)}¢
-                </span>
-                <span className="w-20 text-right text-xs text-foreground/70">
-                  {bid.size.toFixed(2)}
-                </span>
-                <span className="w-20 text-right text-xs text-foreground/70">
-                  ${bid.total.toFixed(2)}
-                </span>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

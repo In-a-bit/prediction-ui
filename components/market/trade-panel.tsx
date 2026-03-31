@@ -104,7 +104,9 @@ export function TradePanel({
 
   const order = useMemo(() => {
     if (orderType === "market") {
-      const price = livePriceCents / 100;
+      // Use best ask (buy) or best bid (sell) — same price shown on the outcome buttons.
+      const bestPriceCents = outcome === "yes" ? bestPrices.yesPrice : bestPrices.noPrice;
+      const price = bestPriceCents / 100;
       if (side === "sell") {
         // For market sell, amount is shares
         const shares = parseFloat(amount) || 0;
@@ -121,7 +123,7 @@ export function TradePanel({
     const price = round6(priceCents / 100);
     const dollarAmount = round6(shares * price);
     return { dollarAmount, price, shares };
-  }, [orderType, amount, limitPrice, limitShares, livePriceCents, side]);
+  }, [orderType, amount, limitPrice, limitShares, bestPrices, outcome, side]);
 
   const potentialReturn =
     side === "buy"
