@@ -3,7 +3,7 @@
  * Engine WebSocket sends 1e18-scaled integer strings for price; sizes are unchanged on the wire.
  */
 
-function scaledIntStringToDecimal(raw: string, scale: number): string {
+export function scaledIntStringToDecimal(raw: string, scale: number): string {
   if (raw.includes(".") || /[eE]/.test(raw)) return raw;
   try {
     let v = BigInt(raw);
@@ -20,17 +20,25 @@ function scaledIntStringToDecimal(raw: string, scale: number): string {
   }
 }
 
-/** Normalize a book level from WS: scale price only; size is left as-is. */
+/** Normalize a book level from WS: price ÷1e18, size ÷1e6. */
 export function normalizeWsBookLevel(entry: {
   price: string;
   size: string;
 }): { price: string; size: string } {
-  const price = String(entry.price);
-  const size = String(entry.size);
   return {
-    price: scaledIntStringToDecimal(price, 18),
-    size,
+    price: scaledIntStringToDecimal(String(entry.price), 18),
+    size: scaledIntStringToDecimal(String(entry.size), 6),
   };
+}
+
+/** Parse a 1e18-scaled integer price string from WS into a decimal number. */
+export function normalizeWsPrice(raw: string): number {
+  return parseFloat(scaledIntStringToDecimal(raw, 18));
+}
+
+/** Parse a 1e6-scaled integer size string from WS into a decimal number. */
+export function normalizeWsSize(raw: string): number {
+  return parseFloat(scaledIntStringToDecimal(raw, 6));
 }
 
 /** After GET /book: scale integer price strings; size is left as-is. */

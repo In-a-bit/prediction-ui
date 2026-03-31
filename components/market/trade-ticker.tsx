@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/utils";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
+import { normalizeWsPrice, normalizeWsSize } from "@/lib/orderbook-scaled";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
 interface TradeActivity {
@@ -64,8 +65,8 @@ export function TradeTicker({
         id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         side: (data.side as string) ?? "BUY",
         outcome: data.asset_id === tokenIds[0] ? "Yes" : "No",
-        price: parseFloat(data.price as string) || 0,
-        size: parseFloat(data.size as string) || 0,
+        price: normalizeWsPrice(data.price as string) || 0,
+        size: normalizeWsSize(data.size as string) || 0,
         timestamp,
       };
       setTrades((prev) => [trade, ...prev].slice(0, 20));

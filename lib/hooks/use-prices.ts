@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
 import { useDataSource } from "@/components/providers/data-source-provider";
+import { normalizeWsPrice } from "@/lib/orderbook-scaled";
 import type { PriceHistoryPoint } from "@/lib/types/orderbook";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
@@ -72,8 +73,8 @@ export function useMidpoint(tokenId: string | undefined) {
   const handleBestBidAsk: MarketEventCallback = useCallback(
     (data) => {
       if (data.asset_id !== tokenId) return;
-      const bestBid = parseFloat(data.best_bid as string);
-      const bestAsk = parseFloat(data.best_ask as string);
+      const bestBid = normalizeWsPrice(data.best_bid as string);
+      const bestAsk = normalizeWsPrice(data.best_ask as string);
       if (!isNaN(bestBid) && !isNaN(bestAsk)) {
         queryClient.setQueryData(
           ["midpoint", tokenId],
@@ -87,8 +88,8 @@ export function useMidpoint(tokenId: string | undefined) {
   const handlePriceChange: MarketEventCallback = useCallback(
     (data) => {
       if (data.asset_id !== tokenId) return;
-      const bestBid = parseFloat(data.best_bid as string);
-      const bestAsk = parseFloat(data.best_ask as string);
+      const bestBid = normalizeWsPrice(data.best_bid as string);
+      const bestAsk = normalizeWsPrice(data.best_ask as string);
       if (!isNaN(bestBid) && !isNaN(bestAsk)) {
         queryClient.setQueryData(
           ["midpoint", tokenId],
