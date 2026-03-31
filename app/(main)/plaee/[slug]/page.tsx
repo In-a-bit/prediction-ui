@@ -11,6 +11,13 @@ import type { GammaEvent } from "@/lib/types/event";
 const PLAE_GAMMA_BASE =
   process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
 
+function formatVolume(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+  if (v > 0) return `$${v.toFixed(0)}`;
+  return "$0";
+}
+
 export default function PlaeEventPage() {
   const { slug } = useParams<{ slug: string }>();
   const [event, setEvent] = useState<GammaEvent | null>(null);
@@ -162,7 +169,7 @@ export default function PlaeEventPage() {
               </span>
             )}
             <div className="ml-auto text-sm text-muted">
-              Vol. ${((event.volume || 0) / 1e6).toFixed(1)}M
+              Vol. {formatVolume(event.volume || market?.volume_num || parseFloat(market?.volume ?? "0") || 0)}
             </div>
           </div>
         </div>

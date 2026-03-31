@@ -19,6 +19,13 @@ export async function generateMetadata({
   };
 }
 
+function formatVolume(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+  if (v > 0) return `$${v.toFixed(0)}`;
+  return "$0";
+}
+
 export default async function EventPage({ params }: EventPageProps) {
   const { slug } = await params;
   const event = await fetchEventBySlug(slug);
@@ -102,7 +109,7 @@ export default async function EventPage({ params }: EventPageProps) {
             initialNoPrice={noPrice}
           />
           <div className="ml-auto text-sm text-muted">
-            Vol. ${((event.volume || 0) / 1e6).toFixed(1)}M
+            Vol. {formatVolume(event.volume || market?.volume_num || parseFloat(market?.volume ?? "0") || 0)}
           </div>
         </div>
       </div>

@@ -33,17 +33,21 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
         }))
         .sort((a, b) => a.price - b.price);
 
-      // Cumulative from best outward
-      let askCum = 0;
+      // Cumulative from best outward — size in shares, total in dollars
+      let askCumShares = 0;
+      let askCumDollars = 0;
       const asksWithTotal = parsedAsks.map((a) => {
-        askCum += a.size;
-        return { ...a, total: askCum };
+        askCumShares += a.size;
+        askCumDollars += a.size * a.price;
+        return { ...a, cumShares: askCumShares, cumDollars: askCumDollars };
       });
 
-      let bidCum = 0;
+      let bidCumShares = 0;
+      let bidCumDollars = 0;
       const bidsWithTotal = parsedBids.map((b) => {
-        bidCum += b.size;
-        return { ...b, total: bidCum };
+        bidCumShares += b.size;
+        bidCumDollars += b.size * b.price;
+        return { ...b, cumShares: bidCumShares, cumDollars: bidCumDollars };
       });
 
       const bestBid = parsedBids[0]?.price ?? 0;
@@ -51,7 +55,7 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
       const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
       const midPrice =
         bestAsk > 0 && bestBid > 0 ? (bestAsk + bestBid) / 2 : bestBid || bestAsk;
-      const vol = (askCum + bidCum);
+      const vol = askCumShares + bidCumShares;
 
       return {
         // Reversed so worst ask is at top, best ask at bottom (near spread)
@@ -83,8 +87,8 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
   }, [tokenId]);
 
   const maxDepth = Math.max(
-    ...asks.map((a) => a.total),
-    ...bids.map((b) => b.total),
+    ...asks.map((a) => a.cumShares),
+    ...bids.map((b) => b.cumShares),
     1
   );
 
@@ -119,9 +123,10 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
       </div>
 
       {/* Column labels */}
-      <div className="mb-0.5 grid grid-cols-[1fr_auto_auto] gap-x-3 px-2 text-[10px] font-medium uppercase tracking-wider text-muted/60">
-        <span>Price</span>
-        <span className="w-16 text-right">Size</span>
+      <div className="mb-0.5 grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-2 text-[10px] font-medium uppercase tracking-wider text-muted/60">
+        <span></span>
+        <span className="w-14 text-right">Price</span>
+        <span className="w-14 text-right">Size</span>
         <span className="w-16 text-right">Total</span>
       </div>
 
@@ -142,33 +147,34 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
             </div>
           ) : (
             asks.map((ask, i) => {
-              const depthPct = (ask.total / maxDepth) * 100;
+              const depthPct = (ask.cumShares / maxDepth) * 100;
               const isBest = i === asks.length - 1;
               return (
                 <div
                   key={ask.price}
-                  className={`relative grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-2 ${
+                  className={`relative grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-3 px-2 ${
                     isBest ? "bg-red/[0.06]" : ""
                   }`}
                   style={{ height: ROW_HEIGHT }}
                 >
                   {/* Depth bar — fills from right */}
                   <div
-                    className="absolute inset-y-0 right-0 bg-red/10"
+                    className="absolute inset-y-0 left-0 bg-red/10"
                     style={{ width: `${depthPct}%` }}
                   />
+                  <span className="relative" />
                   <span
-                    className={`relative text-xs tabular-nums ${
+                    className={`relative w-14 text-right text-xs tabular-nums ${
                       isBest ? "font-semibold text-red" : "font-medium text-red/80"
                     }`}
                   >
                     {(ask.price * 100).toFixed(1)}¢
                   </span>
-                  <span className="relative w-16 text-right text-xs tabular-nums text-foreground/60">
+                  <span className="relative w-14 text-right text-xs tabular-nums text-foreground/60">
                     {ask.size.toFixed(2)}
                   </span>
                   <span className="relative w-16 text-right text-xs tabular-nums text-foreground/40">
-                    {ask.total.toFixed(2)}
+                    ${ask.cumDollars.toFixed(2)}
                   </span>
                 </div>
               );
@@ -178,27 +184,19 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
       </div>
 
       {/* ── SPREAD BAR — always visible, never scrolls ── */}
-      <div className="flex items-center justify-between border-y border-card-border bg-card px-2 py-1.5">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-foreground">
-            {(midPrice * 100).toFixed(1)}¢
+      <div className="flex items-center justify-center gap-4 border-y border-card-border bg-card px-2 py-1.5">
+        <span className="text-[10px] text-green">
+          {(bestBid * 100).toFixed(1)}¢
+        </span>
+        <span className="text-[10px] text-muted">
+          Spread{" "}
+          <span className="font-semibold text-foreground/70">
+            {(spread * 100).toFixed(1)}¢
           </span>
-          <span className="text-[10px] text-muted">
-            Spread{" "}
-            <span className="text-foreground/70">
-              {(spread * 100).toFixed(1)}¢
-            </span>
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-[10px]">
-          <span className="text-green">
-            Bid {(bestBid * 100).toFixed(1)}¢
-          </span>
-          <span className="text-muted/30">|</span>
-          <span className="text-red">
-            Ask {(bestAsk * 100).toFixed(1)}¢
-          </span>
-        </div>
+        </span>
+        <span className="text-[10px] text-red">
+          {(bestAsk * 100).toFixed(1)}¢
+        </span>
       </div>
 
       {/* ── BIDS — best bid at top, scrolls down to reveal worse bids ── */}
@@ -217,23 +215,24 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
             </div>
           ) : (
             bids.map((bid, i) => {
-              const depthPct = (bid.total / maxDepth) * 100;
+              const depthPct = (bid.cumShares / maxDepth) * 100;
               const isBest = i === 0;
               return (
                 <div
                   key={bid.price}
-                  className={`relative grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-2 ${
+                  className={`relative grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-3 px-2 ${
                     isBest ? "bg-green/[0.06]" : ""
                   }`}
                   style={{ height: ROW_HEIGHT }}
                 >
                   {/* Depth bar — fills from right */}
                   <div
-                    className="absolute inset-y-0 right-0 bg-green/10"
+                    className="absolute inset-y-0 left-0 bg-green/10"
                     style={{ width: `${depthPct}%` }}
                   />
+                  <span className="relative" />
                   <span
-                    className={`relative text-xs tabular-nums ${
+                    className={`relative w-14 text-right text-xs tabular-nums ${
                       isBest
                         ? "font-semibold text-green"
                         : "font-medium text-green/80"
@@ -241,11 +240,11 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
                   >
                     {(bid.price * 100).toFixed(1)}¢
                   </span>
-                  <span className="relative w-16 text-right text-xs tabular-nums text-foreground/60">
+                  <span className="relative w-14 text-right text-xs tabular-nums text-foreground/60">
                     {bid.size.toFixed(2)}
                   </span>
                   <span className="relative w-16 text-right text-xs tabular-nums text-foreground/40">
-                    {bid.total.toFixed(2)}
+                    ${bid.cumDollars.toFixed(2)}
                   </span>
                 </div>
               );
