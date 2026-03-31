@@ -20,14 +20,10 @@ export default async function PortfolioPage() {
     redirect("/login");
   }
 
-  const [user, positions, trades] = await Promise.all([
+  const [user, trades] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { balance: true, username: true },
-    }),
-    prisma.position.findMany({
-      where: { userId: session.user.id },
-      orderBy: { updatedAt: "desc" },
     }),
     prisma.trade.findMany({
       where: { userId: session.user.id },
@@ -36,12 +32,7 @@ export default async function PortfolioPage() {
     }),
   ]);
 
-  const portfolioValue = positions.reduce(
-    (sum: number, pos: { shares: number; avgPrice: number }) =>
-      sum + pos.shares * pos.avgPrice,
-    0
-  );
-  const totalValue = (user?.balance ?? 0) + portfolioValue;
+  const totalValue = user?.balance ?? 0;
 
   return (
     <div className="space-y-6">
@@ -57,21 +48,13 @@ export default async function PortfolioPage() {
         <PortfolioSummaryCard
           totalValue={totalValue}
           cashBalance={user?.balance ?? 0}
-          portfolioValue={portfolioValue}
+          portfolioValue={0}
         />
       </div>
 
       {/* Positions / Open Orders / History — tabbed card */}
       <PortfolioTabs
-        positionsContent={
-          <PositionsTable
-            positions={positions.map((p: typeof positions[number]) => ({
-              ...p,
-              createdAt: p.createdAt.toISOString(),
-              updatedAt: p.updatedAt.toISOString(),
-            }))}
-          />
-        }
+        positionsContent={<PositionsTable />}
         openOrdersContent={<OpenOrders />}
         historyContent={
           <TradeHistory

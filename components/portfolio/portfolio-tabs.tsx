@@ -16,15 +16,17 @@ export function PortfolioTabs({
   historyContent: React.ReactNode;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("Positions");
+  const [positionsKey, setPositionsKey] = useState(0);
   const [openOrdersKey, setOpenOrdersKey] = useState(0);
 
   const handleTabClick = (tab: Tab) => {
     setActiveTab(tab);
+    if (tab === "Positions") setPositionsKey((k) => k + 1);
     if (tab === "Open orders") setOpenOrdersKey((k) => k + 1);
   };
 
   const content: Record<Tab, React.ReactNode> = {
-    Positions: positionsContent,
+    Positions: <div key={positionsKey}>{positionsContent}</div>,
     "Open orders": <div key={openOrdersKey}>{openOrdersContent}</div>,
     History: historyContent,
   };
