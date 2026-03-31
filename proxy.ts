@@ -7,7 +7,7 @@ export async function proxy(req: NextRequest) {
   const isLoggedIn = !!token;
   const { pathname } = req.nextUrl;
 
-  const protectedPaths = ["/event", "/portfolio"];
+  const protectedPaths = ["/event"];
   const isProtected = protectedPaths.some((path) => pathname.startsWith(path));
 
   if (isProtected && !isLoggedIn) {
