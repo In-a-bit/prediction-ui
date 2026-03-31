@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
 import { useDataSource } from "@/components/providers/data-source-provider";
@@ -48,14 +48,50 @@ export function usePriceHistory(
   fidelity: number = 60,
   days: number = 7
 ) {
+  const queryClient = useQueryClient();
+  const ws = useMarketWS();
   const { buildClobUrl } = useDataSource();
+  // Debounce rapid book events — refetch at most once per second.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["priceHistory", tokenId, fidelity, days],
     queryFn: () => getPriceHistory(buildClobUrl, tokenId!, fidelity, days),
     enabled: !!tokenId,
-    refetchInterval: 30000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
+
+  const handleBook: MarketEventCallback = useCallback(
+    (data) => {
+      if (data.asset_id !== tokenId) return;
+      if (debounceRef.current) return;
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+      }, 1000);
+      queryClient.invalidateQueries({
+        queryKey: ["priceHistory", tokenId, fidelity, days],
+      });
+    },
+    [tokenId, fidelity, days, queryClient]
+  );
+
+  useEffect(() => {
+    if (!tokenId) return;
+    ws.subscribe(tokenId);
+    ws.on("book", handleBook);
+    return () => {
+      ws.off("book", handleBook);
+      ws.unsubscribe(tokenId);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, [tokenId, ws, handleBook]);
+
+  return query;
 }
 
 export function useMidpoint(tokenId: string | undefined) {

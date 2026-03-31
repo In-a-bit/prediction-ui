@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
 import { useDataSource } from "@/components/providers/data-source-provider";
@@ -47,25 +47,38 @@ export function useOrderBook(tokenId: string | undefined) {
     enabled: !!tokenId,
   });
 
+  // Debounce REST refetches triggered by paired-token book events.
+  const refetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleBook: MarketEventCallback = useCallback(
     (data) => {
-      if (data.asset_id !== tokenId) return;
-      const rawBids = (data.bids as OrderBook["bids"]) ?? [];
-      const rawAsks = (data.asks as OrderBook["asks"]) ?? [];
-      const toLevel = (e: OrderBook["bids"][number]) =>
-        normalizeWsBookLevel({
-          price: String(e.price),
-          size: String(e.size),
-        });
-      const book: OrderBook = {
-        market: (data.market as string) ?? "",
-        asset_id: data.asset_id as string,
-        hash: (data.hash as string) ?? "",
-        timestamp: (data.timestamp as string) ?? new Date().toISOString(),
-        bids: rawBids.map(toLevel),
-        asks: rawAsks.map(toLevel),
-      };
-      queryClient.setQueryData(["orderbook", tokenId], book);
+      if (data.asset_id === tokenId) {
+        // Direct cache update from matching WS event (instant).
+        const rawBids = (data.bids as OrderBook["bids"]) ?? [];
+        const rawAsks = (data.asks as OrderBook["asks"]) ?? [];
+        const toLevel = (e: OrderBook["bids"][number]) =>
+          normalizeWsBookLevel({
+            price: String(e.price),
+            size: String(e.size),
+          });
+        const book: OrderBook = {
+          market: (data.market as string) ?? "",
+          asset_id: data.asset_id as string,
+          hash: (data.hash as string) ?? "",
+          timestamp: (data.timestamp as string) ?? new Date().toISOString(),
+          bids: rawBids.map(toLevel),
+          asks: rawAsks.map(toLevel),
+        };
+        queryClient.setQueryData(["orderbook", tokenId], book);
+      } else {
+        // Paired token book changed — our book likely changed too.
+        // Refetch from REST (debounced to avoid hammering the API).
+        if (refetchDebounce.current) return;
+        refetchDebounce.current = setTimeout(() => {
+          refetchDebounce.current = null;
+        }, 1000);
+        queryClient.invalidateQueries({ queryKey: ["orderbook", tokenId] });
+      }
     },
     [tokenId, queryClient]
   );
@@ -77,6 +90,10 @@ export function useOrderBook(tokenId: string | undefined) {
     return () => {
       ws.off("book", handleBook);
       ws.unsubscribe(tokenId);
+      if (refetchDebounce.current) {
+        clearTimeout(refetchDebounce.current);
+        refetchDebounce.current = null;
+      }
     };
   }, [tokenId, ws, handleBook]);
 

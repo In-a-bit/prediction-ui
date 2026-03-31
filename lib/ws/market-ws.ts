@@ -56,7 +56,9 @@ export class MarketWS {
     if (newIds.length === 0) return;
     newIds.forEach((id) => this.subscribedTokens.add(id));
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.sendSubscription(newIds);
+      // Send ALL subscribed tokens — the server replaces the subscription
+      // set on each message, so sending only new IDs would drop previous ones.
+      this.sendSubscription([...this.subscribedTokens]);
     }
   }
 
