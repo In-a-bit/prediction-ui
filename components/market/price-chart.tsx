@@ -1,6 +1,7 @@
 "use client";
 
 import { usePriceHistory } from "@/lib/hooks/use-prices";
+
 import {
   AreaChart,
   Area,
