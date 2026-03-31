@@ -43,13 +43,7 @@ export function MarketTradingSection({
         {children}
 
         {/* Order Book */}
-        <div className="rounded-2xl border border-card-border bg-card p-6">
-          <h2 className="mb-2 text-sm font-semibold text-muted">
-            Order Book
-            <span className="ml-2 text-xs font-normal text-foreground/60">
-              {outcome === "yes" ? "Yes" : "No"}
-            </span>
-          </h2>
+        <div className="rounded-2xl border border-card-border bg-card p-4">
           <OrderBookView tokenId={orderbookTokenId} />
         </div>
 
