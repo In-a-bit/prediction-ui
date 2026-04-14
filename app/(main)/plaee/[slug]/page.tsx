@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 
 import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import Link from "next/link";
-import type { GammaEvent } from "@/lib/types/event";
+import type { GammaEvent, GammaMarket } from "@/lib/types/event";
 
 const PLAE_GAMMA_BASE =
   process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
@@ -18,11 +18,43 @@ function formatVolume(v: number): string {
   return "$0";
 }
 
+function isDeployed(m: GammaMarket): boolean {
+  if (!m.conditionId || m.conditionId === "PENDING") return false;
+  try {
+    const ids = m.clobTokenIds ? JSON.parse(m.clobTokenIds) : [];
+    return Array.isArray(ids) && ids.length >= 2;
+  } catch {
+    return false;
+  }
+}
+
+function parseTokenIds(m: GammaMarket): string[] {
+  try {
+    return m.clobTokenIds ? JSON.parse(m.clobTokenIds) : [];
+  } catch {
+    return [];
+  }
+}
+
+function parsePrices(m: GammaMarket): { yes: number; no: number } {
+  if (m.outcomePrices) {
+    try {
+      const p = JSON.parse(m.outcomePrices) as string[];
+      return {
+        yes: Math.round(parseFloat(p[0]) * 100),
+        no: Math.round(parseFloat(p[1]) * 100),
+      };
+    } catch {}
+  }
+  return { yes: 50, no: 50 };
+}
+
 export default function PlaeEventPage() {
   const { slug } = useParams<{ slug: string }>();
   const [event, setEvent] = useState<GammaEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -41,6 +73,24 @@ export default function PlaeEventPage() {
     }
     load();
   }, [slug]);
+
+  // Only show deployed markets (conditionId set + 2 clobTokenIds)
+  const deployedMarkets = useMemo(
+    () => event?.markets?.filter(isDeployed) ?? [],
+    [event],
+  );
+
+  // Auto-select first deployed market when event loads
+  useEffect(() => {
+    if (deployedMarkets.length > 0 && selectedMarketId === null) {
+      setSelectedMarketId(String(deployedMarkets[0].id));
+    }
+  }, [deployedMarkets, selectedMarketId]);
+
+  const selectedMarket = useMemo(
+    () => deployedMarkets.find((m) => String(m.id) === selectedMarketId) ?? deployedMarkets[0],
+    [deployedMarkets, selectedMarketId],
+  );
 
   if (loading) {
     return (
@@ -62,39 +112,23 @@ export default function PlaeEventPage() {
     );
   }
 
-  // Find first active, non-closed, non-resolved market
-  const market =
-    event.markets?.find((m) => {
-      if (m.closed || !m.active) return false;
-      if (m.outcomePrices) {
-        try {
-          const prices = JSON.parse(m.outcomePrices) as string[];
-          if (
-            prices.some(
-              (p) => parseFloat(p) >= 0.99 || parseFloat(p) <= 0.01,
-            )
-          )
-            return false;
-        } catch {}
-      }
-      return true;
-    }) ?? event.markets?.[0];
+  if (deployedMarkets.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-card-border bg-card px-8 py-16">
+        <p className="text-sm text-muted">No tradeable markets yet</p>
+        <Link href="/plaee" className="mt-4 text-sm text-brand hover:text-brand-hover">
+          Back to Plaee
+        </Link>
+      </div>
+    );
+  }
 
-  const tokenIds = market?.clobTokenIds
-    ? JSON.parse(market.clobTokenIds)
-    : [];
+  const tokenIds = selectedMarket ? parseTokenIds(selectedMarket) : [];
   const yesTokenId = tokenIds[0] as string | undefined;
   const noTokenId = tokenIds[1] as string | undefined;
-
-  let yesPrice = 50;
-  let noPrice = 50;
-  if (market?.outcomePrices) {
-    try {
-      const prices = JSON.parse(market.outcomePrices);
-      yesPrice = Math.round(parseFloat(prices[0]) * 100);
-      noPrice = Math.round(parseFloat(prices[1]) * 100);
-    } catch {}
-  }
+  const { yes: yesPrice, no: noPrice } = selectedMarket
+    ? parsePrices(selectedMarket)
+    : { yes: 50, no: 50 };
 
   return (
     <div>
@@ -112,9 +146,9 @@ export default function PlaeEventPage() {
         noTokenId={noTokenId}
         initialYesPrice={yesPrice}
         initialNoPrice={noPrice}
-        tickSize={market?.orderPriceMinTickSize ?? 0.01}
-        minOrderSize={market?.orderMinSize ?? 1}
-        conditionId={market?.conditionId}
+        tickSize={selectedMarket?.orderPriceMinTickSize ?? 0.01}
+        minOrderSize={selectedMarket?.orderMinSize ?? 1}
+        conditionId={selectedMarket?.conditionId}
         tokenIds={tokenIds.length > 0 ? tokenIds : undefined}
       >
         {/* Event header */}
@@ -163,62 +197,55 @@ export default function PlaeEventPage() {
               initialYesPrice={yesPrice}
               initialNoPrice={noPrice}
             />
-            {event.markets?.length > 1 && (
+            {deployedMarkets.length > 1 && (
               <span className="rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
-                {event.markets.length} markets
+                {deployedMarkets.length} markets
               </span>
             )}
             <div className="ml-auto text-sm text-muted">
-              Vol. {formatVolume(event.volume || market?.volume_num || parseFloat(market?.volume ?? "0") || 0)}
+              Vol.{" "}
+              {formatVolume(
+                event.volume ||
+                  selectedMarket?.volume_num ||
+                  parseFloat(selectedMarket?.volume ?? "0") ||
+                  0,
+              )}
             </div>
           </div>
         </div>
 
-        {/* All markets list (if multi-market event) */}
-        {event.markets?.length > 1 && (
+        {/* Markets selector (only deployed, clickable) */}
+        {deployedMarkets.length > 1 && (
           <div className="rounded-2xl border border-card-border bg-card p-6">
-            <h2 className="mb-4 text-sm font-semibold text-muted">
-              Markets
-            </h2>
-            <div className="space-y-3">
-              {event.markets.map((m) => {
-                let mYes = 50;
-                let mNo = 50;
-                if (m.outcomePrices) {
-                  try {
-                    const p = JSON.parse(m.outcomePrices);
-                    mYes = Math.round(parseFloat(p[0]) * 100);
-                    mNo = Math.round(parseFloat(p[1]) * 100);
-                  } catch {}
-                }
-                const isSelected = m.id === market?.id;
+            <h2 className="mb-4 text-sm font-semibold text-muted">Markets</h2>
+            <div className="space-y-2">
+              {deployedMarkets.map((m) => {
+                const { yes: mYes, no: mNo } = parsePrices(m);
+                const isSelected = String(m.id) === selectedMarketId;
                 return (
-                  <div
+                  <button
                     key={m.id}
-                    className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                    type="button"
+                    onClick={() => setSelectedMarketId(String(m.id))}
+                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors ${
                       isSelected
-                        ? "border-brand/40 bg-brand/5"
-                        : "border-card-border"
+                        ? "border-brand/50 bg-brand/10"
+                        : "border-card-border hover:border-card-border/80 hover:bg-card-hover"
                     }`}
                   >
-                    <span className="text-sm font-medium text-foreground">
+                    <span className={`text-sm font-medium ${isSelected ? "text-brand" : "text-foreground"}`}>
                       {m.question}
                     </span>
-                    <div className="flex gap-3">
-                      <span className="text-sm font-bold text-green">
-                        {mYes}¢
-                      </span>
-                      <span className="text-sm font-bold text-red">
-                        {mNo}¢
-                      </span>
+                    <div className="ml-4 flex shrink-0 gap-3">
+                      <span className="text-sm font-bold text-green">{mYes}¢</span>
+                      <span className="text-sm font-bold text-red">{mNo}¢</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
         )}
-
       </MarketTradingSection>
     </div>
   );

@@ -32,20 +32,26 @@ export default async function EventPage({ params }: EventPageProps) {
 
   if (!event) notFound();
 
-  // Find the first active, non-closed, non-resolved sub-market
+  // Only consider deployed markets (conditionId set and 2 clob token IDs present)
   const market = event.markets.find((m) => {
     if (m.closed || !m.active) return false;
+    if (!m.conditionId || m.conditionId === "PENDING") return false;
+    try {
+      const ids = m.clobTokenIds ? JSON.parse(m.clobTokenIds) : [];
+      if (!Array.isArray(ids) || ids.length < 2) return false;
+    } catch {
+      return false;
+    }
     if (m.outcomePrices) {
       try {
         const prices = JSON.parse(m.outcomePrices) as string[];
-        // Skip fully resolved markets (any price >= 0.99 or <= 0.01)
         if (prices.some((p) => parseFloat(p) >= 0.99 || parseFloat(p) <= 0.01)) {
           return false;
         }
       } catch {}
     }
     return true;
-  }) ?? event.markets[0]; // fallback to first if all resolved
+  }) ?? event.markets[0];
 
   const tokenIds = market?.clobTokenIds
     ? JSON.parse(market.clobTokenIds)

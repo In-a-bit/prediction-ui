@@ -139,6 +139,8 @@ export function TradePanel({
       : order.shares > 0 && order.shares > currentTokenBalance;
 
   const canSubmit =
+    !!currentTokenId &&
+    !!magic &&
     order.dollarAmount > 0 &&
     priceValid &&
     sharesValid &&
