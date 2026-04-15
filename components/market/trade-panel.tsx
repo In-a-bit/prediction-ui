@@ -517,17 +517,46 @@ export function TradePanel({
         </div>
       )}
 
-      {/* Summary: "You'll receive" */}
+      {/* Summary */}
       {order.dollarAmount > 0 && (
-        <div className="mt-5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-foreground">You&apos;ll receive</span>
-            <span className="font-semibold text-green">
-              {side === "buy"
-                ? `$${order.shares.toFixed(2)}`
-                : `$${order.dollarAmount.toFixed(2)}`}
-            </span>
-          </div>
+        <div className="mt-5 space-y-1.5">
+          {orderType === "limit" && side === "buy" ? (
+            <>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground">You&apos;ll spend</span>
+                <span className="font-semibold text-foreground">
+                  ${round6(order.shares * order.price).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground">You&apos;ll get</span>
+                <span className="font-semibold text-foreground">
+                  {order.shares.toFixed(2)} shares
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground">You might win</span>
+                <span className="font-semibold text-green">
+                  ${round6(order.shares * (1 - order.price)).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground">Total if win</span>
+                <span className="font-semibold text-green">
+                  ${order.shares.toFixed(2)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-foreground">You&apos;ll receive</span>
+              <span className="font-semibold text-green">
+                {side === "buy"
+                  ? `$${order.shares.toFixed(2)}`
+                  : `$${order.dollarAmount.toFixed(2)}`}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
