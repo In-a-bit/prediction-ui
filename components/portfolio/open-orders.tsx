@@ -48,7 +48,7 @@ function formatFilled(sizeMatched: string, originalSize: string): string {
   const matched = Number(sizeMatched);
   const original = Number(originalSize);
   if (Number.isNaN(matched) || Number.isNaN(original)) return "-";
-  return `${Math.round(matched)} / ${Math.round(original)}`;
+  return `${parseFloat(sizeMatched)} / ${parseFloat(originalSize)}`;
 }
 
 function MarketGroupRow({

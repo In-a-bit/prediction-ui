@@ -31,8 +31,8 @@ export interface OrderParams {
   /** BUY = 0, SELL = 1 */
   side: 0 | 1;
   tokenId: string;
-  /** Dollar amount the user typed (e.g. 10 for "$10") */
-  amount: number;
+  /** Number of shares */
+  shares: number;
   /** Price as a decimal (e.g. 0.5 for "50¢") */
   price: number;
 }
@@ -61,29 +61,33 @@ function randomSalt(): string {
 }
 
 /**
- * Convert a floating-point amount to a 1e6-scaled integer string.
- * USDC (the collateral token) has 6 decimals, so e.g. 10.5 -> "10500000".
+ * Convert a numeric amount to a 1e6-scaled integer string without
+ * floating-point precision loss.  Works by splitting the string
+ * representation at the decimal point and padding/truncating to
+ * exactly 6 fractional digits before converting to BigInt.
  */
-function to1e6(value: number): string {
-  return BigInt(Math.round(value * 1e6)).toString();
+export function to1e6(value: number): string {
+  const scaled = Math.trunc(value * 1e6);
+  return BigInt(scaled).toString();
 }
 
-function buildOrderFields(params: OrderParams, maker: string): OrderFields {
-  const { side, tokenId, amount, price } = params;
+export function buildOrderFields(params: OrderParams, maker: string): OrderFields {
+  const { side, tokenId, shares, price } = params;
 
-  // BUY: maker pays collateral, receives tokens.
-  //   makerAmount = amount (collateral), takerAmount = amount / price (tokens)
-  // SELL: maker pays tokens, receives collateral.
-  //   makerAmount = amount / price (tokens), takerAmount = amount (collateral)
+  // BUY: maker pays collateral (shares*price), receives tokens (shares).
+  // SELL: maker pays tokens (shares), receives collateral (shares*price).
+  const collateral = to1e6(shares * price);
+  const tokens = to1e6(shares);
+
   let makerAmount: string;
   let takerAmount: string;
 
   if (side === 0) {
-    makerAmount = to1e6(amount);
-    takerAmount = to1e6(amount / price);
+    makerAmount = collateral;
+    takerAmount = tokens;
   } else {
-    makerAmount = to1e6(amount / price);
-    takerAmount = to1e6(amount);
+    makerAmount = tokens;
+    takerAmount = collateral;
   }
 
   return {

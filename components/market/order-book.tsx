@@ -171,7 +171,7 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
                     {(ask.price * 100).toFixed(1)}¢
                   </span>
                   <span className="relative w-14 text-right text-xs tabular-nums text-foreground/60">
-                    {ask.size.toFixed(2)}
+                    {ask.size}
                   </span>
                   <span className="relative w-16 text-right text-xs tabular-nums text-foreground/40">
                     ${ask.cumDollars.toFixed(2)}
@@ -241,7 +241,7 @@ export function OrderBookView({ tokenId }: { tokenId: string | undefined }) {
                     {(bid.price * 100).toFixed(1)}¢
                   </span>
                   <span className="relative w-14 text-right text-xs tabular-nums text-foreground/60">
-                    {bid.size.toFixed(2)}
+                    {bid.size}
                   </span>
                   <span className="relative w-16 text-right text-xs tabular-nums text-foreground/40">
                     ${bid.cumDollars.toFixed(2)}

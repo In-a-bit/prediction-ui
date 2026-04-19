@@ -21,9 +21,9 @@ function roundToTick(value: number, tick: number): number {
   return Math.round(value / tick) * tick;
 }
 
-/** Round to 6 decimal places (USDC precision) */
+/** Truncate to 6 decimal places (USDC precision) */
 function round6(value: number): number {
-  return Math.round(value * 1e6) / 1e6;
+  return Math.trunc(value * 1e6) / 1e6;
 }
 
 export function TradePanel({
@@ -144,7 +144,6 @@ export function TradePanel({
     order.dollarAmount > 0 &&
     priceValid &&
     sharesValid &&
-    !exceedsBalance &&
     !submitting &&
     !!userProfile?.proxyWallet;
 
@@ -205,7 +204,7 @@ export function TradePanel({
       const result = await submitOrder(magic, creds, clobBaseUrl, {
         side: side === "buy" ? 0 : 1,
         tokenId: currentTokenId,
-        amount: order.dollarAmount,
+        shares: order.shares,
         price: order.price,
       }, userProfile.proxyWallet);
 
@@ -306,11 +305,15 @@ export function TradePanel({
         <div className="mb-4 space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted">USDC.e Balance</span>
-            <span className="font-medium text-foreground">${usdcBalance.toFixed(2)}</span>
+            <span className="font-medium tabular-nums text-foreground">
+              ${usdcBalanceStr ? parseFloat(usdcBalanceStr).toString() : "0"}
+            </span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted">{outcome === "yes" ? "Yes" : "No"} Shares</span>
-            <span className="font-medium text-foreground">{currentTokenBalance.toFixed(2)}</span>
+            <span className="font-medium tabular-nums text-foreground">
+              {currentTokenBalance}
+            </span>
           </div>
         </div>
       )}
