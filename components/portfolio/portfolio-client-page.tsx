@@ -57,7 +57,7 @@ export function PortfolioClientPage() {
 
       <div>
         <h2 className="mb-3 text-lg font-bold text-foreground">Open Positions</h2>
-        <PositionsTable positions={[]} />
+        <PositionsTable />
       </div>
 
       <div>
