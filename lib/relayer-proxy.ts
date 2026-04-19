@@ -56,6 +56,21 @@ const ERC1155_SET_APPROVAL_FOR_ALL_ABI = [
   },
 ] as const;
 
+const CTF_REDEEM_POSITIONS_ABI = [
+  {
+    inputs: [
+      { name: "collateralToken", type: "address" },
+      { name: "parentCollectionId", type: "bytes32" },
+      { name: "conditionId", type: "bytes32" },
+      { name: "indexSets", type: "uint256[]" },
+    ],
+    name: "redeemPositions",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
 const PROXY_FACTORY_ABI = [
   {
     inputs: [
@@ -166,6 +181,26 @@ export function encodeSetApprovalForAllCalldata(
     abi: ERC1155_SET_APPROVAL_FOR_ALL_ABI,
     functionName: "setApprovalForAll",
     args: [operatorAddress as Hex, approved],
+  });
+}
+
+/** CTF redeemPositions(collateralToken, parentCollectionId, conditionId, indexSets) calldata. */
+export function encodeRedeemPositionsCalldata(
+  collateralToken: string,
+  conditionId: string,
+  indexSets: bigint[] = [1n, 2n],
+): Hex {
+  const parentCollectionId =
+    "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex;
+  return encodeFunctionData({
+    abi: CTF_REDEEM_POSITIONS_ABI,
+    functionName: "redeemPositions",
+    args: [
+      collateralToken as Hex,
+      parentCollectionId,
+      conditionId as Hex,
+      indexSets,
+    ],
   });
 }
 

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { usePositions, type Position } from "@/lib/hooks/use-positions";
+import { useRedeemPosition } from "@/lib/hooks/use-redeem-position";
 
 function formatCents(price: number): string {
   const cents = Math.round(price * 100);
@@ -160,6 +161,20 @@ function PositionRow({ position: pos }: { position: Position }) {
   const isYes = pos.outcome.toLowerCase() === "yes";
   const toWin = pos.size;
   const pnlPositive = pos.cashPnl >= 0;
+  const redeem = useRedeemPosition();
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+
+  function handleRedeem() {
+    setRedeemError(null);
+    redeem.mutate(
+      { conditionId: pos.conditionId },
+      {
+        onError: (err) => {
+          setRedeemError(err instanceof Error ? err.message : String(err));
+        },
+      },
+    );
+  }
 
   return (
     <tr className="border-b border-card-border/50 transition-colors hover:bg-card-hover">
@@ -231,16 +246,29 @@ function PositionRow({ position: pos }: { position: Position }) {
         </p>
       </td>
 
-      {/* SELL + DOWNLOAD */}
+      {/* ACTION + DOWNLOAD */}
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2">
-          <button className="rounded-lg bg-red px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red/80">
-            Sell
-          </button>
+          {pos.redeemable ? (
+            <button
+              onClick={handleRedeem}
+              disabled={redeem.isPending}
+              className="rounded-lg bg-green px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green/80 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {redeem.isPending ? "Redeeming..." : "Redeem"}
+            </button>
+          ) : (
+            <button className="rounded-lg bg-red px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red/80">
+              Sell
+            </button>
+          )}
           <button className="rounded p-1 transition-colors hover:bg-card-hover">
             <DownloadIcon />
           </button>
         </div>
+        {redeemError && (
+          <p className="mt-1 text-right text-xs text-red">{redeemError}</p>
+        )}
       </td>
     </tr>
   );
