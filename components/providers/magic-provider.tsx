@@ -18,6 +18,8 @@ import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 
 const WALLET_STORAGE_KEY = "magic_wallet_address";
 const PROFILE_STORAGE_KEY = "magic_user_profile";
+const DPM_API_URL =
+  process.env.NEXT_PUBLIC_DPM_API_URL ?? "http://localhost:8086";
 
 // Magic<T> is the instance type when using extensions
 type MagicInstance = Magic<[OAuthExtension]>;
@@ -59,19 +61,7 @@ export function MagicProvider({ children }: { children: ReactNode }) {
 
   // Initialize Magic SDK (browser only)
   useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY;
-    if (!key) return;
-
-    const rpcUrl =
-      process.env.NEXT_PUBLIC_RPC_URL ?? "https://rpc-amoy.polygon.technology";
-    const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "80002");
-
-    const instance = new Magic(key, {
-      extensions: [new OAuthExtension()],
-      network: { rpcUrl, chainId },
-    }) as MagicInstance;
-
-    setMagic(instance);
+    void initMagicClient(setMagic);
   }, []);
 
   // Restore session from localStorage, then verify Magic session is still live
@@ -157,4 +147,52 @@ export function MagicProvider({ children }: { children: ReactNode }) {
   return (
     <MagicContext.Provider value={value}>{children}</MagicContext.Provider>
   );
+}
+
+function parseBuilderId(): number | null {
+  const raw = process.env.NEXT_PUBLIC_BUILDER_ID;
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function fallbackMagicKey(): string {
+  return process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY ?? "";
+}
+
+function magicNetworkConfig() {
+  return {
+    rpcUrl:
+      process.env.NEXT_PUBLIC_RPC_URL ?? "https://rpc-amoy.polygon.technology",
+    chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "80002"),
+  };
+}
+
+async function resolveMagicPublishableKey(): Promise<string> {
+  const builderId = parseBuilderId();
+  if (builderId === null) return fallbackMagicKey();
+  const res = await fetch(`${DPM_API_URL}/builders/${builderId}`);
+  if (!res.ok) throw new Error(`Failed to fetch builder ${builderId}`);
+  const body = (await res.json()) as { magic_public_key?: string | null };
+  const key = body.magic_public_key?.trim() ?? "";
+  if (!key) throw new Error(`Builder ${builderId} missing magic_public_key`);
+  return key;
+}
+
+async function initMagicClient(
+  setMagic: (instance: MagicInstance | null) => void,
+): Promise<void> {
+  try {
+    const key = await resolveMagicPublishableKey();
+    if (!key) return;
+    const instance = new Magic(key, {
+      extensions: [new OAuthExtension()],
+      network: magicNetworkConfig(),
+    }) as MagicInstance;
+    setMagic(instance);
+  } catch (err) {
+    console.error("[magic-provider] failed to initialize Magic SDK:", err);
+    setMagic(null);
+  }
 }
