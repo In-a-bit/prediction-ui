@@ -22,6 +22,7 @@ export interface Position {
   redeemable: boolean;
   mergeable: boolean;
   title: string;
+  question: string;
   slug: string;
   icon: string;
   eventId: string;

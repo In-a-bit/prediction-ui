@@ -196,7 +196,7 @@ function PositionRow({ position: pos }: { position: Position }) {
           )}
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-foreground">
-              {pos.title || pos.conditionId.slice(0, 12) + "..."}
+              {pos.question || pos.title || pos.conditionId.slice(0, 12) + "..."}
             </p>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
               <span

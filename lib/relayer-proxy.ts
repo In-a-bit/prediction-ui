@@ -192,13 +192,16 @@ export function encodeRedeemPositionsCalldata(
 ): Hex {
   const parentCollectionId =
     "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex;
+  const normalizedConditionId = (
+    conditionId.startsWith("0x") ? conditionId : `0x${conditionId}`
+  ) as Hex;
   return encodeFunctionData({
     abi: CTF_REDEEM_POSITIONS_ABI,
     functionName: "redeemPositions",
     args: [
       collateralToken as Hex,
       parentCollectionId,
-      conditionId as Hex,
+      normalizedConditionId,
       indexSets,
     ],
   });
