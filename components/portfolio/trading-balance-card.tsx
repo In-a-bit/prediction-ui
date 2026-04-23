@@ -5,6 +5,7 @@ import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
 import { formatTradeBalanceUsd } from "@/lib/utils";
 import { DepositModal } from "@/components/wallet/deposit-modal";
 import { WithdrawModal } from "@/components/wallet/withdraw-modal";
+import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
 export function TradingBalanceCard() {
   const {
@@ -25,15 +26,19 @@ export function TradingBalanceCard() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted">
             Available to trade
           </p>
-          <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">
+          <div className="mt-0.5 text-xl font-bold tabular-nums text-foreground">
             {isPending && !balanceNormalized && !isError ? (
               <span className="text-muted">—</span>
             ) : isError ? (
               <span className="text-red">Error</span>
             ) : (
-              formatTradeBalanceUsd(balanceNormalized ?? undefined)
+              <BalanceBreakdown>
+                <span className="cursor-help border-b border-dashed border-muted/40">
+                  {formatTradeBalanceUsd(balanceNormalized ?? undefined)}
+                </span>
+              </BalanceBreakdown>
             )}
-          </p>
+          </div>
         </div>
 
         <div className="mt-auto grid grid-cols-2 gap-2">

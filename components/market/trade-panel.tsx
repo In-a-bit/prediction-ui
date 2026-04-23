@@ -12,6 +12,7 @@ import { useOrderBook } from "@/lib/hooks/use-orderbook";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 import { submitOrder } from "@/lib/clob-order";
 import { cn } from "@/lib/utils";
+import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
 type OrderType = "market" | "limit";
 
@@ -305,15 +306,22 @@ export function TradePanel({
         <div className="mb-4 space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted">USDC.e Balance</span>
-            <span className="font-medium tabular-nums text-foreground">
-              ${usdcBalanceStr ? parseFloat(usdcBalanceStr).toString() : "0"}
-            </span>
+            <BalanceBreakdown>
+              <span className="cursor-help border-b border-dashed border-muted/40 font-medium tabular-nums text-foreground">
+                ${usdcBalanceStr ? parseFloat(usdcBalanceStr).toString() : "0"}
+              </span>
+            </BalanceBreakdown>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted">{outcome === "yes" ? "Yes" : "No"} Shares</span>
-            <span className="font-medium tabular-nums text-foreground">
-              {currentTokenBalance}
-            </span>
+            <TokenBalanceBreakdown
+              tokenId={currentTokenId}
+              onchainBalance={currentTokenBalance}
+            >
+              <span className="cursor-help border-b border-dashed border-muted/40 font-medium tabular-nums text-foreground">
+                {currentTokenBalance}
+              </span>
+            </TokenBalanceBreakdown>
           </div>
         </div>
       )}

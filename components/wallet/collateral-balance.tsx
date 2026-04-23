@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
 import { formatTradeBalanceUsd } from "@/lib/utils";
+import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
 export function CollateralBalance() {
   const {
@@ -28,9 +29,11 @@ export function CollateralBalance() {
         ) : isError ? (
           <span className="font-medium text-red">Error</span>
         ) : (
-          <span className="min-w-0 truncate font-semibold text-foreground">
-            {formatTradeBalanceUsd(balanceNormalized ?? undefined)}
-          </span>
+          <BalanceBreakdown>
+            <span className="min-w-0 truncate font-semibold text-foreground">
+              {formatTradeBalanceUsd(balanceNormalized ?? undefined)}
+            </span>
+          </BalanceBreakdown>
         )}
       </Link>
       <button

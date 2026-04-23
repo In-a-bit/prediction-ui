@@ -1,4 +1,7 @@
+"use client";
+
 import { formatCurrency } from "@/lib/utils";
+import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
 type PortfolioSummaryCardProps = {
   totalValue: number;
@@ -26,9 +29,11 @@ export function PortfolioSummaryCard({
           <p className="text-xs font-medium uppercase tracking-wider text-muted">
             Cash Balance
           </p>
-          <p className="text-lg font-bold tabular-nums text-green">
-            {formatCurrency(cashBalance)}
-          </p>
+          <BalanceBreakdown>
+            <p className="cursor-help border-b border-dashed border-muted/40 text-lg font-bold tabular-nums text-green">
+              {formatCurrency(cashBalance)}
+            </p>
+          </BalanceBreakdown>
         </li>
         <li className="flex items-center justify-between gap-3 py-2.5 last:pb-0">
           <p className="text-xs font-medium uppercase tracking-wider text-muted">

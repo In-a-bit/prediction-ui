@@ -36,6 +36,71 @@ export type ConditionalTokenBalanceBatchResponse = {
  * Fetches conditional token balances for (owner, tokenId) pairs in one call.
  * POST /conditional-tokens/balance-batch
  */
+export type UserBalanceResponse = {
+  usdc_balance: string;
+  usdc_allowance: string | null;
+  block_number: number;
+  updated_at: string;
+};
+
+export type EngineBalanceResponse = {
+  usdc_balance: string;
+  usdc_locked: string;
+  usdc_allowance: string | null;
+};
+
+export type UserDetailResponse = {
+  id: number;
+  address: string;
+  proxy_wallet: string;
+  balance: UserBalanceResponse | null;
+  engine_balance: EngineBalanceResponse | null;
+};
+
+export async function getUserDetailedBalance(
+  proxyWallet: string,
+): Promise<UserDetailResponse | null> {
+  const url = new URL(`${DPM_API_URL}/users`);
+  url.searchParams.set("proxy_wallet", proxyWallet);
+  url.searchParams.set("limit", "1");
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) return null;
+    const json = await res.json();
+    const users = json.data as UserDetailResponse[];
+    return users?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export type TokenBalanceDetail = {
+  token_id: string;
+  balance: string;
+  block_number?: number;
+  updated_at?: string;
+  engine_balance?: string;
+  engine_locked?: string;
+};
+
+export type UserTokenBalancesResponse = {
+  user_id: number;
+  address: string;
+  balances: TokenBalanceDetail[];
+};
+
+export async function getUserTokenBalances(
+  userId: number,
+): Promise<UserTokenBalancesResponse | null> {
+  try {
+    const res = await fetch(`${DPM_API_URL}/users/${userId}/token-balances`);
+    if (!res.ok) return null;
+    return res.json() as Promise<UserTokenBalancesResponse>;
+  } catch {
+    return null;
+  }
+}
+
 export async function getConditionalTokenBalanceBatch(
   owners: string[],
   ids: string[],

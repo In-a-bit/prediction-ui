@@ -8,6 +8,7 @@ import { useMagic } from "@/components/providers/magic-provider";
 import { formatTradeBalanceUsd } from "@/lib/utils";
 import type { MagicLike } from "@/lib/allowance-relayer";
 import { submitFundWithdraw } from "@/lib/fund-withdraw-relayer";
+import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 import {
   invalidateAllCollateralBalances,
   useCollateralBalance,
@@ -177,9 +178,11 @@ export function WithdrawModal({
               </label>
               <span className="text-xs text-muted">
                 Balance{" "}
-                <span className="font-medium text-foreground">
-                  {formatTradeBalanceUsd(balanceNormalized ?? undefined)}
-                </span>
+                <BalanceBreakdown>
+                  <span className="cursor-help border-b border-dashed border-muted/40 font-medium text-foreground">
+                    {formatTradeBalanceUsd(balanceNormalized ?? undefined)}
+                  </span>
+                </BalanceBreakdown>
               </span>
             </div>
             <div className="relative flex rounded-xl border border-card-border bg-input focus-within:border-brand">
