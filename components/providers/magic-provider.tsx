@@ -149,12 +149,9 @@ export function MagicProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function parseBuilderId(): number | null {
-  const raw = process.env.NEXT_PUBLIC_BUILDER_ID;
-  if (!raw) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return null;
-  return parsed;
+function builderApiPublicKeyFromEnv(): string | null {
+  const raw = process.env.NEXT_PUBLIC_BUILDER_API_PUBLIC_KEY?.trim();
+  return raw || null;
 }
 
 function fallbackMagicKey(): string {
@@ -170,13 +167,15 @@ function magicNetworkConfig() {
 }
 
 async function resolveMagicPublishableKey(): Promise<string> {
-  const builderId = parseBuilderId();
-  if (builderId === null) return fallbackMagicKey();
-  const res = await fetch(`${DPM_API_URL}/builders/${builderId}`);
-  if (!res.ok) throw new Error(`Failed to fetch builder ${builderId}`);
+  const apiKey = builderApiPublicKeyFromEnv();
+  if (apiKey === null) return fallbackMagicKey();
+  const res = await fetch(
+    `${DPM_API_URL}/builders/by-api-key/${encodeURIComponent(apiKey)}`,
+  );
+  if (!res.ok) throw new Error(`Failed to fetch builder by api_public_key (${res.status})`);
   const body = (await res.json()) as { magic_public_key?: string | null };
   const key = body.magic_public_key?.trim() ?? "";
-  if (!key) throw new Error(`Builder ${builderId} missing magic_public_key`);
+  if (!key) throw new Error("DPM response missing magic_public_key");
   return key;
 }
 

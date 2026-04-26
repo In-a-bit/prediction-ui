@@ -20,9 +20,8 @@ function userResponseToProfile(user: UserApiResponse): UserProfile {
 export const GAMMA_API_URL =
   process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
 
-const BUILDER_ID = process.env.NEXT_PUBLIC_BUILDER_ID
-  ? Number(process.env.NEXT_PUBLIC_BUILDER_ID)
-  : null;
+const BUILDER_API_PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_BUILDER_API_PUBLIC_KEY?.trim() ?? "";
 
 /**
  * Calls POST /login with the Magic DID token, then GET /users to fetch the
@@ -31,8 +30,8 @@ const BUILDER_ID = process.env.NEXT_PUBLIC_BUILDER_ID
  */
 export async function loginWithMagic(didToken: string): Promise<UserProfile> {
   const body: Record<string, unknown> = {};
-  if (BUILDER_ID !== null && Number.isFinite(BUILDER_ID)) {
-    body.builder_id = BUILDER_ID;
+  if (BUILDER_API_PUBLIC_KEY) {
+    body.api_public_key = BUILDER_API_PUBLIC_KEY;
   }
 
   const loginRes = await fetch(`${GAMMA_API_URL}/login`, {
