@@ -61,34 +61,79 @@ function randomSalt(): string {
 }
 
 /**
- * Convert a numeric amount to a 1e6-scaled integer string without
- * floating-point precision loss.  Works by splitting the string
- * representation at the decimal point and padding/truncating to
- * exactly 6 fractional digits before converting to BigInt.
+ * Convert a decimal value (as a number or string) to a BigInt scaled by 1e6
+ * (USDC / share fixed-point precision), without IEEE-754 drift.
+ *
+ * Strategy: produce a stable decimal string from the input, then move the
+ * decimal point 6 places right and parse as BigInt. We never multiply or
+ * divide by 1e6 in floating-point.
+ *
+ * For numbers we use `Number.prototype.toString()` (the shortest decimal that
+ * round-trips back to the same FP value). For typical user-typed values like
+ * 0.49 or 10.123456 this returns the clean form ("0.49", "10.123456"). We
+ * then truncate (not round) at 6 fractional digits to match the existing
+ * protocol semantic. Scientific notation is rejected — we don't support
+ * sub-micro magnitudes that would trigger it.
  */
-export function to1e6(value: number): string {
-  const scaled = Math.trunc(value * 1e6);
-  return BigInt(scaled).toString();
+export function decimalToMicro(value: number | string): bigint {
+  let s: string;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`non-finite value: ${value}`);
+    s = value.toString();
+  } else {
+    s = value.trim();
+  }
+  if (!s) return 0n;
+
+  let negative = false;
+  if (s.startsWith("-")) {
+    negative = true;
+    s = s.slice(1);
+  } else if (s.startsWith("+")) {
+    s = s.slice(1);
+  }
+
+  if (/[eE]/.test(s)) {
+    throw new Error(`scientific notation not supported: ${value}`);
+  }
+
+  const dot = s.indexOf(".");
+  const intPart = dot === -1 ? s : s.slice(0, dot) || "0";
+  const fracPart = dot === -1 ? "" : s.slice(dot + 1);
+  const frac6 = (fracPart + "000000").slice(0, 6);
+
+  const digits = (intPart + frac6).replace(/^0+/, "") || "0";
+  const result = BigInt(digits);
+  return negative ? -result : result;
+}
+
+/**
+ * Backwards-compatible string wrapper around {@link decimalToMicro}.
+ */
+export function to1e6(value: number | string): string {
+  return decimalToMicro(value).toString();
 }
 
 export function buildOrderFields(params: OrderParams, maker: string): OrderFields {
   const { side, tokenId, shares, price } = params;
 
-  // BUY: maker pays collateral (shares*price), receives tokens (shares).
-  // SELL: maker pays tokens (shares), receives collateral (shares*price).
-  const collateral = to1e6(shares * price);
-  const tokens = to1e6(shares);
+  const priceMicro = decimalToMicro(price);   // e.g. 0.49        -> 490000n
+  const sharesMicro = decimalToMicro(shares); // e.g. 10.1234     -> 10123400n
 
-  let makerAmount: string;
-  let takerAmount: string;
+  // Collateral (USDC) in micro-units = price * shares, computed exactly in
+  // BigInt: priceMicro * sharesMicro is in 1e12 scale, divide by 1e6 to land
+  // back in 1e6 micro-USDC. BigInt division truncates toward zero.
+  //
+  // For the implied price (maker/taker) to equal the requested limit price
+  // exactly, the caller must pass shares with at most (6 - priceDecimalPlaces)
+  // fractional digits (e.g. price tick 0.01 -> shares max 4dp). The trade
+  // panel enforces this by snapping share inputs.
+  const collateralMicro = (priceMicro * sharesMicro) / 1_000_000n;
 
-  if (side === 0) {
-    makerAmount = collateral;
-    takerAmount = tokens;
-  } else {
-    makerAmount = tokens;
-    takerAmount = collateral;
-  }
+  // BUY: maker pays collateral, receives tokens.
+  // SELL: maker pays tokens, receives collateral.
+  const makerAmount = (side === 0 ? collateralMicro : sharesMicro).toString();
+  const takerAmount = (side === 0 ? sharesMicro : collateralMicro).toString();
 
   return {
     salt: randomSalt(),

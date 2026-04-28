@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { to1e6, buildOrderFields } from "../clob-order";
+import { webcrypto } from "node:crypto";
+import { to1e6, decimalToMicro, buildOrderFields } from "../clob-order";
+
+// Node 18 doesn't expose globalThis.crypto without a flag; polyfill for tests.
+if (!globalThis.crypto) {
+  // @ts-expect-error - assign WebCrypto to globalThis for randomSalt() tests
+  globalThis.crypto = webcrypto;
+}
 
 describe("to1e6", () => {
   it("preserves 6 decimal places exactly", () => {
@@ -28,6 +35,28 @@ describe("to1e6", () => {
 
   it("handles 0.5 price", () => {
     expect(to1e6(0.5)).toBe("500000");
+  });
+
+  it("handles 0.49 price exactly (no FP drift)", () => {
+    // 0.49 in IEEE-754 is 0.4899999999999999911... — naive Math.trunc(0.49 * 1e6)
+    // could return 489999 instead of 490000. Verify our string-based path is stable.
+    expect(to1e6(0.49)).toBe("490000");
+  });
+
+  it("handles 0.07 price exactly (no FP drift)", () => {
+    expect(to1e6(0.07)).toBe("70000");
+  });
+
+  it("accepts numeric strings without going through Number", () => {
+    expect(to1e6("10.123456")).toBe("10123456");
+    expect(to1e6("0.49")).toBe("490000");
+  });
+});
+
+describe("decimalToMicro", () => {
+  it("returns BigInt for precise BigInt arithmetic downstream", () => {
+    expect(decimalToMicro(0.49)).toBe(490000n);
+    expect(decimalToMicro(10.123456)).toBe(10123456n);
   });
 });
 
@@ -82,5 +111,41 @@ describe("buildOrderFields", () => {
       );
       expect(fields.takerAmount).toBe(tc.expectedShares);
     }
+  });
+
+  it("BUY: implied price equals limit price exactly when shares are tick-aligned", () => {
+    // With tick = 0.01 (price has 2 decimals), shares max 4 decimals.
+    // 0.49 * 10.1234 = 4.960466 USDC, exactly representable in 6dp.
+    const fields = buildOrderFields(
+      { side: 0, tokenId: "t", shares: 10.1234, price: 0.49 },
+      MAKER,
+    );
+    expect(fields.makerAmount).toBe("4960466");
+    expect(fields.takerAmount).toBe("10123400");
+    // Implied price = 4960466 / 10123400 = 0.49 exactly (49/100 ratio)
+    expect(BigInt(fields.makerAmount) * 100n).toBe(BigInt(fields.takerAmount) * 49n);
+  });
+
+  it("BUY: 0.49 price with 6dp shares produces stable maker/taker (matches manual BigInt math)", () => {
+    // The user's reported case: shares=10.123456, price=0.49.
+    // shares is too granular for tick=0.01 (would be snapped by the UI), but
+    // the order builder must still be deterministic and FP-drift-free here.
+    const fields = buildOrderFields(
+      { side: 0, tokenId: "t", shares: 10.123456, price: 0.49 },
+      MAKER,
+    );
+    // 490000 * 10123456 / 1_000_000 = 4_960_493 (BigInt truncating divide)
+    expect(fields.makerAmount).toBe("4960493");
+    expect(fields.takerAmount).toBe("10123456");
+  });
+
+  it("SELL: shares=10.1234 at price=0.49 yields exact implied price", () => {
+    const fields = buildOrderFields(
+      { side: 1, tokenId: "t", shares: 10.1234, price: 0.49 },
+      MAKER,
+    );
+    expect(fields.makerAmount).toBe("10123400");
+    expect(fields.takerAmount).toBe("4960466");
+    expect(BigInt(fields.takerAmount) * 100n).toBe(BigInt(fields.makerAmount) * 49n);
   });
 });

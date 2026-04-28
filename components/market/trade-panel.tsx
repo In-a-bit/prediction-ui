@@ -27,6 +27,37 @@ function round6(value: number): number {
   return Math.trunc(value * 1e6) / 1e6;
 }
 
+/**
+ * Maximum decimal places allowed for share amounts so that price * shares is
+ * exactly representable in 6-decimal-place USDC.
+ *
+ * priceDp = decimal places in tickSize (0.01 -> 2, 0.001 -> 3).
+ * shareDp = 6 - priceDp. Anything beyond this leaks fractional micro-USDC
+ * and makes the implied price (maker/taker) ≠ the requested limit price.
+ */
+function shareDecimalsForTick(tickSize: number): number {
+  if (!(tickSize > 0)) return 6;
+  const s = tickSize.toString();
+  const dot = s.indexOf(".");
+  const dp = dot === -1 ? 0 : s.length - dot - 1;
+  return Math.max(0, 6 - dp);
+}
+
+/** Floor `value` to `decimals` fractional digits (string-based, FP-safe). */
+function truncateToDecimals(value: number, decimals: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  // toString gives the shortest round-trip decimal — clean for user-typed
+  // values like 10.123456. For computed values we accept the FP digits.
+  const s = value.toString();
+  if (s.includes("e") || s.includes("E")) return 0;
+  const [intPart, fracPart = ""] = s.split(".");
+  const truncatedFrac = fracPart.slice(0, decimals);
+  const out = decimals > 0 && truncatedFrac
+    ? `${intPart}.${truncatedFrac}`
+    : intPart;
+  return parseFloat(out);
+}
+
 export function TradePanel({
   yesTokenId,
   noTokenId,
@@ -97,6 +128,10 @@ export function TradePanel({
   // Tick size in cents for display (e.g. 0.01 -> 1, 0.1 -> 10)
   const tickCents = round6(tickSize * 100);
 
+  // Max decimals for share inputs so that maker/taker is exactly tick-aligned
+  const shareDp = useMemo(() => shareDecimalsForTick(tickSize), [tickSize]);
+  const shareStep = useMemo(() => 1 / 10 ** shareDp, [shareDp]);
+
   const livePriceCents = midpoint
     ? Math.round(midpoint * 100)
     : outcome === "yes"
@@ -157,13 +192,13 @@ export function TradePanel({
     setLimitPrice(String(round6(snapped)));
   }, [limitPrice, tickCents]);
 
-  /** Snap limit shares to 6 decimals and enforce min */
+  /** Snap limit shares to the precision that's compatible with the price tick. */
   const handleLimitSharesBlur = useCallback(() => {
     const raw = parseFloat(limitShares);
     if (!raw && raw !== 0) return;
-    const snapped = round6(Math.max(raw, 0));
+    const snapped = truncateToDecimals(Math.max(raw, 0), shareDp);
     setLimitShares(snapped > 0 ? String(snapped) : "");
-  }, [limitShares]);
+  }, [limitShares, shareDp]);
 
   /** Increment / decrement price by one tick */
   const adjustPrice = useCallback(
@@ -176,12 +211,12 @@ export function TradePanel({
     [limitPrice, livePriceCents, tickCents],
   );
 
-  /** Compute max shares user can buy at current limit price */
+  /** Compute max shares user can buy at current limit price (tick-aligned) */
   const maxBuyShares = useMemo(() => {
     const price = (parseFloat(limitPrice) || livePriceCents) / 100;
     if (price <= 0) return 0;
-    return Math.floor((usdcBalance / price) * 1e6) / 1e6;
-  }, [limitPrice, livePriceCents, usdcBalance]);
+    return truncateToDecimals(usdcBalance / price, shareDp);
+  }, [limitPrice, livePriceCents, usdcBalance, shareDp]);
 
   /** Compute max shares for market order */
   const maxMarketDollars = useMemo(() => {
@@ -385,7 +420,7 @@ export function TradePanel({
               onBlur={handleLimitSharesBlur}
               placeholder={String(minOrderSize)}
               min={minOrderSize}
-              step="1"
+              step={shareStep}
               className={cn(
                 "w-full rounded-lg border bg-input py-2.5 px-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
                 limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize
@@ -405,7 +440,7 @@ export function TradePanel({
                     <button
                       key={pct}
                       onClick={() => {
-                        const shares = Math.floor(maxBuyShares * pct * 1e6) / 1e6;
+                        const shares = truncateToDecimals(maxBuyShares * pct, shareDp);
                         setLimitShares(shares > 0 ? String(shares) : "");
                       }}
                       className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
@@ -429,7 +464,7 @@ export function TradePanel({
                     <button
                       key={pct}
                       onClick={() => {
-                        const shares = Math.floor(currentTokenBalance * pct * 1e6) / 1e6;
+                        const shares = truncateToDecimals(currentTokenBalance * pct, shareDp);
                         setLimitShares(shares > 0 ? String(shares) : "");
                       }}
                       className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
@@ -439,7 +474,7 @@ export function TradePanel({
                   ))}
                   <button
                     onClick={() => {
-                      const shares = Math.floor(currentTokenBalance * 1e6) / 1e6;
+                      const shares = truncateToDecimals(currentTokenBalance, shareDp);
                       setLimitShares(shares > 0 ? String(shares) : "");
                     }}
                     className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
