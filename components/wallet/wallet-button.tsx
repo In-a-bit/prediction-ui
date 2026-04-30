@@ -3,27 +3,54 @@
 import { useState } from "react";
 import { useMagic } from "@/components/providers/magic-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";
-import { submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
-import { getUser } from "@/lib/gamma-api";
+import { checkAllowanceAndSignIfNeeded, submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
+import { getUser, loginWithMagic } from "@/lib/gamma-api";
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function WalletButton() {
-  const { magic, walletAddress, userProfile, setUserProfile, disconnect } =
+  const { magic, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect } =
     useMagic();
   const [showProfile, setShowProfile] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [allowanceBusy, setAllowanceBusy] = useState(false);
   const [allowanceMsg, setAllowanceMsg] = useState<string | null>(null);
+  const [connectUiBusy, setConnectUiBusy] = useState(false);
+  const [connectUiError, setConnectUiError] = useState<string | null>(null);
 
   function handleCopy() {
     if (!walletAddress) return;
     navigator.clipboard.writeText(walletAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleConnectWithUi() {
+    if (!magic) return;
+    setConnectUiError(null);
+    setConnectUiBusy(true);
+    console.info("[wallet-button.handleConnectWithUi] start");
+    try {
+      console.info("[wallet-button.handleConnectWithUi] before magic.wallet.connectWithUI");
+      await magic.wallet.connectWithUI();
+      console.info("[wallet-button.handleConnectWithUi] after magic.wallet.connectWithUI");
+      const didToken = await magic.user.getIdToken();
+      if (!didToken) throw new Error("No DID token returned from Magic");
+      const profile = await loginWithMagic(didToken);
+      setWalletAddress(profile.proxyWallet);
+      setUserProfile(profile);
+      checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], profile).catch(() => {});
+      console.info("[wallet-button.handleConnectWithUi] success", { proxyWallet: profile.proxyWallet });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[wallet-button.handleConnectWithUi] failed", { error: msg });
+      setConnectUiError(msg);
+    } finally {
+      setConnectUiBusy(false);
+    }
   }
 
   if (walletAddress) {
@@ -170,15 +197,29 @@ export function WalletButton() {
 
   return (
     <>
-      <button
-        onClick={() => setShowModal(true)}
-        className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover"
-      >
-        <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3H3m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6" />
-        </svg>
-        Connect Wallet
-      </button>
+      <div className="flex items-start gap-2">
+        <button
+          onClick={() => setShowModal(true)}
+          className="hidden flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover"
+        >
+          <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3H3m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6" />
+          </svg>
+          Connect Wallet
+        </button>
+
+        <button
+          onClick={handleConnectWithUi}
+          disabled={!magic || connectUiBusy}
+          className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 20L20 4M14 4l1-2m4 7l2-1M3 15l-1-1m6 6l1 2" />
+          </svg>
+          {connectUiBusy ? "Connecting..." : "Connect Wallet"}
+        </button>
+      </div>
+      {connectUiError && <p className="max-w-72 text-xs text-red">{connectUiError}</p>}
 
       {showModal && <ConnectWalletModal onClose={() => setShowModal(false)} />}
     </>
