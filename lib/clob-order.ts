@@ -145,7 +145,7 @@ export function buildOrderFields(params: OrderParams, maker: string): OrderField
     takerAmount,
     expiration: "0",
     nonce: "0",
-    feeRateBps: "0",
+    feeRateBps: "200",
     side,
     signatureType: 1,
   };
