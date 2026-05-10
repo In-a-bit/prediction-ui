@@ -251,35 +251,6 @@ async function fetchMarketId(clobBaseUrl: string, tokenId: string): Promise<stri
   return data.market;
 }
 
-/**
- * Sign a cancel-order message using EIP-191 personal_sign.
- * The message format must match the backend's HashCancelMessage in libs/crypto/cancel.go.
- */
-export async function signCancelMessage(
-  rpcProvider: { request: (args: { method: string; params: unknown[] }) => Promise<string> },
-  signer: string,
-  marketId: string,
-  orderHashes: string[],
-): Promise<string> {
-  let msg: string;
-  if (orderHashes.length === 1) {
-    msg = `Cancel order: ${orderHashes[0]} on market: ${marketId}`;
-  } else {
-    msg = `Cancel orders: [${orderHashes.join(", ")}] on market: ${marketId}`;
-  }
-
-  const hex =
-    "0x" +
-    Array.from(new TextEncoder().encode(msg))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-  return rpcProvider.request({
-    method: "personal_sign",
-    params: [hex, signer],
-  });
-}
-
 export interface SubmitOrderResult {
   orderHash: string;
   status: string;

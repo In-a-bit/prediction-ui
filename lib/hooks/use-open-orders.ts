@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMagic } from "@/components/providers/magic-provider";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
-import { buildHmacHeaders, signCancelMessage } from "@/lib/clob-order";
+import { buildHmacHeaders } from "@/lib/clob-order";
 
 const CLOB_API_URL = process.env.NEXT_PUBLIC_CLOB_API_URL!;
 
@@ -75,17 +75,6 @@ export function useCancelOrder() {
     mutationFn: async ({ orderHash, marketId }: CancelOrderParams) => {
       if (!magic) throw new Error("Magic not initialized");
 
-      const info = await magic.user.getInfo();
-      const eoa = info.wallets?.ethereum?.publicAddress;
-      if (!eoa) throw new Error("No wallet address");
-
-      const signature = await signCancelMessage(
-        magic.rpcProvider,
-        eoa,
-        marketId,
-        [orderHash],
-      );
-
       const creds = await getOrDeriveClobCredentials(magic);
       const headers = await buildHmacHeaders(creds, "DELETE", "/order");
 
@@ -95,7 +84,6 @@ export function useCancelOrder() {
         body: JSON.stringify({
           order_hash: orderHash,
           market_id: marketId,
-          signature,
         }),
       });
       if (!res.ok) {
