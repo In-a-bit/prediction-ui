@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const RELAYER_API_URL = process.env.NEXT_PUBLIC_RELAYER_API_URL ?? "http://localhost:8085";
+const RELAYER_ORIGIN =
+  process.env.RELAYER_API_ORIGIN ?? "http://127.0.0.1:8085";
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -14,16 +15,25 @@ export async function POST(request: NextRequest) {
   if (!from || typeof from !== "string") {
     return NextResponse.json(
       { error: "body.from is required (signer address)" },
-      { status: 400 }
+      { status: 400 },
+    );
+  }
+
+  const appKey = process.env.APP_API_KEY;
+  if (!appKey) {
+    return NextResponse.json(
+      { error: "APP_API_KEY is not configured on the Next.js server" },
+      { status: 503 },
     );
   }
 
   const cookie = request.headers.get("cookie") ?? "";
-  const url = `${RELAYER_API_URL.replace(/\/$/, "")}/submit`;
+  const url = `${RELAYER_ORIGIN.replace(/\/$/, "")}/submit`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-API-Key": appKey,
       ...(cookie ? { Cookie: cookie } : {}),
     },
     body: JSON.stringify(body),
@@ -33,7 +43,7 @@ export async function POST(request: NextRequest) {
   if (!res.ok) {
     return NextResponse.json(
       { error: `Relayer API error (${res.status}): ${text}` },
-      { status: res.status }
+      { status: res.status },
     );
   }
 
@@ -43,7 +53,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "Invalid JSON from relayer" },
-      { status: 502 }
+      { status: 502 },
     );
   }
 

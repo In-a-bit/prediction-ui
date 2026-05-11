@@ -13,6 +13,7 @@ import {
   type MarketEventType,
   type MarketEventCallback,
 } from "@/lib/ws/market-ws";
+import { predictionGoMarketWsUrl } from "@/lib/prediction-go";
 
 interface MarketWSContextValue {
   subscribe: (tokenId: string) => void;
@@ -36,7 +37,7 @@ export function MarketWSProvider({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const ws = new MarketWS(wsUrl);
+    const ws = new MarketWS(wsUrl ?? predictionGoMarketWsUrl());
     wsRef.current = ws;
 
     // Poll connection status (lightweight since it just checks readyState)

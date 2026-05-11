@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
 type BuildClobUrl = (
   endpoint: string,
@@ -11,15 +12,15 @@ interface DataSourceContextValue {
   buildClobUrl: BuildClobUrl;
 }
 
-const CLOB_BASE =
-  process.env.NEXT_PUBLIC_CLOB_API_URL ?? "http://localhost:8083";
+const CLOB_BASE = PG.clob;
 
 function defaultBuildClobUrl(
   endpoint: string,
   params: Record<string, string>
 ): string {
   const sp = new URLSearchParams(params);
-  return `${CLOB_BASE}/${endpoint}?${sp}`;
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  return `${pgUrl(CLOB_BASE, path)}?${sp}`;
 }
 
 const DataSourceContext = createContext<DataSourceContextValue>({

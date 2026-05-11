@@ -12,6 +12,7 @@ import {
   encodeTransferCalldata,
 } from "./relayer-proxy";
 import { getRelayPayload, submitTransaction } from "./relayer-api-client";
+import { PG } from "@/lib/prediction-go";
 
 const DEFAULT_GAS_LIMIT = BigInt(300_000);
 
@@ -70,7 +71,7 @@ export async function submitFundWithdraw(
   const config = getProxyConfig();
   const collateral = getCollateralAddress();
 
-  const relay = await getRelayPayload(from, relayerApiUrl);
+  const relay = await getRelayPayload(from, relayerApiUrl ?? PG.relayer);
   const gasPrice = "0";
   const gasLimitStr = String(DEFAULT_GAS_LIMIT);
   const relayerFee = "0";
@@ -114,5 +115,5 @@ export async function submitFundWithdraw(
     metadata: "funwithdraw",
   };
 
-  return submitTransaction(body, relayerApiUrl);
+  return submitTransaction(body);
 }

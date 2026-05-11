@@ -15,11 +15,10 @@ import { getUser } from "@/lib/gamma-api";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { useUserWs } from "@/lib/hooks/use-user-ws";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
 const WALLET_STORAGE_KEY = "magic_wallet_address";
 const PROFILE_STORAGE_KEY = "magic_user_profile";
-const DPM_API_URL =
-  process.env.NEXT_PUBLIC_DPM_API_URL ?? "http://localhost:8086";
 
 // Magic<T> is the instance type when using extensions
 type MagicInstance = Magic<[OAuthExtension]>;
@@ -170,7 +169,7 @@ async function resolveMagicPublishableKey(): Promise<string> {
   const apiKey = builderApiPublicKeyFromEnv();
   if (apiKey === null) return fallbackMagicKey();
   const res = await fetch(
-    `${DPM_API_URL}/builders/by-api-key/${encodeURIComponent(apiKey)}`,
+    pgUrl(PG.dpm, `/builders/by-api-key/${encodeURIComponent(apiKey)}`),
   );
   if (!res.ok) throw new Error(`Failed to fetch builder by api_public_key (${res.status})`);
   const body = (await res.json()) as { magic_public_key?: string | null };

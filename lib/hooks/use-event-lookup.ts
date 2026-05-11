@@ -2,7 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-const GAMMA_API_URL = process.env.NEXT_PUBLIC_GAMMA_API_URL!;
+import { PG, pgUrl } from "@/lib/prediction-go";
+
+const GAMMA_BASE = PG.gamma;
 
 export interface EventInfo {
   title: string;
@@ -16,7 +18,7 @@ export interface EventInfo {
  */
 async function fetchEventLookup(): Promise<Map<string, EventInfo>> {
   const res = await fetch(
-    `${GAMMA_API_URL}/events/pagination?active=true&limit=100`,
+    `${pgUrl(GAMMA_BASE, "/events/pagination")}?active=true&limit=100`,
   );
   if (!res.ok) return new Map();
 

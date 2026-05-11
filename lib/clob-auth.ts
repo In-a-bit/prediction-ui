@@ -1,4 +1,5 @@
 import type { MagicLike } from "./allowance-relayer";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
 export interface ClobCredentials {
   apiKey: string;
@@ -70,8 +71,7 @@ export async function getOrDeriveClobCredentials(
     params: [eoaAddress, JSON.stringify(typedData)],
   });
 
-  const apiUrl = process.env.NEXT_PUBLIC_CLOB_API_URL;
-  if (!apiUrl) throw new Error("NEXT_PUBLIC_CLOB_API_URL is not set");
+  const apiUrl = PG.clob;
 
   const headers = {
     PREDICTION_ADDRESS: eoaAddress,
@@ -80,10 +80,10 @@ export async function getOrDeriveClobCredentials(
     PREDICTION_SIGNATURE: signature,
   };
 
-  let res = await fetch(`${apiUrl}/auth/derive-api-key`, { headers });
+  let res = await fetch(pgUrl(apiUrl, "/auth/derive-api-key"), { headers });
   
   if (res.status === 404) {
-    res = await fetch(`${apiUrl}/auth/api-key`, {
+    res = await fetch(pgUrl(apiUrl, "/auth/api-key"), {
       method: "POST",
       headers,
     });

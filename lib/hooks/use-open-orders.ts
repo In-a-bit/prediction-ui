@@ -5,7 +5,9 @@ import { useMagic } from "@/components/providers/magic-provider";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 import { buildHmacHeaders, signCancelMessage } from "@/lib/clob-order";
 
-const CLOB_API_URL = process.env.NEXT_PUBLIC_CLOB_API_URL!;
+import { PG, pgUrl } from "@/lib/prediction-go";
+
+const CLOB_API_URL = PG.clob;
 
 export interface OpenOrder {
   id: string;
@@ -38,7 +40,7 @@ async function fetchOpenOrders(
   const creds = await getOrDeriveClobCredentials(magic);
   const headers = await buildHmacHeaders(creds, "GET", "/data/orders");
 
-  const res = await fetch(`${CLOB_API_URL}/data/orders`, {
+  const res = await fetch(pgUrl(CLOB_API_URL, "/data/orders"), {
     headers: { ...headers, "Content-Type": "application/json" },
   });
   if (!res.ok) {
@@ -89,7 +91,7 @@ export function useCancelOrder() {
       const creds = await getOrDeriveClobCredentials(magic);
       const headers = await buildHmacHeaders(creds, "DELETE", "/order");
 
-      const res = await fetch(`${CLOB_API_URL}/order`, {
+      const res = await fetch(pgUrl(CLOB_API_URL, "/order"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify({

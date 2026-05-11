@@ -3,7 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMagic } from "@/components/providers/magic-provider";
 
-const DATA_API_URL = process.env.NEXT_PUBLIC_DATA_API_URL!;
+import { PG, pgUrl } from "@/lib/prediction-go";
+
+const DATA_API_URL = PG.data;
 
 export interface Position {
   proxyWallet: string;
@@ -37,7 +39,7 @@ export interface Position {
 
 async function fetchPositions(proxyWallet: string): Promise<Position[]> {
   const res = await fetch(
-    `${DATA_API_URL}/positions?user=${encodeURIComponent(proxyWallet)}`,
+    `${pgUrl(DATA_API_URL, "/positions")}?user=${encodeURIComponent(proxyWallet)}`,
   );
   if (!res.ok) {
     const body = await res.text().catch(() => "");

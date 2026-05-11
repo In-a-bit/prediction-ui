@@ -1,6 +1,8 @@
 import type { UserProfile } from "@/components/providers/magic-provider";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
-/** Raw GET /users response shape */
+/** @deprecated use PG.gamma */
+export const GAMMA_API_URL = PG.gamma;
 type UserApiResponse = {
   proxy_wallet: string;
   email?: string | null;
@@ -17,9 +19,6 @@ function userResponseToProfile(user: UserApiResponse): UserProfile {
   };
 }
 
-export const GAMMA_API_URL =
-  process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
-
 const BUILDER_API_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_BUILDER_API_PUBLIC_KEY?.trim() ?? "";
 
@@ -34,7 +33,7 @@ export async function loginWithMagic(didToken: string): Promise<UserProfile> {
     body.api_public_key = BUILDER_API_PUBLIC_KEY;
   }
 
-  const loginRes = await fetch(`${GAMMA_API_URL}/login`, {
+  const loginRes = await fetch(pgUrl(PG.gamma, "/login"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -50,7 +49,7 @@ export async function loginWithMagic(didToken: string): Promise<UserProfile> {
   }
 
   // Session cookie is now set — fetch the full user profile
-  const userRes = await fetch(`${GAMMA_API_URL}/users`, {
+  const userRes = await fetch(pgUrl(PG.gamma, "/users"), {
     credentials: "include",
   });
 
@@ -71,7 +70,7 @@ export async function loginWithMagic(didToken: string): Promise<UserProfile> {
  * Returns null if the session is missing or expired (401).
  */
 export async function getUser(): Promise<UserProfile | null> {
-  const res = await fetch(`${GAMMA_API_URL}/users`, {
+  const res = await fetch(pgUrl(PG.gamma, "/users"), {
     credentials: "include",
   });
   if (!res.ok) return null;

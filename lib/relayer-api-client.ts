@@ -1,26 +1,26 @@
 /**
- * Relayer API client: fetch relay payload (public) and submit (via our API route with auth).
+ * Relayer API client: relay payload via /api/go/relayer (APP_API_KEY on server);
+ * submit goes through /api/relayer/submit (forwards cookies + upstream APP key).
  */
+
+import { PG, pgUrl } from "@/lib/prediction-go";
 
 export type RelayPayload = {
   address: string;
   nonce: string;
 };
 
-const RELAYER_API_URL =
-  typeof process === "undefined"
-    ? "http://localhost:8085"
-    : process.env.NEXT_PUBLIC_RELAYER_API_URL ?? "http://localhost:8085";
-
 /** GET /relay-payload?address=0x...&type=PROXY */
 export async function getRelayPayload(
   signerAddress: string,
-  baseUrl: string = RELAYER_API_URL
+  relayerBase: string = PG.relayer,
 ): Promise<RelayPayload> {
-  const url = new URL("/relay-payload", baseUrl);
-  url.searchParams.set("address", signerAddress);
-  url.searchParams.set("type", "PROXY");
-  const res = await fetch(url.toString());
+  const path = pgUrl(relayerBase, "/relay-payload");
+  const q = new URLSearchParams({
+    address: signerAddress,
+    type: "PROXY",
+  });
+  const res = await fetch(`${path}?${q}`);
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`relay-payload failed (${res.status}): ${text}`);
@@ -52,20 +52,11 @@ export type SubmitTransactionResponse = {
   state: string;
 };
 
-/**
- * Submit a PROXY transaction directly to the relayer API.
- * Cookies (predictionsession) are forwarded by the browser via credentials: "include".
- *
- * If you ever want to re-enable the Next.js API proxy, you can:
- * - add a `useProxy` flag here, and
- * - send requests to `/api/relayer/submit` instead.
- */
+/** POST submit — Next.js route proxies to prediction-go with APP_API_KEY. */
 export async function submitTransaction(
   body: SubmitTransactionRequest,
-  baseUrl: string = RELAYER_API_URL
 ): Promise<SubmitTransactionResponse> {
-  const url = `${baseUrl.replace(/\/$/, "")}/submit`;
-  const res = await fetch(url, {
+  const res = await fetch("/api/relayer/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

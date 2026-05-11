@@ -1,10 +1,8 @@
 import type { UserProfile } from "@/components/providers/magic-provider";
 import { submitUsdcCtfAllowance } from "@/lib/allowance-relayer";
+import { PG } from "@/lib/prediction-go";
 
-const RELAYER_API_URL =
-  typeof process === "undefined"
-    ? undefined
-    : process.env.NEXT_PUBLIC_RELAYER_API_URL;
+const RELAYER_PROXY_BASE = PG.relayer;
 
 /**
  * Submits a PROXY approval (USDC approve CTF) via the relayer-api when
@@ -21,11 +19,6 @@ export async function checkAllowanceAndSignIfNeeded(
 ): Promise<void> {
   if (profile.allowanceStatus && profile.allowanceStatus !== "FAILED") return;
 
-  if (!RELAYER_API_URL) {
-    console.warn("[Allowance] NEXT_PUBLIC_RELAYER_API_URL not set, skipping PROXY approval");
-    return;
-  }
-
   if (!profile.proxyWallet) {
     console.warn("[Allowance] No proxy wallet in profile, skipping PROXY approval");
     return;
@@ -36,7 +29,7 @@ export async function checkAllowanceAndSignIfNeeded(
   try {
     const result = await submitUsdcCtfAllowance(
       magic,
-      RELAYER_API_URL,
+      RELAYER_PROXY_BASE,
       profile.proxyWallet,
     );
     console.log("[Allowance] Submitted:", result.transactionID, result.state);
@@ -56,11 +49,8 @@ export async function submitAllowanceRegardlessOfStatus(
   },
   profile: UserProfile,
 ): Promise<{ transactionID: string; state: string }> {
-  if (!RELAYER_API_URL) {
-    throw new Error("NEXT_PUBLIC_RELAYER_API_URL is not set");
-  }
   if (!profile.proxyWallet) {
     throw new Error("No proxy wallet on profile");
   }
-  return submitUsdcCtfAllowance(magic, RELAYER_API_URL, profile.proxyWallet);
+  return submitUsdcCtfAllowance(magic, RELAYER_PROXY_BASE, profile.proxyWallet);
 }

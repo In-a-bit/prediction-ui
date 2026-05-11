@@ -1,7 +1,7 @@
 import type { GammaEvent } from "@/lib/types/event";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
-const PLAE_GAMMA_BASE =
-  process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
+const PLAE_GAMMA_BASE = PG.gamma;
 
 interface FetchPlaeEventsParams {
   active?: boolean;
@@ -26,7 +26,7 @@ export async function fetchPlaeEvents(
   });
 
   try {
-    const res = await fetch(`${PLAE_GAMMA_BASE}/events/pagination?${searchParams}`, {
+    const res = await fetch(`${pgUrl(PLAE_GAMMA_BASE, "/events/pagination")}?${searchParams}`, {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(5000),
     });
@@ -45,7 +45,7 @@ export async function fetchPlaeEventBySlug(
   slug: string,
 ): Promise<GammaEvent | null> {
   try {
-    const res = await fetch(`${PLAE_GAMMA_BASE}/events/slug/${slug}`, {
+    const res = await fetch(pgUrl(PLAE_GAMMA_BASE, `/events/slug/${slug}`), {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(5000),
     });

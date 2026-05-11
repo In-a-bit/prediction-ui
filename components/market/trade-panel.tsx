@@ -11,6 +11,7 @@ import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { useOrderBook } from "@/lib/hooks/use-orderbook";
 import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
 import { submitOrder } from "@/lib/clob-order";
+import { PG } from "@/lib/prediction-go";
 import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
@@ -226,12 +227,7 @@ export function TradePanel({
   const handleSubmit = useCallback(async () => {
     if (!magic || !currentTokenId || order.dollarAmount <= 0 || !priceValid || !userProfile?.proxyWallet) return;
 
-    const clobBaseUrl = process.env.NEXT_PUBLIC_CLOB_API_URL;
-    if (!clobBaseUrl) {
-      setOrderResult("CLOB API URL not configured");
-      return;
-    }
-
+    const clobBaseUrl = PG.clob;
     setSubmitting(true);
     setOrderResult(null);
 

@@ -1,4 +1,5 @@
 import type { ClobCredentials } from "./clob-auth";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -233,7 +234,7 @@ export async function buildHmacHeaders(
  * Look up the clob market ID for a given token by calling GET /book.
  */
 async function fetchMarketId(clobBaseUrl: string, tokenId: string): Promise<string> {
-  const url = `${clobBaseUrl}/book?token_id=${tokenId}`;
+  const url = `${pgUrl(clobBaseUrl, "/book")}?token_id=${encodeURIComponent(tokenId)}`;
   let res: Response;
   try {
     res = await fetch(url);
@@ -300,7 +301,7 @@ export async function submitOrder(
     user: { getInfo: () => Promise<{ wallets?: { ethereum?: { publicAddress?: string | null } } }> };
   },
   creds: ClobCredentials,
-  clobBaseUrl: string,
+  clobBaseUrl: string = PG.clob,
   params: OrderParams,
   proxyWallet: string,
 ): Promise<SubmitOrderResult> {
@@ -319,7 +320,7 @@ export async function submitOrder(
 
   const hmacHeaders = await buildHmacHeaders(creds, "POST", "/order");
 
-  const res = await fetch(`${clobBaseUrl}/order`, {
+  const res = await fetch(pgUrl(clobBaseUrl, "/order"), {
     method: "POST",
     headers: { "Content-Type": "application/json", ...hmacHeaders },
     body: JSON.stringify({

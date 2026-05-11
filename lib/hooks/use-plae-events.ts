@@ -2,9 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { GammaEvent } from "@/lib/types/event";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
-const PLAE_GAMMA_BASE =
-  process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
+const PLAE_GAMMA_BASE = PG.gamma;
 
 interface UsePlaeEventsParams {
   active?: boolean;
@@ -28,7 +28,7 @@ async function getPlaeEvents(
     if (value !== undefined) searchParams.set(key, String(value));
   });
 
-  const res = await fetch(`${PLAE_GAMMA_BASE}/events/pagination?${searchParams}`);
+  const res = await fetch(`${pgUrl(PLAE_GAMMA_BASE, "/events/pagination")}?${searchParams}`);
   if (!res.ok) return { events: [], hasMore: false };
   const json = await res.json();
   return {

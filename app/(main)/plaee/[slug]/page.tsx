@@ -7,9 +7,9 @@ import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import Link from "next/link";
 import type { GammaEvent, GammaMarket } from "@/lib/types/event";
+import { PG, pgUrl } from "@/lib/prediction-go";
 
-const PLAE_GAMMA_BASE =
-  process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
+const PLAE_GAMMA_BASE = PG.gamma;
 
 function formatVolume(v: number): string {
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
@@ -59,7 +59,7 @@ export default function PlaeEventPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${PLAE_GAMMA_BASE}/events/slug/${slug}`);
+        const res = await fetch(pgUrl(PLAE_GAMMA_BASE, `/events/slug/${slug}`));
         if (!res.ok) {
           setEvent(null);
           return;

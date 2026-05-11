@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MagicLike } from "../allowance-relayer";
 import { getOrDeriveClobCredentials } from "../clob-auth";
+import { predictionGoUserWsUrl } from "../prediction-go";
 
 export function useUserWs(magic: MagicLike | null, enabled: boolean) {
   const [isConnected, setIsConnected] = useState(false);
@@ -18,14 +19,7 @@ export function useUserWs(magic: MagicLike | null, enabled: boolean) {
         const credentials = await getOrDeriveClobCredentials(magic);
         if (!isMounted) return;
 
-        const wsUrl = process.env.NEXT_PUBLIC_USER_WS_URL;
-        if (!wsUrl) {
-          console.error("NEXT_PUBLIC_USER_WS_URL is not set");
-          return;
-        }
-
-        // Add the /ws/user path to the base URL
-        const fullWsUrl = wsUrl.endsWith('/') ? `${wsUrl}ws/user` : `${wsUrl}/ws/user`;
+        const fullWsUrl = predictionGoUserWsUrl();
 
         ws = new WebSocket(fullWsUrl);
         wsRef.current = ws;
