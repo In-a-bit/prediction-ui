@@ -9,8 +9,6 @@ import { useMagic } from "@/components/providers/magic-provider";
 import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
 import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { useOrderBook } from "@/lib/hooks/use-orderbook";
-import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
-import { submitOrder } from "@/lib/clob-order";
 import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
@@ -79,7 +77,7 @@ export function TradePanel({
   onOutcomeChange?: (outcome: "yes" | "no") => void;
 }) {
   const { data: session } = useSession();
-  const { magic, userProfile } = useMagic();
+  const { dpmSdk, userProfile } = useMagic();
   const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
 
@@ -161,11 +159,6 @@ export function TradePanel({
     return { dollarAmount, price, shares };
   }, [orderType, amount, limitPrice, limitShares, bestPrices, outcome, side]);
 
-  const potentialReturn =
-    side === "buy"
-      ? order.shares * 1 - order.dollarAmount
-      : order.dollarAmount - order.shares * 0;
-
   const priceValid = order.price > 0 && order.price < 1;
   const sharesValid = orderType === "market" || order.shares >= minOrderSize;
 
@@ -176,7 +169,7 @@ export function TradePanel({
 
   const canSubmit =
     !!currentTokenId &&
-    !!magic &&
+    !!dpmSdk &&
     order.dollarAmount > 0 &&
     priceValid &&
     sharesValid &&
@@ -224,25 +217,22 @@ export function TradePanel({
   }, [usdcBalance]);
 
   const handleSubmit = useCallback(async () => {
-    if (!magic || !currentTokenId || order.dollarAmount <= 0 || !priceValid || !userProfile?.proxyWallet) return;
-
-    const clobBaseUrl = process.env.NEXT_PUBLIC_CLOB_API_URL;
-    if (!clobBaseUrl) {
-      setOrderResult("CLOB API URL not configured");
-      return;
-    }
+    if (!dpmSdk || !currentTokenId || order.dollarAmount <= 0 || !priceValid || !userProfile?.proxyWallet) return;
 
     setSubmitting(true);
     setOrderResult(null);
 
     try {
-      const creds = await getOrDeriveClobCredentials(magic);
-      const result = await submitOrder(magic, creds, clobBaseUrl, {
-        side: side === "buy" ? 0 : 1,
-        tokenId: currentTokenId,
-        shares: order.shares,
-        price: order.price,
-      }, userProfile.proxyWallet);
+      console.log("[TradePanel] submitOrder: begin", { tokenId: currentTokenId });
+      const result = await dpmSdk.submitOrder(
+        {
+          side: side === "buy" ? 0 : 1,
+          tokenId: currentTokenId,
+          shares: order.shares,
+          price: order.price,
+        },
+        userProfile.proxyWallet,
+      );
 
       setOrderResult(`Order ${result.status} (${result.orderHash.slice(0, 10)}…)`);
       if (orderType === "market") setAmount("");
@@ -253,7 +243,7 @@ export function TradePanel({
     } finally {
       setSubmitting(false);
     }
-  }, [magic, currentTokenId, order, priceValid, side, orderType, userProfile]);
+  }, [dpmSdk, currentTokenId, order, priceValid, side, orderType, userProfile]);
 
   if (!session?.user) {
     return (

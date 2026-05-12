@@ -2,7 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-const GAMMA_API_URL = process.env.NEXT_PUBLIC_GAMMA_API_URL!;
+import { predictionServiceBase } from "@/lib/prediction-proxy";
+
+const GAMMA_API_URL = predictionServiceBase("gamma");
 
 export interface EventInfo {
   title: string;

@@ -3,7 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMagic } from "@/components/providers/magic-provider";
 
-const DATA_API_URL = process.env.NEXT_PUBLIC_DATA_API_URL!;
+import { predictionServiceBase } from "@/lib/prediction-proxy";
+
+const DATA_API_URL = predictionServiceBase("data");
 
 export interface Position {
   proxyWallet: string;

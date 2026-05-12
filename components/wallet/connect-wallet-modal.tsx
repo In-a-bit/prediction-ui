@@ -4,14 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMagic } from "@/components/providers/magic-provider";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
-import { loginWithMagic } from "@/lib/gamma-api";
 
 type Props = {
   onClose: () => void;
 };
 
 export function ConnectWalletModal({ onClose }: Props) {
-  const { magic, setWalletAddress, setUserProfile } = useMagic();
+  const { magic, dpmSdk, setWalletAddress, setUserProfile } = useMagic();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +47,7 @@ export function ConnectWalletModal({ onClose }: Props) {
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
-    if (!magic || !email.trim()) return;
+    if (!magic || !dpmSdk || !email.trim()) return;
     setError(null);
     setLoading("email");
 
@@ -59,14 +58,13 @@ export function ConnectWalletModal({ onClose }: Props) {
 
       if (!didToken) throw new Error("No DID token returned from Magic");
 
-      // Step 2: Exchange DID token for full profile via gamma-api
-      const profile = await loginWithMagic(didToken);
+      const profile = await dpmSdk.gamma.loginWithMagic(didToken);
       console.log("[Magic] login API profile:", profile);
 
       // Step 3: Store profile and close
       setWalletAddress(profile.proxyWallet);
       setUserProfile(profile);
-      checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], profile).catch(() => {});
+      checkAllowanceAndSignIfNeeded(dpmSdk, profile).catch(() => {});
       onClose();
     } catch (err) {
       console.error("[Magic] email login failed:", err);
@@ -137,7 +135,7 @@ export function ConnectWalletModal({ onClose }: Props) {
               />
               <button
                 type="submit"
-                disabled={loading !== null || !email.trim()}
+                disabled={loading !== null || !email.trim() || !dpmSdk}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading === "email" && <Spinner />}

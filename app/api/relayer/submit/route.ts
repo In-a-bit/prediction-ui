@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const RELAYER_API_URL = process.env.NEXT_PUBLIC_RELAYER_API_URL ?? "http://localhost:8085";
+const RELAYER_API_URL =
+  process.env.RELAYER_API_URL ??
+  process.env.NEXT_PUBLIC_RELAYER_API_URL ??
+  "http://localhost:8085";
+
+const APP_API_KEY = process.env.APP_API_KEY?.trim();
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -18,12 +23,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!APP_API_KEY) {
+    console.error("[relayer/submit] POST: APP_API_KEY is not set");
+    return NextResponse.json(
+      { error: "Server misconfigured: APP_API_KEY required" },
+      { status: 500 },
+    );
+  }
+
   const cookie = request.headers.get("cookie") ?? "";
   const url = `${RELAYER_API_URL.replace(/\/$/, "")}/submit`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-API-Key": APP_API_KEY,
       ...(cookie ? { Cookie: cookie } : {}),
     },
     body: JSON.stringify(body),

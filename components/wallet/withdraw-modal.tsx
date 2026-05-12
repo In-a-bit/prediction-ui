@@ -6,8 +6,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { isAddress, parseUnits } from "viem";
 import { useMagic } from "@/components/providers/magic-provider";
 import { formatTradeBalanceUsd } from "@/lib/utils";
-import type { MagicLike } from "@/lib/allowance-relayer";
-import { submitFundWithdraw } from "@/lib/fund-withdraw-relayer";
 import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 import {
   invalidateAllCollateralBalances,
@@ -28,7 +26,7 @@ export function WithdrawModal({
 }: WithdrawModalProps) {
   const queryClient = useQueryClient();
   const { balanceNormalized } = useCollateralBalance();
-  const { magic, userProfile, walletAddress } = useMagic();
+  const { dpmSdk, userProfile, walletAddress } = useMagic();
   const proxyWallet = userProfile?.proxyWallet ?? walletAddress ?? "";
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
@@ -79,7 +77,7 @@ export function WithdrawModal({
   }
 
   const canSubmit =
-    Boolean(magic) &&
+    Boolean(dpmSdk) &&
     Boolean(proxyWallet) &&
     recipientOk &&
     amountWei != null &&
@@ -92,14 +90,12 @@ export function WithdrawModal({
   }
 
   async function handleWithdraw() {
-    if (!canSubmit || !magic) return;
+    if (!canSubmit || !dpmSdk) return;
     setError(null);
     setSubmitting(true);
     try {
-      const relayerUrl = process.env.NEXT_PUBLIC_RELAYER_API_URL;
-      await submitFundWithdraw(
-        magic as unknown as MagicLike,
-        relayerUrl,
+      console.log("[WithdrawModal] submitFundWithdraw: begin");
+      await dpmSdk.submitFundWithdraw(
         proxyWallet,
         recipient.trim(),
         amount.trim(),

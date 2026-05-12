@@ -4,14 +4,13 @@ import { useState } from "react";
 import { useMagic } from "@/components/providers/magic-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";
 import { checkAllowanceAndSignIfNeeded, submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
-import { getUser, loginWithMagic } from "@/lib/gamma-api";
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function WalletButton() {
-  const { magic, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect } =
+  const { magic, dpmSdk, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect } =
     useMagic();
   const [showProfile, setShowProfile] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -29,7 +28,7 @@ export function WalletButton() {
   }
 
   async function handleConnectWithUi() {
-    if (!magic) return;
+    if (!magic || !dpmSdk) return;
     setConnectUiError(null);
     setConnectUiBusy(true);
     console.info("[wallet-button.handleConnectWithUi] start");
@@ -39,10 +38,10 @@ export function WalletButton() {
       console.info("[wallet-button.handleConnectWithUi] after magic.wallet.connectWithUI");
       const didToken = await magic.user.getIdToken();
       if (!didToken) throw new Error("No DID token returned from Magic");
-      const profile = await loginWithMagic(didToken);
+      const profile = await dpmSdk.gamma.loginWithMagic(didToken);
       setWalletAddress(profile.proxyWallet);
       setUserProfile(profile);
-      checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], profile).catch(() => {});
+      checkAllowanceAndSignIfNeeded(dpmSdk, profile).catch(() => {});
       console.info("[wallet-button.handleConnectWithUi] success", { proxyWallet: profile.proxyWallet });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -127,7 +126,7 @@ export function WalletButton() {
                 </div>
               </div>
 
-              {userProfile && magic && (
+              {userProfile && dpmSdk && (
                 <div className="border-t border-card-border px-4 py-2">
                   <p className="mb-1 text-xs text-muted">
                     Allowance status
@@ -144,15 +143,15 @@ export function WalletButton() {
                     disabled={allowanceBusy}
                     onClick={async () => {
                       setAllowanceMsg(null);
-                      if (!magic || !userProfile) return;
+                      if (!dpmSdk || !userProfile) return;
                       setAllowanceBusy(true);
                       try {
                         const result = await submitAllowanceRegardlessOfStatus(
-                          magic,
+                          dpmSdk,
                           userProfile,
                         );
                         setAllowanceMsg(`Submitted (${result.state})`);
-                        const fresh = await getUser();
+                        const fresh = await dpmSdk.gamma.getUser();
                         if (fresh) setUserProfile(fresh);
                       } catch (e) {
                         setAllowanceMsg(
@@ -210,7 +209,7 @@ export function WalletButton() {
 
         <button
           onClick={handleConnectWithUi}
-          disabled={!magic || connectUiBusy}
+          disabled={!magic || !dpmSdk || connectUiBusy}
           className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

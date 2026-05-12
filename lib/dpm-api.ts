@@ -1,5 +1,11 @@
-const DPM_API_URL =
-  process.env.NEXT_PUBLIC_DPM_API_URL ?? "http://localhost:8086";
+import { predictionServiceBase } from "@/lib/prediction-proxy";
+
+const DPM_BASE = predictionServiceBase("dpm").replace(/\/$/, "");
+
+function dpmPath(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${DPM_BASE}${p}`;
+}
 
 export type CollateralBalanceResponse = {
   address: string;
@@ -15,9 +21,8 @@ export type CollateralBalanceResponse = {
 export async function getCollateralBalance(
   address: string,
 ): Promise<CollateralBalanceResponse | null> {
-  const url = new URL(`${DPM_API_URL}/collateral/balance`);
-  url.searchParams.set("address", address);
-  const res = await fetch(url.toString());
+  const qs = new URLSearchParams({ address });
+  const res = await fetch(`${dpmPath("/collateral/balance")}?${qs}`);
   if (!res.ok) return null;
   return res.json() as Promise<CollateralBalanceResponse>;
 }
@@ -60,11 +65,12 @@ export type UserDetailResponse = {
 export async function getUserDetailedBalance(
   proxyWallet: string,
 ): Promise<UserDetailResponse | null> {
-  const url = new URL(`${DPM_API_URL}/users`);
-  url.searchParams.set("proxy_wallet", proxyWallet);
-  url.searchParams.set("limit", "1");
+  const qs = new URLSearchParams({
+    proxy_wallet: proxyWallet,
+    limit: "1",
+  });
   try {
-    const res = await fetch(url.toString());
+    const res = await fetch(`${dpmPath("/users")}?${qs}`);
     if (!res.ok) return null;
     const json = await res.json();
     const users = json.data as UserDetailResponse[];
@@ -93,7 +99,7 @@ export async function getUserTokenBalances(
   userId: number,
 ): Promise<UserTokenBalancesResponse | null> {
   try {
-    const res = await fetch(`${DPM_API_URL}/users/${userId}/token-balances`);
+    const res = await fetch(dpmPath(`/users/${userId}/token-balances`));
     if (!res.ok) return null;
     return res.json() as Promise<UserTokenBalancesResponse>;
   } catch {
@@ -107,7 +113,7 @@ export async function getConditionalTokenBalanceBatch(
 ): Promise<ConditionalTokenBalanceBatchResponse | null> {
   let res: Response;
   try {
-    res = await fetch(`${DPM_API_URL}/conditional-tokens/balance-batch`, {
+    res = await fetch(dpmPath("/conditional-tokens/balance-batch"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ owners, ids }),

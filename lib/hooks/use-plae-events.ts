@@ -3,8 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import type { GammaEvent } from "@/lib/types/event";
 
-const PLAE_GAMMA_BASE =
-  process.env.NEXT_PUBLIC_GAMMA_API_URL ?? "http://localhost:8084";
+import { predictionServiceBase } from "@/lib/prediction-proxy";
+
+const PLAE_GAMMA_BASE = predictionServiceBase("gamma");
 
 interface UsePlaeEventsParams {
   active?: boolean;

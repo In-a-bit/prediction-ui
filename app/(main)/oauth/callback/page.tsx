@@ -4,11 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMagic } from "@/components/providers/magic-provider";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
-import { loginWithMagic } from "@/lib/gamma-api";
 import type { OAuthRedirectResult } from "@magic-ext/oauth2";
 
 export default function OAuthCallbackPage() {
-  const { magic, setWalletAddress, setUserProfile } = useMagic();
+  const { magic, dpmSdk, setWalletAddress, setUserProfile } = useMagic();
   const router = useRouter();
   const handled = useRef(false);
   // Use a ref so the value is always current inside async callbacks
@@ -25,7 +24,7 @@ export default function OAuthCallbackPage() {
   }, []);
 
   useEffect(() => {
-    if (!magic || handled.current) return;
+    if (!magic || !dpmSdk || handled.current) return;
     handled.current = true;
 
     console.log("[Magic OAuth] starting getRedirectResult...");
@@ -46,13 +45,12 @@ export default function OAuthCallbackPage() {
 
         if (!token) throw new Error("No DID token in OAuth result");
 
-        // Exchange DID token for full profile via gamma-api
-        const profile = await loginWithMagic(token);
+        const profile = await dpmSdk.gamma.loginWithMagic(token);
         console.log("[Magic OAuth] login API profile:", profile);
 
         setWalletAddress(profile.proxyWallet);
         setUserProfile(profile);
-        checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], profile).catch(() => {});
+        checkAllowanceAndSignIfNeeded(dpmSdk, profile).catch(() => {});
         router.replace(returnToRef.current);
       })
       .catch((err: unknown) => {
@@ -61,7 +59,7 @@ export default function OAuthCallbackPage() {
         setError(err instanceof Error ? err.message : String(err));
         setTimeout(() => router.replace(returnToRef.current), 2000);
       });
-  }, [magic, router, setWalletAddress]);
+  }, [magic, dpmSdk, router, setWalletAddress, setUserProfile]);
 
   if (error) {
     return (

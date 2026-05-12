@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useMemo } from "react";
 
+import { predictionServiceBase } from "@/lib/prediction-proxy";
+
 type BuildClobUrl = (
   endpoint: string,
   params: Record<string, string>
@@ -11,8 +13,7 @@ interface DataSourceContextValue {
   buildClobUrl: BuildClobUrl;
 }
 
-const CLOB_BASE =
-  process.env.NEXT_PUBLIC_CLOB_API_URL ?? "http://localhost:8083";
+const CLOB_BASE = predictionServiceBase("clob");
 
 function defaultBuildClobUrl(
   endpoint: string,

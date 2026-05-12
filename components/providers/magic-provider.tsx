@@ -9,31 +9,25 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Magic } from "magic-sdk";
-import { OAuthExtension } from "@magic-ext/oauth2";
-import { getUser } from "@/lib/gamma-api";
+import {
+  DpmSdk,
+  type MagicInstance,
+  type UserProfile,
+} from "dpm-sdk/magic";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { useUserWs } from "@/lib/hooks/use-user-ws";
-import { getOrDeriveClobCredentials } from "@/lib/clob-auth";
+import { predictionServiceBase } from "@/lib/prediction-proxy";
 
 const WALLET_STORAGE_KEY = "magic_wallet_address";
 const PROFILE_STORAGE_KEY = "magic_user_profile";
-const DPM_API_URL =
-  process.env.NEXT_PUBLIC_DPM_API_URL ?? "http://localhost:8086";
+const DPM_PROXY_BASE = predictionServiceBase("dpm");
 
-// Magic<T> is the instance type when using extensions
-type MagicInstance = Magic<[OAuthExtension]>;
-
-export type UserProfile = {
-  proxyWallet: string;
-  email: string | null;
-  name: string | null;
-  /** Outbound tx status: PENDING, SENDING, SENT, MINED, FINALIZED, FAILED, DROPPED, REPLACED; null if never submitted */
-  allowanceStatus: string | null;
-};
+export type { UserProfile };
 
 type MagicContextType = {
   magic: MagicInstance | null;
+  /** Ready after relayer `GET /contract-info` succeeds; use for trading and gamma session calls. */
+  dpmSdk: DpmSdk | null;
   walletAddress: string | null;
   userProfile: UserProfile | null;
   setWalletAddress: (address: string | null) => void;
@@ -43,6 +37,7 @@ type MagicContextType = {
 
 const MagicContext = createContext<MagicContextType>({
   magic: null,
+  dpmSdk: null,
   walletAddress: null,
   userProfile: null,
   setWalletAddress: () => {},
@@ -56,31 +51,69 @@ export function useMagic() {
 
 export function MagicProvider({ children }: { children: ReactNode }) {
   const [magic, setMagic] = useState<MagicInstance | null>(null);
+  const [dpmSdk, setDpmSdk] = useState<DpmSdk | null>(null);
   const [walletAddress, setWalletAddressState] = useState<string | null>(null);
   const [userProfile, setUserProfileState] = useState<UserProfile | null>(null);
 
-  // Initialize Magic SDK (browser only)
   useEffect(() => {
-    void initMagicClient(setMagic);
+    let cancelled = false;
+    console.log("[magic-provider] DpmSdk.create: begin", {
+      gammaUrl: predictionServiceBase("gamma"),
+      clobUrl: predictionServiceBase("clob"),
+      relayerUrl: predictionServiceBase("relayer"),
+    });
+    void DpmSdk.create({
+      urls: {
+        gammaUrl: predictionServiceBase("gamma"),
+        clobUrl: predictionServiceBase("clob"),
+        relayerUrl: predictionServiceBase("relayer"),
+      },
+      chainId: chainIdFromEnv(),
+      wallet: {
+        provider: "magic",
+        publishableKey: resolveMagicPublishableKey,
+        rpcUrl: magicRpcUrlFromEnv(),
+      },
+      builderApiPublicKey: builderApiPublicKeyFromEnv() ?? undefined,
+    })
+      .then((sdk) => {
+        if (!cancelled) {
+          console.log("[magic-provider] DpmSdk.create: success");
+          setMagic(sdk.magic);
+          setDpmSdk(sdk);
+        }
+      })
+      .catch((err: unknown) => {
+        console.error("[magic-provider] DpmSdk.create failed:", err);
+        if (!cancelled) {
+          setMagic(null);
+          setDpmSdk(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Restore session from localStorage, then verify Magic session is still live
   useEffect(() => {
-    if (!magic) return;
+    if (!magic || !dpmSdk) return;
 
     const storedAddress = localStorage.getItem(WALLET_STORAGE_KEY);
-    if (storedAddress) setWalletAddressState(storedAddress);
+    if (storedAddress) queueMicrotask(() => setWalletAddressState(storedAddress));
 
     const storedProfile = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (storedProfile) {
       try {
         const parsed = JSON.parse(storedProfile) as Record<string, unknown>;
-        setUserProfileState({
-          proxyWallet: parsed.proxyWallet as string,
-          email: (parsed.email as string | null) ?? null,
-          name: (parsed.name as string | null) ?? null,
-          allowanceStatus: (parsed.allowanceStatus as string | null) ?? null,
-        });
+        queueMicrotask(() =>
+          setUserProfileState({
+            proxyWallet: parsed.proxyWallet as string,
+            email: (parsed.email as string | null) ?? null,
+            name: (parsed.name as string | null) ?? null,
+            allowanceStatus: (parsed.allowanceStatus as string | null) ?? null,
+          }),
+        );
       } catch {
         localStorage.removeItem(PROFILE_STORAGE_KEY);
       }
@@ -94,18 +127,18 @@ export function MagicProvider({ children }: { children: ReactNode }) {
         setUserProfileState(null);
         return;
       }
-      // Session is live — refresh profile from gamma-api to pick up latest data
-      const freshProfile = await getUser();
+      console.log("[magic-provider] session restore: fetching gamma profile");
+      const freshProfile = await dpmSdk.gamma.getUser();
       if (freshProfile) {
         setWalletAddressState(freshProfile.proxyWallet);
         setUserProfileState(freshProfile);
         localStorage.setItem(WALLET_STORAGE_KEY, freshProfile.proxyWallet);
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(freshProfile));
-        checkAllowanceAndSignIfNeeded(magic as Parameters<typeof checkAllowanceAndSignIfNeeded>[0], freshProfile).catch(() => {});
-        getOrDeriveClobCredentials(magic as Parameters<typeof getOrDeriveClobCredentials>[0]).catch(() => {});
+        checkAllowanceAndSignIfNeeded(dpmSdk, freshProfile).catch(() => {});
+        void dpmSdk.getOrDeriveClobCredentials().catch(() => {});
       }
     });
-  }, [magic]);
+  }, [magic, dpmSdk]);
 
   const setWalletAddress = useCallback((address: string | null) => {
     setWalletAddressState(address);
@@ -138,14 +171,42 @@ export function MagicProvider({ children }: { children: ReactNode }) {
   }, [magic, setWalletAddress, setUserProfile]);
 
   const value = useMemo(
-    () => ({ magic, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect }),
-    [magic, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect],
+    () => ({
+      magic,
+      dpmSdk,
+      walletAddress,
+      userProfile,
+      setWalletAddress,
+      setUserProfile,
+      disconnect,
+    }),
+    [magic, dpmSdk, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect],
   );
 
-  useUserWs(magic, !!walletAddress);
+  useUserWs(magic, dpmSdk, !!walletAddress);
 
   return (
     <MagicContext.Provider value={value}>{children}</MagicContext.Provider>
+  );
+}
+
+/** EVM chain for Magic + CLOB signing; must match `NEXT_PUBLIC_RPC_URL` and deployed contracts. */
+function chainIdFromEnv(): number {
+  const raw = process.env.NEXT_PUBLIC_CHAIN_ID?.trim();
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) {
+      return Math.trunc(n);
+    }
+  }
+  return 80002;
+}
+
+/** Magic `network.rpcUrl`; must match {@link chainIdFromEnv}. */
+function magicRpcUrlFromEnv(): string {
+  return (
+    process.env.NEXT_PUBLIC_RPC_URL?.trim() ||
+    "https://rpc-amoy.polygon.technology"
   );
 }
 
@@ -158,40 +219,15 @@ function fallbackMagicKey(): string {
   return process.env.NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY ?? "";
 }
 
-function magicNetworkConfig() {
-  return {
-    rpcUrl:
-      process.env.NEXT_PUBLIC_RPC_URL ?? "https://rpc-amoy.polygon.technology",
-    chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "80002"),
-  };
-}
-
 async function resolveMagicPublishableKey(): Promise<string> {
   const apiKey = builderApiPublicKeyFromEnv();
   if (apiKey === null) return fallbackMagicKey();
   const res = await fetch(
-    `${DPM_API_URL}/builders/by-api-key/${encodeURIComponent(apiKey)}`,
+    `${DPM_PROXY_BASE}/builders/by-api-key/${encodeURIComponent(apiKey)}`,
   );
   if (!res.ok) throw new Error(`Failed to fetch builder by api_public_key (${res.status})`);
   const body = (await res.json()) as { magic_public_key?: string | null };
   const key = body.magic_public_key?.trim() ?? "";
   if (!key) throw new Error("DPM response missing magic_public_key");
   return key;
-}
-
-async function initMagicClient(
-  setMagic: (instance: MagicInstance | null) => void,
-): Promise<void> {
-  try {
-    const key = await resolveMagicPublishableKey();
-    if (!key) return;
-    const instance = new Magic(key, {
-      extensions: [new OAuthExtension()],
-      network: magicNetworkConfig(),
-    }) as MagicInstance;
-    setMagic(instance);
-  } catch (err) {
-    console.error("[magic-provider] failed to initialize Magic SDK:", err);
-    setMagic(null);
-  }
 }

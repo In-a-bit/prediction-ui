@@ -1,38 +1,36 @@
 import { useEffect, useRef, useState } from "react";
-import type { MagicLike } from "../allowance-relayer";
-import { getOrDeriveClobCredentials } from "../clob-auth";
+import type { DpmSdk, MagicInstance } from "dpm-sdk/magic";
 
-export function useUserWs(magic: MagicLike | null, enabled: boolean) {
+export function useUserWs(
+  magic: MagicInstance | null,
+  dpmSdk: DpmSdk | null,
+  enabled: boolean,
+) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!magic || !enabled) return;
+    if (!magic || !dpmSdk || !enabled) return;
 
     let isMounted = true;
     let ws: WebSocket | null = null;
 
     async function initWs() {
-      if (!magic) return;
+      if (!dpmSdk) return;
       try {
-        const credentials = await getOrDeriveClobCredentials(magic);
+        console.log("[Clob WS] useUserWs: deriving credentials");
+        const credentials = await dpmSdk.getOrDeriveClobCredentials();
         if (!isMounted) return;
 
-        const wsUrl = process.env.NEXT_PUBLIC_USER_WS_URL;
-        if (!wsUrl) {
-          console.error("NEXT_PUBLIC_USER_WS_URL is not set");
-          return;
-        }
-
-        // Add the /ws/user path to the base URL
-        const fullWsUrl = wsUrl.endsWith('/') ? `${wsUrl}ws/user` : `${wsUrl}/ws/user`;
+        const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const fullWsUrl = `${proto}//${window.location.host}/api/ws-proxy/user`;
 
         ws = new WebSocket(fullWsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
           if (!isMounted) return;
-          console.log("[Clob WS] Connected, sending auth...");
+          console.log("[Clob WS] Connected, sending auth…");
           setIsConnected(true);
 
           if (ws?.readyState === WebSocket.OPEN) {
@@ -40,7 +38,7 @@ export function useUserWs(magic: MagicLike | null, enabled: boolean) {
               auth: {
                 apiKey: credentials.apiKey,
                 secret: credentials.secret,
-                passphrase: credentials.passphrase
+                passphrase: credentials.passphrase,
               },
               type: "user",
               markets: [],
@@ -52,11 +50,10 @@ export function useUserWs(magic: MagicLike | null, enabled: boolean) {
 
         ws.onmessage = (event) => {
           if (event.data === "PONG") {
-            // keep-alive ping response
             return;
           }
           try {
-            const data = JSON.parse(event.data);
+            const data = JSON.parse(event.data as string);
             console.log("[Clob WS] User event received:", data);
           } catch (err) {
             console.error("[Clob WS] Failed to parse message:", event.data, err);
@@ -77,9 +74,8 @@ export function useUserWs(magic: MagicLike | null, enabled: boolean) {
       }
     }
 
-    initWs();
+    void initWs();
 
-    // Ping interval to keep the connection alive
     const pingInterval = setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send("PING");
@@ -93,7 +89,7 @@ export function useUserWs(magic: MagicLike | null, enabled: boolean) {
         ws.close();
       }
     };
-  }, [magic, enabled]);
+  }, [magic, dpmSdk, enabled]);
 
   return { isConnected };
 }
