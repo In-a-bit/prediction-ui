@@ -1,4 +1,4 @@
-import type { DpmSdk } from "dpm-sdk/magic";
+import type { DpmSdk } from "dpm-sdk";
 import type { UserProfile } from "@/components/providers/magic-provider";
 
 /**

@@ -97,13 +97,22 @@ async function proxyRequest(
     forwardHeaders.set(key, value);
   });
 
+  // Gamma (and others) use this for Set-Cookie Secure. Must reflect the browser→Next scheme,
+  // not a TLS hop Next→upstream or a stale forwarded header from the client.
+  const clientProto = req.nextUrl.protocol === "https:" ? "https" : "http";
+  forwardHeaders.set("X-Forwarded-Proto", clientProto);
+
   let body: BodyInit | undefined;
   if (method !== "GET" && method !== "HEAD") {
     const buf = await req.arrayBuffer();
     body = buf.byteLength > 0 ? buf : undefined;
   }
 
-  console.log("[prediction-proxy] proxyRequest", { service, method, targetUrl });
+  console.log("[prediction-proxy] proxyRequest", {
+    service,
+    method,
+    targetUrl,
+  });
 
   return fetch(targetUrl, {
     method,

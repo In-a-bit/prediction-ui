@@ -3,11 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node server.js",
-    "dev:next": "next dev -p 2030",
-    "build": "prisma migrate deploy && next build",
-    "start": "NODE_ENV=production node server.js",
-    "start:next": "next start",
+    "dev": "next dev -p 2030 --webpack",
+    "build": "prisma migrate deploy && next build --webpack",
+    "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
   },
@@ -21,7 +19,6 @@
     "clsx": "^2.1.1",
     "dotenv": "^17.3.1",
     "dpm-sdk": "file:../dpm-sdk",
-    "http-proxy": "^1.18.1",
     "magic-sdk": "^33.6.1",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",

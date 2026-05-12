@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMagic } from "@/components/providers/magic-provider";
-import type { OpenOrder } from "dpm-sdk/magic";
+import type { OpenOrder } from "dpm-sdk";
 
 export type { OpenOrder };
 

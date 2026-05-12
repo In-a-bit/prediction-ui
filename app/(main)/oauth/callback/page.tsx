@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMagic } from "@/components/providers/magic-provider";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
-import type { OAuthRedirectResult } from "@magic-ext/oauth2";
 
 export default function OAuthCallbackPage() {
   const { magic, dpmSdk, setWalletAddress, setUserProfile } = useMagic();
@@ -37,7 +36,7 @@ export default function OAuthCallbackPage() {
 
     magic.oauth2
       .getRedirectResult()
-      .then(async (result: OAuthRedirectResult) => {
+      .then(async (result) => {
         clearTimeout(timeout);
 
         const token = result.magic.idToken;

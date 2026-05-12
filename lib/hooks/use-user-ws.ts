@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { DpmSdk, MagicInstance } from "dpm-sdk/magic";
+import type { DpmSdk, MagicInstance } from "dpm-sdk";
+
+import { predictionGoUserWsUrl } from "@/lib/prediction-go";
 
 export function useUserWs(
   magic: MagicInstance | null,
@@ -22,8 +24,7 @@ export function useUserWs(
         const credentials = await dpmSdk.getOrDeriveClobCredentials();
         if (!isMounted) return;
 
-        const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const fullWsUrl = `${proto}//${window.location.host}/api/ws-proxy/user`;
+        const fullWsUrl = predictionGoUserWsUrl();
 
         ws = new WebSocket(fullWsUrl);
         wsRef.current = ws;

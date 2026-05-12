@@ -13,7 +13,7 @@ import {
   DpmSdk,
   type MagicInstance,
   type UserProfile,
-} from "dpm-sdk/magic";
+} from "dpm-sdk";
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { useUserWs } from "@/lib/hooks/use-user-ws";
 import { predictionServiceBase } from "@/lib/prediction-proxy";
