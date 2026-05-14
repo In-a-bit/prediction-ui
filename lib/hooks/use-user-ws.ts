@@ -1,18 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import type { DpmSdk, MagicInstance } from "dpm-sdk";
+import type { DpmSdk } from "dpm-sdk";
 
 import { predictionGoUserWsUrl } from "@/lib/prediction-go";
 
-export function useUserWs(
-  magic: MagicInstance | null,
-  dpmSdk: DpmSdk | null,
-  enabled: boolean,
-) {
+export function useUserWs(dpmSdk: DpmSdk | null, enabled: boolean) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!magic || !dpmSdk || !enabled) return;
+    if (!dpmSdk || !enabled) return;
 
     let isMounted = true;
     let ws: WebSocket | null = null;
@@ -90,7 +86,7 @@ export function useUserWs(
         ws.close();
       }
     };
-  }, [magic, dpmSdk, enabled]);
+  }, [dpmSdk, enabled]);
 
   return { isConnected };
 }

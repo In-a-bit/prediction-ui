@@ -95,11 +95,7 @@ export function WithdrawModal({
     setSubmitting(true);
     try {
       console.log("[WithdrawModal] submitFundWithdraw: begin");
-      await dpmSdk.submitFundWithdraw(
-        proxyWallet,
-        recipient.trim(),
-        amount.trim(),
-      );
+      await dpmSdk.submitFundWithdraw(recipient.trim(), amount.trim());
       await invalidateAllCollateralBalances(queryClient);
       onSuccess?.();
       handleClose();

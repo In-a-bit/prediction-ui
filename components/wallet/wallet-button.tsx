@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { AuthCancelledError } from "dpm-sdk";
+
 import { useMagic } from "@/components/providers/magic-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";
-import { checkAllowanceAndSignIfNeeded, submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
+import { submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function WalletButton() {
-  const { magic, dpmSdk, walletAddress, userProfile, setWalletAddress, setUserProfile, disconnect } =
-    useMagic();
+  const { dpmSdk, walletAddress, userProfile, disconnect } = useMagic();
   const [showProfile, setShowProfile] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -28,25 +29,23 @@ export function WalletButton() {
   }
 
   async function handleConnectWithUi() {
-    if (!magic || !dpmSdk) return;
+    if (!dpmSdk) return;
     setConnectUiError(null);
     setConnectUiBusy(true);
     console.info("[wallet-button.handleConnectWithUi] start");
     try {
-      console.info("[wallet-button.handleConnectWithUi] before magic.wallet.connectWithUI");
-      await magic.wallet.connectWithUI();
-      console.info("[wallet-button.handleConnectWithUi] after magic.wallet.connectWithUI");
-      const didToken = await magic.user.getIdToken();
-      if (!didToken) throw new Error("No DID token returned from Magic");
-      const profile = await dpmSdk.gamma.loginWithMagic(didToken);
-      setWalletAddress(profile.proxyWallet);
-      setUserProfile(profile);
-      checkAllowanceAndSignIfNeeded(dpmSdk, profile).catch(() => {});
-      console.info("[wallet-button.handleConnectWithUi] success", { proxyWallet: profile.proxyWallet });
+      const session = await dpmSdk.auth.connectWithProviderUI();
+      console.info("[wallet-button.handleConnectWithUi] success", {
+        proxyWallet: session.proxyWallet,
+      });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[wallet-button.handleConnectWithUi] failed", { error: msg });
-      setConnectUiError(msg);
+      if (err instanceof AuthCancelledError) {
+        console.info("[wallet-button.handleConnectWithUi] user cancelled");
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[wallet-button.handleConnectWithUi] failed", { error: msg });
+        setConnectUiError(msg);
+      }
     } finally {
       setConnectUiBusy(false);
     }
@@ -146,13 +145,9 @@ export function WalletButton() {
                       if (!dpmSdk || !userProfile) return;
                       setAllowanceBusy(true);
                       try {
-                        const result = await submitAllowanceRegardlessOfStatus(
-                          dpmSdk,
-                          userProfile,
-                        );
+                        const result = await submitAllowanceRegardlessOfStatus(dpmSdk);
                         setAllowanceMsg(`Submitted (${result.state})`);
-                        const fresh = await dpmSdk.gamma.getUser();
-                        if (fresh) setUserProfile(fresh);
+                        await dpmSdk.auth.restore();
                       } catch (e) {
                         setAllowanceMsg(
                           e instanceof Error ? e.message : "Request failed",
@@ -209,7 +204,7 @@ export function WalletButton() {
 
         <button
           onClick={handleConnectWithUi}
-          disabled={!magic || !dpmSdk || connectUiBusy}
+          disabled={!dpmSdk || connectUiBusy}
           className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

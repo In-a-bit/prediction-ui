@@ -224,15 +224,12 @@ export function TradePanel({
 
     try {
       console.log("[TradePanel] submitOrder: begin", { tokenId: currentTokenId });
-      const result = await dpmSdk.submitOrder(
-        {
-          side: side === "buy" ? 0 : 1,
-          tokenId: currentTokenId,
-          shares: order.shares,
-          price: order.price,
-        },
-        userProfile.proxyWallet,
-      );
+      const result = await dpmSdk.submitOrder({
+        side: side === "buy" ? 0 : 1,
+        tokenId: currentTokenId,
+        shares: order.shares,
+        price: order.price,
+      });
 
       setOrderResult(`Order ${result.status} (${result.orderHash.slice(0, 10)}…)`);
       if (orderType === "market") setAmount("");

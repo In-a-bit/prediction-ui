@@ -9,16 +9,14 @@ export interface RedeemPositionParams {
 }
 
 export function useRedeemPosition() {
-  const { dpmSdk, userProfile, walletAddress } = useMagic();
+  const { dpmSdk } = useMagic();
   const queryClient = useQueryClient();
-  const proxyWallet = userProfile?.proxyWallet ?? walletAddress ?? "";
 
   return useMutation({
     mutationFn: async ({ conditionId }: RedeemPositionParams) => {
       if (!dpmSdk) throw new Error("DPM SDK not ready");
-      if (!proxyWallet) throw new Error("No proxy wallet");
       console.log("[useRedeemPosition] submitRedeemPositions: begin", { conditionId });
-      return dpmSdk.submitRedeemPositions(proxyWallet, conditionId);
+      return dpmSdk.submitRedeemPositions(conditionId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["positions"] });

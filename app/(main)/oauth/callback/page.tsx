@@ -3,62 +3,41 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMagic } from "@/components/providers/magic-provider";
-import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 
 export default function OAuthCallbackPage() {
-  const { magic, dpmSdk, setWalletAddress, setUserProfile } = useMagic();
+  const { dpmSdk } = useMagic();
   const router = useRouter();
   const handled = useRef(false);
-  // Use a ref so the value is always current inside async callbacks
-  const returnToRef = useRef("/");
   const [error, setError] = useState<string | null>(null);
 
-  // Read the saved return URL immediately — ref is synchronous, no stale closure
   useEffect(() => {
-    const saved = localStorage.getItem("magic_oauth_return_to");
-    if (saved) {
-      returnToRef.current = saved;
-      localStorage.removeItem("magic_oauth_return_to");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!magic || !dpmSdk || handled.current) return;
+    if (!dpmSdk || handled.current) return;
     handled.current = true;
 
-    console.log("[Magic OAuth] starting getRedirectResult...");
-
+    console.log("[oauth-callback] completeRedirect: begin");
     const timeout = setTimeout(() => {
-      console.error("[Magic OAuth] getRedirectResult timed out after 10s");
+      console.error("[oauth-callback] completeRedirect timed out after 10s");
       setError("Timed out waiting for OAuth result");
-      setTimeout(() => router.replace(returnToRef.current), 2000);
+      setTimeout(() => router.replace("/"), 2000);
     }, 10_000);
 
-    magic.oauth2
-      .getRedirectResult()
-      .then(async (result) => {
+    dpmSdk.auth
+      .completeRedirect()
+      .then(({ session, returnTo }) => {
         clearTimeout(timeout);
-
-        const token = result.magic.idToken;
-        console.log("[Magic OAuth] DID token:", token ? `${token.slice(0, 40)}…` : "missing");
-
-        if (!token) throw new Error("No DID token in OAuth result");
-
-        const profile = await dpmSdk.gamma.loginWithMagic(token);
-        console.log("[Magic OAuth] login API profile:", profile);
-
-        setWalletAddress(profile.proxyWallet);
-        setUserProfile(profile);
-        checkAllowanceAndSignIfNeeded(dpmSdk, profile).catch(() => {});
-        router.replace(returnToRef.current);
+        console.log("[oauth-callback] completeRedirect: success", {
+          proxyWallet: session.proxyWallet,
+          returnTo,
+        });
+        router.replace(returnTo ?? "/");
       })
       .catch((err: unknown) => {
         clearTimeout(timeout);
-        console.error("[Magic OAuth] failed:", err);
+        console.error("[oauth-callback] completeRedirect failed:", err);
         setError(err instanceof Error ? err.message : String(err));
-        setTimeout(() => router.replace(returnToRef.current), 2000);
+        setTimeout(() => router.replace("/"), 2000);
       });
-  }, [magic, dpmSdk, router, setWalletAddress, setUserProfile]);
+  }, [dpmSdk, router]);
 
   if (error) {
     return (
@@ -77,7 +56,7 @@ export default function OAuthCallbackPage() {
       </svg>
       <p className="text-sm text-muted">Connecting your wallet…</p>
       <button
-        onClick={() => router.replace(returnToRef.current)}
+        onClick={() => router.replace("/")}
         className="mt-2 text-xs text-brand underline"
       >
         Cancel and go back

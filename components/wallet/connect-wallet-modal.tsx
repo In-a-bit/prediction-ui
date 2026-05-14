@@ -2,15 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AuthCancelledError } from "dpm-sdk";
+
 import { useMagic } from "@/components/providers/magic-provider";
-import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 
 type Props = {
   onClose: () => void;
 };
 
 export function ConnectWalletModal({ onClose }: Props) {
-  const { magic, dpmSdk, setWalletAddress, setUserProfile } = useMagic();
+  const { dpmSdk } = useMagic();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,19 +27,19 @@ export function ConnectWalletModal({ onClose }: Props) {
   }, [onClose, loading]);
 
   async function handleGoogle() {
-    if (!magic) return;
+    if (!dpmSdk) return;
     setError(null);
     setLoading("google");
+    console.info("[connect-wallet-modal.handleGoogle] startOAuth begin");
     try {
-      // Remember where the user was so the callback can return them here
-      localStorage.setItem("magic_oauth_return_to", window.location.pathname + window.location.search);
-      await magic.oauth2.loginWithRedirect({
+      await dpmSdk.auth.startOAuth({
         provider: "google",
         redirectURI: `${window.location.origin}/oauth/callback`,
+        returnTo: window.location.pathname + window.location.search,
       });
-      // Page will redirect — no need to setLoading(null)
+      // Browser will redirect; loading state never clears here.
     } catch (err) {
-      console.error("[Magic] Google login error:", err);
+      console.error("[connect-wallet-modal.handleGoogle] failed:", err);
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
       setError(`Google sign-in failed: ${msg}`);
       setLoading(null);
@@ -47,27 +48,22 @@ export function ConnectWalletModal({ onClose }: Props) {
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
-    if (!magic || !dpmSdk || !email.trim()) return;
+    if (!dpmSdk || !email.trim()) return;
     setError(null);
     setLoading("email");
-
+    console.info("[connect-wallet-modal.handleEmail] loginWithEmailOTP begin");
     try {
-      // Step 1: OTP login — resolves to DID token directly
-      const didToken = await magic.auth.loginWithEmailOTP({ email: email.trim() });
-      console.log("[Magic] DID token:", didToken ? `${didToken.slice(0, 40)}…` : "null");
-
-      if (!didToken) throw new Error("No DID token returned from Magic");
-
-      const profile = await dpmSdk.gamma.loginWithMagic(didToken);
-      console.log("[Magic] login API profile:", profile);
-
-      // Step 3: Store profile and close
-      setWalletAddress(profile.proxyWallet);
-      setUserProfile(profile);
-      checkAllowanceAndSignIfNeeded(dpmSdk, profile).catch(() => {});
+      const session = await dpmSdk.auth.loginWithEmailOTP(email.trim());
+      console.info("[connect-wallet-modal.handleEmail] success", {
+        proxyWallet: session.proxyWallet,
+      });
       onClose();
     } catch (err) {
-      console.error("[Magic] email login failed:", err);
+      if (err instanceof AuthCancelledError) {
+        setLoading(null);
+        return;
+      }
+      console.error("[connect-wallet-modal.handleEmail] failed:", err);
       setError(err instanceof Error ? err.message : String(err));
       setLoading(null);
     }
