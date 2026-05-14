@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useMagic } from "@/components/providers/magic-provider";
+import { copyToClipboard } from "@/lib/utils";
 
 type DepositModalProps = {
   open: boolean;
@@ -35,9 +36,10 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
 
   if (!open || !isClient) return null;
 
-  function handleCopy() {
+  async function handleCopy() {
     if (!proxyAddress) return;
-    void navigator.clipboard.writeText(proxyAddress);
+    const ok = await copyToClipboard(proxyAddress);
+    if (!ok) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

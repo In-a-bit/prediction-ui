@@ -6,6 +6,7 @@ import { AuthCancelledError } from "dpm-sdk";
 import { useMagic } from "@/components/providers/magic-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";
 import { submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
+import { copyToClipboard } from "@/lib/utils";
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -21,9 +22,10 @@ export function WalletButton() {
   const [connectUiBusy, setConnectUiBusy] = useState(false);
   const [connectUiError, setConnectUiError] = useState<string | null>(null);
 
-  function handleCopy() {
+  async function handleCopy() {
     if (!walletAddress) return;
-    navigator.clipboard.writeText(walletAddress);
+    const ok = await copyToClipboard(walletAddress);
+    if (!ok) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
