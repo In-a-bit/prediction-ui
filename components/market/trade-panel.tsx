@@ -14,6 +14,64 @@ import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/bal
 
 type OrderType = "market" | "limit";
 
+const DEFAULT_FEE_RATE_BPS = 200;
+const MIN_FEE_RATE_BPS = 200;
+const MAX_FEE_RATE_BPS = 1200;
+
+function parseFeeRateBpsInput(input: string): { bps: number; error: string | null } {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { bps: DEFAULT_FEE_RATE_BPS, error: null };
+  }
+  const n = Number(trimmed);
+  if (!Number.isInteger(n) || n < MIN_FEE_RATE_BPS || n > MAX_FEE_RATE_BPS) {
+    return {
+      bps: DEFAULT_FEE_RATE_BPS,
+      error: `Fee rate must be ${MIN_FEE_RATE_BPS}–${MAX_FEE_RATE_BPS} bps (2%–12%)`,
+    };
+  }
+  return { bps: n, error: null };
+}
+
+const FEE_FIELD_WIDTH = "w-[4.25rem]";
+
+function FeeRateInput({
+  value,
+  onChange,
+  error,
+  bps,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  error: string | null;
+  bps: number;
+}) {
+  return (
+    <div className={cn("flex shrink-0 flex-col", FEE_FIELD_WIDTH)}>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="200"
+        min={MIN_FEE_RATE_BPS}
+        max={MAX_FEE_RATE_BPS}
+        step={1}
+        title={`Max fee (bps). Default ${DEFAULT_FEE_RATE_BPS}. Range ${MIN_FEE_RATE_BPS}–${MAX_FEE_RATE_BPS} (2%–12%).`}
+        aria-label="Max fee in basis points"
+        className={cn(
+          "h-10 w-full rounded-lg border bg-input px-1.5 text-right text-sm font-medium tabular-nums text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
+          error ? "border-red/50" : "border-card-border",
+        )}
+      />
+      {!error && (
+        <span className="mt-0.5 text-right text-[9px] tabular-nums text-muted">
+          {(bps / 100).toFixed(1)}%
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Round a number to the nearest tick size step */
 function roundToTick(value: number, tick: number): number {
   if (tick <= 0) return value;
@@ -92,6 +150,7 @@ export function TradePanel({
   const [submitting, setSubmitting] = useState(false);
   const [orderResult, setOrderResult] = useState<string | null>(null);
   const [showOrderTypeMenu, setShowOrderTypeMenu] = useState(false);
+  const [feeRateBpsInput, setFeeRateBpsInput] = useState("");
 
   const { balanceNormalized: usdcBalanceStr } = useCollateralBalance();
   const { yesBalance, noBalance } = useTokenBalances(yesTokenId, noTokenId);
@@ -167,12 +226,18 @@ export function TradePanel({
       ? order.dollarAmount > 0 && order.dollarAmount > usdcBalance
       : order.shares > 0 && order.shares > currentTokenBalance;
 
+  const feeRate = useMemo(
+    () => parseFeeRateBpsInput(feeRateBpsInput),
+    [feeRateBpsInput],
+  );
+
   const canSubmit =
     !!currentTokenId &&
     !!dpmSdk &&
     order.dollarAmount > 0 &&
     priceValid &&
     sharesValid &&
+    !feeRate.error &&
     !submitting &&
     !!userProfile?.proxyWallet;
 
@@ -229,6 +294,7 @@ export function TradePanel({
         tokenId: currentTokenId,
         shares: order.shares,
         price: order.price,
+        feeRateBps: feeRate.bps,
       });
 
       setOrderResult(`Order ${result.status} (${result.orderHash.slice(0, 10)}…)`);
@@ -240,7 +306,7 @@ export function TradePanel({
     } finally {
       setSubmitting(false);
     }
-  }, [dpmSdk, currentTokenId, order, priceValid, side, orderType, userProfile]);
+  }, [dpmSdk, currentTokenId, order, priceValid, side, orderType, userProfile, feeRate.bps]);
 
   if (!session?.user) {
     return (
@@ -397,24 +463,38 @@ export function TradePanel({
 
           {/* Shares */}
           <div>
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-baseline justify-between">
               <label className="text-sm font-medium text-foreground">Shares</label>
+              <span className={cn("text-right text-[10px] text-muted", FEE_FIELD_WIDTH)}>
+                Fee
+              </span>
             </div>
-            <input
-              type="number"
-              value={limitShares}
-              onChange={(e) => setLimitShares(e.target.value)}
-              onBlur={handleLimitSharesBlur}
-              placeholder={String(minOrderSize)}
-              min={minOrderSize}
-              step={shareStep}
-              className={cn(
-                "w-full rounded-lg border bg-input py-2.5 px-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
-                limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize
-                  ? "border-red/50"
-                  : "border-card-border",
-              )}
-            />
+            <div className="flex items-start gap-2">
+              <input
+                type="number"
+                value={limitShares}
+                onChange={(e) => setLimitShares(e.target.value)}
+                onBlur={handleLimitSharesBlur}
+                placeholder={String(minOrderSize)}
+                min={minOrderSize}
+                step={shareStep}
+                className={cn(
+                  "h-10 min-w-0 flex-1 rounded-lg border bg-input px-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
+                  limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize
+                    ? "border-red/50"
+                    : "border-card-border",
+                )}
+              />
+              <FeeRateInput
+                value={feeRateBpsInput}
+                onChange={setFeeRateBpsInput}
+                error={feeRate.error}
+                bps={feeRate.bps}
+              />
+            </div>
+            {feeRate.error && (
+              <p className="mt-1 text-[11px] text-red">{feeRate.error}</p>
+            )}
             {limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize && (
               <p className="mt-1 text-[11px] text-red">
                 Minimum order size is {minOrderSize} shares
@@ -476,30 +556,44 @@ export function TradePanel({
       ) : (
         /* ── Market order ── */
         <div>
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-baseline justify-between">
             <label className="text-sm font-medium text-foreground">
               {side === "sell" ? "Shares" : "Amount"}
             </label>
+            <span className={cn("text-right text-[10px] text-muted", FEE_FIELD_WIDTH)}>
+              Fee
+            </span>
           </div>
-          <div className="relative">
-            {side === "buy" && (
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted">
-                $
-              </span>
-            )}
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              className={cn(
-                "w-full rounded-lg border border-card-border bg-input py-2.5 pr-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
-                side === "buy" ? "pl-8" : "pl-4",
+          <div className="flex items-start gap-2">
+            <div className="relative min-w-0 flex-1">
+              {side === "buy" && (
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted">
+                  $
+                </span>
               )}
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                className={cn(
+                  "h-10 w-full rounded-lg border border-card-border bg-input pr-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
+                  side === "buy" ? "pl-8" : "pl-4",
+                )}
+              />
+            </div>
+            <FeeRateInput
+              value={feeRateBpsInput}
+              onChange={setFeeRateBpsInput}
+              error={feeRate.error}
+              bps={feeRate.bps}
             />
           </div>
+          {feeRate.error && (
+            <p className="mt-1 text-[11px] text-red">{feeRate.error}</p>
+          )}
           <div className="mt-2 flex gap-2">
             {side === "buy" ? (
               <>
