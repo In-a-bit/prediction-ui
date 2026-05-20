@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { DpmSdk } from "dpm-sdk";
+import type { DpmSdk } from "@inabit-com/dpm-sdk";
 
 import { predictionGoUserWsUrl } from "@/lib/prediction-go";
 

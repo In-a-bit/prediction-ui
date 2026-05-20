@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AuthCancelledError } from "dpm-sdk";
+import { AuthCancelledError } from "@inabit-com/dpm-sdk";
 
 import { useMagic } from "@/components/providers/magic-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";

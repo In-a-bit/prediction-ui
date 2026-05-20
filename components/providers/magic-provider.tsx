@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DpmSdk, type AuthSession, type UserProfile } from "dpm-sdk";
+import { DpmSdk, type AuthSession, type UserProfile } from "@inabit-com/dpm-sdk";
 
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { useUserWs } from "@/lib/hooks/use-user-ws";

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AuthCancelledError } from "dpm-sdk";
+import { AuthCancelledError } from "@inabit-com/dpm-sdk";
 
 import { useMagic } from "@/components/providers/magic-provider";
 
