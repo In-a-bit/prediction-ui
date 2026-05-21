@@ -155,6 +155,12 @@ async function handle(req: NextRequest, ctx: RouteCtx) {
   try {
     const res = await proxyRequest(req, service, segments);
     const outHeaders = new Headers(res.headers);
+    // Node's fetch auto-decompresses the body, but the upstream Content-Encoding
+    // header survives. Without stripping it, the browser tries to decode an
+    // already-decoded body → net::ERR_CONTENT_DECODING_FAILED. content-length
+    // would also be wrong after decompression.
+    outHeaders.delete("content-encoding");
+    outHeaders.delete("content-length");
     outHeaders.delete("transfer-encoding");
     return new NextResponse(res.body, {
       status: res.status,
