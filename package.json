@@ -10,6 +10,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@inabit-com/dpm-sdk": "0.2.0-beta.0",
     "@polymarket/clob-client": "^5.2.4",
     "@polymarket/real-time-data-client": "^1.4.0",
     "@prisma/client": "^6.19.2",
@@ -17,7 +18,6 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "dotenv": "^17.3.1",
-    "@inabit-com/dpm-sdk": "0.2.0-beta.0",
     "http-proxy": "^1.18.1",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
