@@ -11,7 +11,6 @@ export function PlaeEventGrid() {
 
   const { data, isLoading } = usePlaeEvents({
     active: true,
-    closed: false,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
