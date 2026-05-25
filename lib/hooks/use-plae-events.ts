@@ -14,6 +14,7 @@ interface UsePlaeEventsParams {
   offset?: number;
   order?: string;
   ascending?: boolean;
+  group_by_series?: boolean;
 }
 
 export interface PlaeEventsResult {

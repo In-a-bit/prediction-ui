@@ -11,6 +11,7 @@ interface FetchPlaeEventsParams {
   offset?: number;
   order?: string;
   ascending?: boolean;
+  group_by_series?: boolean;
 }
 
 export interface PlaeEventsResponse {
@@ -47,8 +48,8 @@ export async function fetchPlaeEventBySlug(
 ): Promise<GammaEvent | null> {
   try {
     const res = await fetch(`${PLAE_GAMMA_BASE}/events/slug/${slug}`, {
-      next: { revalidate: 30 },
-      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return null;
     return res.json();

@@ -45,8 +45,26 @@ export interface GammaMarket {
   bestAsk?: number;
 }
 
+export interface CryptoUpdownMetadata {
+  base: string;
+  target: string;
+  interval_minutes: number;
+  slot_start: number;
+  slot_end: number;
+}
+
+export interface GammaSeries {
+  id?: string;
+  slug: string;
+  title: string;
+  image?: string;
+  icon?: string;
+  volume?: number;
+  events?: GammaEvent[];
+}
+
 export interface GammaEvent {
-  id: number;
+  id: number | string;
   ticker: string;
   slug: string;
   title: string;
@@ -72,4 +90,7 @@ export interface GammaEvent {
   markets: GammaMarket[];
   tags?: { id: number; label: string; slug: string }[];
   volume24hr?: number;
+  metadataType?: string;
+  metadata?: CryptoUpdownMetadata | Record<string, unknown>;
+  series?: GammaSeries[];
 }

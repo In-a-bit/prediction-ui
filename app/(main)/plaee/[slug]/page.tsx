@@ -3,51 +3,21 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 
+import { CryptoUpdownEventPage } from "@/components/crypto/crypto-updown-event-page";
 import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import Link from "next/link";
-import type { GammaEvent, GammaMarket } from "@/lib/types/event";
+import type { GammaEvent } from "@/lib/types/event";
 import { predictionServiceBase } from "@/lib/prediction-proxy";
+import {
+  formatVolume,
+  getDeployedMarkets,
+  isCryptoUpdownEvent,
+  parsePrices,
+  parseTokenIds,
+} from "@/lib/market/gamma-helpers";
 
 const PLAE_GAMMA_BASE = predictionServiceBase("gamma");
-
-function formatVolume(v: number): string {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
-  if (v > 0) return `$${v.toFixed(0)}`;
-  return "$0";
-}
-
-function isDeployed(m: GammaMarket): boolean {
-  if (!m.conditionId || m.conditionId === "PENDING") return false;
-  try {
-    const ids = m.clobTokenIds ? JSON.parse(m.clobTokenIds) : [];
-    return Array.isArray(ids) && ids.length >= 2;
-  } catch {
-    return false;
-  }
-}
-
-function parseTokenIds(m: GammaMarket): string[] {
-  try {
-    return m.clobTokenIds ? JSON.parse(m.clobTokenIds) : [];
-  } catch {
-    return [];
-  }
-}
-
-function parsePrices(m: GammaMarket): { yes: number; no: number } {
-  if (m.outcomePrices) {
-    try {
-      const p = JSON.parse(m.outcomePrices) as string[];
-      return {
-        yes: Math.round(parseFloat(p[0]) * 100),
-        no: Math.round(parseFloat(p[1]) * 100),
-      };
-    } catch {}
-  }
-  return { yes: 50, no: 50 };
-}
 
 export default function PlaeEventPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -74,13 +44,11 @@ export default function PlaeEventPage() {
     load();
   }, [slug]);
 
-  // Only show deployed markets (conditionId set + 2 clobTokenIds)
   const deployedMarkets = useMemo(
-    () => event?.markets?.filter(isDeployed) ?? [],
+    () => (event ? getDeployedMarkets(event) : []),
     [event],
   );
 
-  // Auto-select first deployed market when event loads
   useEffect(() => {
     if (deployedMarkets.length > 0 && selectedMarketId === null) {
       setSelectedMarketId(String(deployedMarkets[0].id));
@@ -88,7 +56,9 @@ export default function PlaeEventPage() {
   }, [deployedMarkets, selectedMarketId]);
 
   const selectedMarket = useMemo(
-    () => deployedMarkets.find((m) => String(m.id) === selectedMarketId) ?? deployedMarkets[0],
+    () =>
+      deployedMarkets.find((m) => String(m.id) === selectedMarketId) ??
+      deployedMarkets[0],
     [deployedMarkets, selectedMarketId],
   );
 
@@ -112,6 +82,18 @@ export default function PlaeEventPage() {
     );
   }
 
+  const seriesSlug = event.series?.[0]?.slug;
+  if (isCryptoUpdownEvent(event) && seriesSlug) {
+    return (
+      <CryptoUpdownEventPage
+        key={seriesSlug}
+        initialEvent={event}
+        seriesSlug={seriesSlug}
+        urlSlug={slug}
+      />
+    );
+  }
+
   if (deployedMarkets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-card-border bg-card px-8 py-16">
@@ -132,7 +114,6 @@ export default function PlaeEventPage() {
 
   return (
     <div>
-      {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-muted">
         <Link href="/plaee" className="transition-colors hover:text-foreground">
           Plaee
@@ -151,7 +132,6 @@ export default function PlaeEventPage() {
         conditionId={selectedMarket?.conditionId}
         tokenIds={tokenIds.length > 0 ? tokenIds : undefined}
       >
-        {/* Event header */}
         <div className="rounded-2xl border border-card-border bg-card p-6">
           <div className="mb-4 flex items-start gap-4">
             {event.image && (
@@ -189,7 +169,6 @@ export default function PlaeEventPage() {
             </div>
           </div>
 
-          {/* Quick stats */}
           <div className="flex flex-wrap items-center gap-4 border-t border-card-border pt-4">
             <LivePrices
               yesTokenId={yesTokenId}
@@ -214,7 +193,6 @@ export default function PlaeEventPage() {
           </div>
         </div>
 
-        {/* Markets selector (only deployed, clickable) */}
         {deployedMarkets.length > 1 && (
           <div className="rounded-2xl border border-card-border bg-card p-6">
             <h2 className="mb-4 text-sm font-semibold text-muted">Markets</h2>
@@ -233,7 +211,9 @@ export default function PlaeEventPage() {
                         : "border-card-border hover:border-card-border/80 hover:bg-card-hover"
                     }`}
                   >
-                    <span className={`text-sm font-medium ${isSelected ? "text-brand" : "text-foreground"}`}>
+                    <span
+                      className={`text-sm font-medium ${isSelected ? "text-brand" : "text-foreground"}`}
+                    >
                       {m.question}
                     </span>
                     <div className="ml-4 flex shrink-0 gap-3">

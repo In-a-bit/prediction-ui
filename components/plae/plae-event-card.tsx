@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { cryptoUpdownDisplayTitle } from "@/lib/crypto-updown";
+import { isCryptoUpdownEvent } from "@/lib/market/gamma-helpers";
 import type { GammaEvent } from "@/lib/types/event";
 import { formatCompactNumber } from "@/lib/utils";
 
@@ -30,6 +32,9 @@ function parseOutcomePrices(event: GammaEvent): { yes: number; no: number } {
 }
 
 export function PlaeEventCard({ event }: { event: GammaEvent }) {
+  const displayTitle =
+    (isCryptoUpdownEvent(event) && cryptoUpdownDisplayTitle(event)) ||
+    event.title;
   const prices = parseOutcomePrices(event);
   const yesPercent = Math.round(prices.yes * 100);
   const noPercent = Math.round(prices.no * 100);
@@ -44,7 +49,7 @@ export function PlaeEventCard({ event }: { event: GammaEvent }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={event.image}
-            alt={event.title}
+            alt={displayTitle}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
@@ -53,7 +58,7 @@ export function PlaeEventCard({ event }: { event: GammaEvent }) {
 
       <div className="flex flex-1 flex-col p-4">
         <h3 className="mb-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-          {event.title}
+          {displayTitle}
         </h3>
 
         <div className="mb-3 flex items-center gap-2">

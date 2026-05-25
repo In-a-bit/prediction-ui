@@ -22,6 +22,7 @@ export function MarketTradingSection({
   minOrderSize,
   conditionId,
   tokenIds,
+  hidePriceChart = false,
 }: {
   children: React.ReactNode;
   yesTokenId: string | undefined;
@@ -32,6 +33,7 @@ export function MarketTradingSection({
   minOrderSize: number;
   conditionId?: string;
   tokenIds?: string[];
+  hidePriceChart?: boolean;
 }) {
   const [outcome, setOutcome] = useState<"yes" | "no">("yes");
 
@@ -54,13 +56,14 @@ export function MarketTradingSection({
           noTokenId={noTokenId}
         />
 
-        {/* Price Chart */}
-        <div className="rounded-2xl border border-card-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold text-muted">
-            Price History
-          </h2>
-          <PriceChart tokenId={yesTokenId} />
-        </div>
+        {!hidePriceChart && (
+          <div className="rounded-2xl border border-card-border bg-card p-6">
+            <h2 className="mb-4 text-sm font-semibold text-muted">
+              Price History
+            </h2>
+            <PriceChart tokenId={yesTokenId} />
+          </div>
+        )}
 
         {/* Recent Activity */}
         <div className="rounded-2xl border border-card-border bg-card p-6">

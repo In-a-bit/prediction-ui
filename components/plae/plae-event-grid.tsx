@@ -11,6 +11,7 @@ export function PlaeEventGrid() {
 
   const { data, isLoading } = usePlaeEvents({
     active: true,
+    group_by_series: true,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -40,7 +41,10 @@ export function PlaeEventGrid() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {events.map((event) => (
-            <PlaeEventCard key={event.id} event={event} />
+            <PlaeEventCard
+              key={event.series?.[0]?.slug ?? event.id}
+              event={event}
+            />
           ))}
         </div>
       )}
