@@ -36,6 +36,7 @@ export interface GammaMarket {
   umaReward: string;
   volume_num: number;
   liquidityNum: number;
+  metadata?: Record<string, unknown>;
   endDateIso: string;
   startDateIso: string;
   hasReviewedDates: boolean;
@@ -51,6 +52,7 @@ export interface CryptoUpdownMetadata {
   interval_minutes: number;
   slot_start: number;
   slot_end: number;
+  priceToBeat?: string;
 }
 
 export interface GammaSeries {

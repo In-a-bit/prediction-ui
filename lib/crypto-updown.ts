@@ -40,20 +40,136 @@ export function parseCryptoMetadata(
   }
   if (typeof raw !== "object") return null;
   const m = raw as Record<string, unknown>;
+  const slotStart = Number(m.slot_start);
+  const slotEnd = Number(m.slot_end);
+  const intervalMinutes = Number(m.interval_minutes);
   if (
-    typeof m.slot_start !== "number" ||
-    typeof m.slot_end !== "number" ||
-    typeof m.interval_minutes !== "number"
+    !Number.isFinite(slotStart) ||
+    !Number.isFinite(slotEnd) ||
+    !Number.isFinite(intervalMinutes)
   ) {
     return null;
   }
+  const priceToBeat = readPriceToBeatRaw(m);
   return {
     base: String(m.base ?? ""),
     target: String(m.target ?? ""),
-    interval_minutes: Number(m.interval_minutes),
-    slot_start: Number(m.slot_start),
-    slot_end: Number(m.slot_end),
+    interval_minutes: intervalMinutes,
+    slot_start: slotStart,
+    slot_end: slotEnd,
+    ...(priceToBeat ? { priceToBeat } : {}),
   };
+}
+
+function readPriceToBeatRaw(m: Record<string, unknown>): string | null {
+  const v = m.priceToBeat ?? m.price_to_beat;
+  if (v == null || v === "") return null;
+  return String(v);
+}
+
+function parseMetadataRecord(
+  raw: GammaEvent["metadata"],
+): Record<string, unknown> | null {
+  if (!raw) return null;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === "object") return raw as Record<string, unknown>;
+  return null;
+}
+
+export function getCryptoPriceToBeat(
+  event: GammaEvent,
+  market?: { metadata?: Record<string, unknown> },
+): string | null {
+  const fromEvent = parseMetadataRecord(event.metadata);
+  if (fromEvent) {
+    const price = readPriceToBeatRaw(fromEvent);
+    if (price) return price;
+  }
+  if (market?.metadata) {
+    return readPriceToBeatRaw(market.metadata);
+  }
+  return null;
+}
+
+function formatTimeCompact(date: Date, withMeridiem: boolean): string {
+  const formatted = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: SLOT_LABEL_TZ,
+  });
+  if (withMeridiem) return formatted.replace(/\s+/g, "");
+  return formatted.replace(/\s?(AM|PM)$/i, "");
+}
+
+function meridiemForDate(date: Date): string {
+  return (
+    date
+      .toLocaleTimeString("en-US", {
+        hour: "numeric",
+        hour12: true,
+        timeZone: SLOT_LABEL_TZ,
+      })
+      .split(" ")[1] ?? ""
+  );
+}
+
+/** e.g. "May 25, 10:20-10:25AM" (UTC, matching slot picker labels). */
+export function formatCryptoSlotTimeRange(meta: CryptoUpdownMetadata): string {
+  const start = new Date(meta.slot_start * 1000);
+  const end = new Date(meta.slot_end * 1000);
+  const datePart = start.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: SLOT_LABEL_TZ,
+  });
+  const sameMeridiem = meridiemForDate(start) === meridiemForDate(end);
+  const timeRange = sameMeridiem
+    ? `${formatTimeCompact(start, false)}-${formatTimeCompact(end, true)}`
+    : `${formatTimeCompact(start, true)}-${formatTimeCompact(end, true)}`;
+  return `${datePart}, ${timeRange}`;
+}
+
+export function formatCryptoPriceToBeat(
+  price: string,
+  target?: string,
+): string {
+  const n = Number(price);
+  if (!Number.isFinite(n)) return price;
+  const quote = target?.toLowerCase();
+  if (quote === "usdt" || quote === "usd") {
+    return `$${n.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+  if (n >= 1000) {
+    return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
+  if (n >= 1) {
+    return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  }
+  return n.toLocaleString("en-US", { maximumFractionDigits: 8 });
+}
+
+export function cryptoUpdownSlotHeader(
+  event: GammaEvent,
+  market?: { metadata?: Record<string, unknown> },
+): { timeLabel: string | null; priceToBeatLabel: string } {
+  const meta = parseCryptoMetadata(event);
+  const timeLabel = meta ? formatCryptoSlotTimeRange(meta) : null;
+  const rawPrice =
+    meta?.priceToBeat ?? getCryptoPriceToBeat(event, market) ?? null;
+  const priceToBeatLabel = rawPrice
+    ? formatCryptoPriceToBeat(rawPrice, meta?.target)
+    : "-";
+  return { timeLabel, priceToBeatLabel };
 }
 
 export function isLiveSlot(meta: CryptoUpdownMetadata, nowMs = Date.now()): boolean {

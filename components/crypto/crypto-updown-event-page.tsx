@@ -26,6 +26,7 @@ import {
   parseCryptoMetadata,
   cryptoUpdownDisplayImage,
   cryptoUpdownDisplayTitle,
+  cryptoUpdownSlotHeader,
   slotEndAfterForLookback,
 } from "@/lib/crypto-updown";
 import {
@@ -145,6 +146,10 @@ export function CryptoUpdownEventPage({
     cryptoUpdownDisplayImage(initialEvent, tradeEvent) ??
     initialEvent.image ??
     initialEvent.icon;
+  const { timeLabel, priceToBeatLabel } = cryptoUpdownSlotHeader(
+    tradeEvent,
+    selectedMarket,
+  );
 
   const slotPicker =
     seriesEvents.length > 0 && selectedSlug ? (
@@ -191,6 +196,8 @@ export function CryptoUpdownEventPage({
           <EventHeaderCard>
             <EventCardContent
               displayTitle={displayTitle}
+              timeLabel={timeLabel}
+              priceToBeatLabel={priceToBeatLabel}
               displayImage={displayImage}
               tradeEvent={tradeEvent}
               descriptionExpanded={descriptionExpanded}
@@ -211,6 +218,8 @@ export function CryptoUpdownEventPage({
           <EventHeaderCard>
             <EventCardContent
               displayTitle={displayTitle}
+              timeLabel={timeLabel}
+              priceToBeatLabel={priceToBeatLabel}
               displayImage={displayImage}
               tradeEvent={tradeEvent}
               descriptionExpanded={descriptionExpanded}
@@ -251,6 +260,8 @@ function EventHeaderCard({ children }: { children: ReactNode }) {
 
 function EventCardContent({
   displayTitle,
+  timeLabel,
+  priceToBeatLabel,
   displayImage,
   tradeEvent,
   descriptionExpanded,
@@ -263,6 +274,8 @@ function EventCardContent({
   selectedMarket,
 }: {
   displayTitle: string;
+  timeLabel?: string | null;
+  priceToBeatLabel: string;
   displayImage?: string;
   tradeEvent: GammaEvent;
   descriptionExpanded: boolean;
@@ -278,6 +291,8 @@ function EventCardContent({
     <>
       <EventHeader
         displayTitle={displayTitle}
+        timeLabel={timeLabel}
+        priceToBeatLabel={priceToBeatLabel}
         displayImage={displayImage}
         selectedEvent={tradeEvent}
         descriptionExpanded={descriptionExpanded}
@@ -309,6 +324,8 @@ function EventCardContent({
 
 function EventHeader({
   displayTitle,
+  timeLabel,
+  priceToBeatLabel,
   displayImage,
   selectedEvent,
   descriptionExpanded,
@@ -316,6 +333,8 @@ function EventHeader({
   slotPicker,
 }: {
   displayTitle: string;
+  timeLabel?: string | null;
+  priceToBeatLabel: string;
   displayImage?: string;
   selectedEvent: GammaEvent;
   descriptionExpanded: boolean;
@@ -339,9 +358,17 @@ function EventHeader({
           <h1 className="text-xl font-bold text-foreground lg:text-2xl">
             {displayTitle}
           </h1>
-          {selectedEvent.title !== displayTitle && (
-            <p className="mt-1 text-sm text-muted">{selectedEvent.title}</p>
+          {timeLabel && (
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {timeLabel}
+            </p>
           )}
+          <p className="mt-1 text-sm text-muted">
+            Price to beat:{" "}
+            <span className="font-semibold text-foreground">
+              {priceToBeatLabel}
+            </span>
+          </p>
           {selectedEvent.description && (
             <>
               <p
