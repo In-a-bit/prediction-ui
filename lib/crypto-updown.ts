@@ -1,5 +1,7 @@
 import type { CryptoUpdownMetadata, GammaEvent } from "@/lib/types/event";
 
+export type { CryptoUpdownMetadata } from "@/lib/types/event";
+
 function embeddedSeries(event: GammaEvent | null | undefined) {
   return event?.series?.[0];
 }
