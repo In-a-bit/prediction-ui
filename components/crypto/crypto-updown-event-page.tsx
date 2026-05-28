@@ -11,6 +11,8 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { CryptoSpotChartSection } from "@/components/crypto/crypto-spot-chart-section";
+import { cryptoSpotHistoryKey } from "@/lib/hooks/use-crypto-spot-chart";
 import {
   SeriesSlotPicker,
   type SlotSelectSource,
@@ -88,7 +90,7 @@ export function CryptoUpdownEventPage({
     return () => {
       cancelled = true;
     };
-  }, [seriesSlug, intervalMinutes]);
+  }, [seriesSlug, intervalMinutes, urlSlug]);
 
   useEffect(() => {
     if (!selectedSlug) return;
@@ -146,10 +148,7 @@ export function CryptoUpdownEventPage({
     cryptoUpdownDisplayImage(initialEvent, tradeEvent) ??
     initialEvent.image ??
     initialEvent.icon;
-  const { timeLabel, priceToBeatLabel } = cryptoUpdownSlotHeader(
-    tradeEvent,
-    selectedMarket,
-  );
+  const { timeLabel } = cryptoUpdownSlotHeader(tradeEvent, selectedMarket);
 
   const slotPicker =
     seriesEvents.length > 0 && selectedSlug ? (
@@ -177,6 +176,22 @@ export function CryptoUpdownEventPage({
 
   const canTrade = deployedMarkets.length > 0;
 
+  const cardContentProps = {
+    displayTitle,
+    timeLabel,
+    displayImage,
+    tradeEvent,
+    descriptionExpanded,
+    onToggleDescription: () =>
+      setDescriptionExpanded((prev) => !prev),
+    slotPicker,
+    selectedMarket,
+    yesTokenId,
+    noTokenId,
+    yesPrice,
+    noPrice,
+  };
+
   return (
     <div>
       <Breadcrumb title={displayTitle} />
@@ -194,40 +209,13 @@ export function CryptoUpdownEventPage({
           hidePriceChart
         >
           <EventHeaderCard>
-            <EventCardContent
-              displayTitle={displayTitle}
-              timeLabel={timeLabel}
-              priceToBeatLabel={priceToBeatLabel}
-              displayImage={displayImage}
-              tradeEvent={tradeEvent}
-              descriptionExpanded={descriptionExpanded}
-              onToggleDescription={() =>
-                setDescriptionExpanded((prev) => !prev)
-              }
-              slotPicker={slotPicker}
-              yesTokenId={yesTokenId}
-              noTokenId={noTokenId}
-              yesPrice={yesPrice}
-              noPrice={noPrice}
-              selectedMarket={selectedMarket}
-            />
+            <EventCardContent {...cardContentProps} />
           </EventHeaderCard>
         </MarketTradingSection>
       ) : (
         <div className="space-y-6">
           <EventHeaderCard>
-            <EventCardContent
-              displayTitle={displayTitle}
-              timeLabel={timeLabel}
-              priceToBeatLabel={priceToBeatLabel}
-              displayImage={displayImage}
-              tradeEvent={tradeEvent}
-              descriptionExpanded={descriptionExpanded}
-              onToggleDescription={() =>
-                setDescriptionExpanded((prev) => !prev)
-              }
-              slotPicker={slotPicker}
-            />
+            <EventCardContent {...cardContentProps} />
           </EventHeaderCard>
           <div className="flex flex-col items-center justify-center rounded-2xl border border-card-border bg-card px-8 py-16">
             {tradeLoading ? (
@@ -261,7 +249,6 @@ function EventHeaderCard({ children }: { children: ReactNode }) {
 function EventCardContent({
   displayTitle,
   timeLabel,
-  priceToBeatLabel,
   displayImage,
   tradeEvent,
   descriptionExpanded,
@@ -275,7 +262,6 @@ function EventCardContent({
 }: {
   displayTitle: string;
   timeLabel?: string | null;
-  priceToBeatLabel: string;
   displayImage?: string;
   tradeEvent: GammaEvent;
   descriptionExpanded: boolean;
@@ -292,15 +278,24 @@ function EventCardContent({
       <EventHeader
         displayTitle={displayTitle}
         timeLabel={timeLabel}
-        priceToBeatLabel={priceToBeatLabel}
         displayImage={displayImage}
         selectedEvent={tradeEvent}
         descriptionExpanded={descriptionExpanded}
         onToggleDescription={onToggleDescription}
-        slotPicker={slotPicker}
       />
+
+      <CryptoSpotChartSection
+        key={cryptoSpotHistoryKey(tradeEvent)}
+        tradeEvent={tradeEvent}
+        market={selectedMarket}
+      />
+
+      {slotPicker && (
+        <div className="relative z-20 mt-4 overflow-visible">{slotPicker}</div>
+      )}
+
       {yesTokenId && noTokenId && (
-        <div className="flex flex-wrap items-center gap-4 border-t border-card-border pt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-card-border pt-4">
           <LivePrices
             yesTokenId={yesTokenId}
             noTokenId={noTokenId}
@@ -325,72 +320,59 @@ function EventCardContent({
 function EventHeader({
   displayTitle,
   timeLabel,
-  priceToBeatLabel,
   displayImage,
   selectedEvent,
   descriptionExpanded,
   onToggleDescription,
-  slotPicker,
 }: {
   displayTitle: string;
   timeLabel?: string | null;
-  priceToBeatLabel: string;
   displayImage?: string;
   selectedEvent: GammaEvent;
   descriptionExpanded: boolean;
   onToggleDescription: () => void;
-  slotPicker: ReactNode;
 }) {
   return (
-    <>
-      <div className="mb-4 flex items-start gap-4">
-        {displayImage && (
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={displayImage}
-              alt={displayTitle}
-              className="h-full w-full object-cover"
-            />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-foreground lg:text-2xl">
-            {displayTitle}
-          </h1>
-          {timeLabel && (
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {timeLabel}
-            </p>
-          )}
-          <p className="mt-1 text-sm text-muted">
-            Price to beat:{" "}
-            <span className="font-semibold text-foreground">
-              {priceToBeatLabel}
-            </span>
-          </p>
-          {selectedEvent.description && (
-            <>
-              <p
-                className={`mt-2 text-sm text-muted ${
-                  descriptionExpanded ? "" : "line-clamp-3"
-                }`}
-              >
-                {selectedEvent.description}
-              </p>
-              <button
-                type="button"
-                onClick={onToggleDescription}
-                className="mt-1 text-xs font-medium text-brand transition-colors hover:text-brand-hover"
-              >
-                {descriptionExpanded ? "Show less" : "Show more"}
-              </button>
-            </>
-          )}
+    <div className="mb-4 flex items-start gap-4">
+      {displayImage && (
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={displayImage}
+            alt={displayTitle}
+            className="h-full w-full object-cover"
+          />
         </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <h1 className="text-xl font-bold text-foreground lg:text-2xl">
+          {displayTitle}
+        </h1>
+        {timeLabel && (
+          <p className="mt-1 text-sm font-medium text-foreground">
+            {timeLabel}
+          </p>
+        )}
+        {selectedEvent.description && (
+          <>
+            <p
+              className={`mt-2 text-sm text-muted ${
+                descriptionExpanded ? "" : "line-clamp-3"
+              }`}
+            >
+              {selectedEvent.description}
+            </p>
+            <button
+              type="button"
+              onClick={onToggleDescription}
+              className="mt-1 text-xs font-medium text-brand transition-colors hover:text-brand-hover"
+            >
+              {descriptionExpanded ? "Show less" : "Show more"}
+            </button>
+          </>
+        )}
       </div>
-      {slotPicker && <div className="relative z-20 mb-4 overflow-visible">{slotPicker}</div>}
-    </>
+    </div>
   );
 }
 

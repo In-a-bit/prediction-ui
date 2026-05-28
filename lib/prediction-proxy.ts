@@ -8,7 +8,8 @@ export type PredictionProxyService =
   | "clob"
   | "relayer"
   | "dpm"
-  | "data";
+  | "data"
+  | "price";
 
 export function predictionServiceBase(service: PredictionProxyService): string {
   return `${PREDICTION_PROXY_ROOT}/${service}`;

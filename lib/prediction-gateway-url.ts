@@ -26,3 +26,7 @@ export function predictionGoMarketWsUrl(): string {
 export function predictionGoUserWsUrl(): string {
   return `${gatewayWsBase()}/ws/user`;
 }
+
+export function predictionGoPricesWsUrl(): string {
+  return `${gatewayWsBase()}/ws/prices`;
+}

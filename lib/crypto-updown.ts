@@ -354,3 +354,85 @@ export function slotEndAfterForLookback(
 ): Date {
   return new Date(Date.now() - intervalMinutes * pastSlots * 60 * 1000);
 }
+
+export type CryptoChartMode = "live" | "upcoming" | "past";
+
+export function cryptoWsSymbol(meta: CryptoUpdownMetadata): string {
+  const base = meta.base.trim().toLowerCase();
+  const target = (meta.target?.trim() || "usdt").toLowerCase();
+  return `${base}/${target}`;
+}
+
+export function cryptoPriceHistorySymbol(meta: CryptoUpdownMetadata): string {
+  return meta.base.trim().toLowerCase();
+}
+
+export function cryptoWsSubscribeFilters(meta: CryptoUpdownMetadata): string {
+  return JSON.stringify({ symbol: cryptoWsSymbol(meta) });
+}
+
+export function priceHistoryInterval(intervalMinutes: number): string {
+  return intervalMinutes <= 15 ? "1m" : "5m";
+}
+
+export function isPastSlot(meta: CryptoUpdownMetadata, nowMs = Date.now()): boolean {
+  return nowMs / 1000 >= meta.slot_end;
+}
+
+export function isUpcomingSlot(
+  meta: CryptoUpdownMetadata,
+  nowMs = Date.now(),
+): boolean {
+  return nowMs / 1000 < meta.slot_start;
+}
+
+export function cryptoChartMode(
+  meta: CryptoUpdownMetadata,
+  nowMs = Date.now(),
+): CryptoChartMode {
+  if (isPastSlot(meta, nowMs)) return "past";
+  if (isUpcomingSlot(meta, nowMs)) return "upcoming";
+  return "live";
+}
+
+export function isChartLiveMode(
+  meta: CryptoUpdownMetadata,
+  nowMs = Date.now(),
+): boolean {
+  const mode = cryptoChartMode(meta, nowMs);
+  return mode === "live" || mode === "upcoming";
+}
+
+export function priceHistoryWindow(
+  meta: CryptoUpdownMetadata,
+  nowMs = Date.now(),
+): { openTimeMs: number; closeTimeMs: number } {
+  const mode = cryptoChartMode(meta, nowMs);
+
+  if (mode === "past") {
+    return {
+      openTimeMs: meta.slot_start * 1000,
+      closeTimeMs: meta.slot_end * 1000,
+    };
+  }
+
+  if (mode === "live") {
+    return {
+      openTimeMs: meta.slot_start * 1000,
+      closeTimeMs: nowMs,
+    };
+  }
+
+  const lookbackMs = meta.interval_minutes * 60 * 1000;
+  return {
+    openTimeMs: nowMs - lookbackMs,
+    closeTimeMs: nowMs,
+  };
+}
+
+export function countdownTargetSec(
+  meta: CryptoUpdownMetadata,
+  nowMs = Date.now(),
+): number {
+  return isUpcomingSlot(meta, nowMs) ? meta.slot_start : meta.slot_end;
+}

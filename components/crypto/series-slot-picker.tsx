@@ -125,9 +125,16 @@ export function SeriesSlotPicker({
   selectedSlug,
   onSelect,
 }: SeriesSlotPickerProps) {
-  const liveSlug = getLiveEventSlug(events);
-  const pastEvents = getPastEvents(events);
-  const moreEvents = getMoreEvents(events, barSlugs);
+  const [nowMs, setNowMs] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const liveSlug = getLiveEventSlug(events, nowMs || undefined);
+  const pastEvents = getPastEvents(events, nowMs || undefined);
+  const moreEvents = getMoreEvents(events, barSlugs, nowMs || undefined);
   const visible = eventsToBarSlugs(events, barSlugs);
   const selectedPast = pastEvents.find((e) => e.slug === selectedSlug);
   const selectedMore = moreEvents.find((e) => e.slug === selectedSlug);
