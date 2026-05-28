@@ -79,7 +79,7 @@ async function fetchPriceHistoryRange(
     limit: "5000",
   });
 
-  const url = `${predictionServiceBase("price")}/price-history?${params}`;
+  const url = `${predictionServiceBase("price")}/crypto/price-history?${params}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`price-history failed: ${res.status}`);
@@ -121,7 +121,7 @@ export async function fetchCryptoLatest(
   const params = new URLSearchParams({
     symbol: cryptoPriceHistorySymbol(meta),
   });
-  const url = `${predictionServiceBase("price")}/latest?${params}`;
+  const url = `${predictionServiceBase("price")}/crypto/latest?${params}`;
   const res = await fetch(url);
   if (!res.ok) return null;
 
