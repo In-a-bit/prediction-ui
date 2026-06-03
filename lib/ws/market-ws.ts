@@ -1,5 +1,7 @@
 import WebSocket from "isomorphic-ws";
 
+import { marketResolvedEventKey, parseMarketResolvedEvent } from "@/lib/ws/market-resolved";
+
 const DEFAULT_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
 const LOCAL_MARKET_PATH = "/ws/market";
 
@@ -26,7 +28,8 @@ export type MarketEventType =
   | "book"
   | "price_change"
   | "last_trade_price"
-  | "best_bid_ask";
+  | "best_bid_ask"
+  | "market_resolved";
 
 export type MarketEventCallback = (data: Record<string, unknown>) => void;
 
@@ -39,6 +42,8 @@ export class MarketWS {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private destroyed = false;
+  /** Recent market_resolved keys — same settlement is broadcast per outcome token. */
+  private seenMarketResolved = new Set<string>();
 
   constructor(wsUrl?: string) {
     const custom = wsUrl?.trim();
@@ -148,6 +153,11 @@ export class MarketWS {
     const eventType = msg.event_type as MarketEventType | undefined;
     if (!eventType) return;
 
+    if (eventType === "market_resolved") {
+      this.dispatchMarketResolved(msg);
+      return;
+    }
+
     // price_change events nest per-asset data inside a price_changes array.
     // Flatten them into individual events so consumers get a consistent shape
     // with asset_id, best_bid, best_ask at the top level.
@@ -177,6 +187,25 @@ export class MarketWS {
       for (const cb of callbacks) {
         cb(msg);
       }
+    }
+  }
+
+  private dispatchMarketResolved(msg: Record<string, unknown>) {
+    const evt = parseMarketResolvedEvent(msg);
+    if (!evt) return;
+
+    const key = marketResolvedEventKey(evt);
+    if (this.seenMarketResolved.has(key)) return;
+    this.seenMarketResolved.add(key);
+    if (this.seenMarketResolved.size > 128) {
+      this.seenMarketResolved.clear();
+      this.seenMarketResolved.add(key);
+    }
+
+    const callbacks = this.listeners.get("market_resolved");
+    if (!callbacks) return;
+    for (const cb of callbacks) {
+      cb(msg);
     }
   }
 

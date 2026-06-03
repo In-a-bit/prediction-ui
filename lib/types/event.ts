@@ -32,6 +32,7 @@ export interface GammaMarket {
   orderMinSize: number;
   volume24hr: number;
   clobTokenIds?: string;
+  umaResolutionStatus?: string;
   umaBond: string;
   umaReward: string;
   volume_num: number;

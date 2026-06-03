@@ -225,6 +225,8 @@ export function CryptoUpdownEventPage({
           initialYesPrice={yesPrice}
           initialNoPrice={noPrice}
           outcomeLabels={outcomeLabels}
+          selectedMarket={selectedMarket}
+          resolutionEvent={tradeEvent}
           tickSize={selectedMarket?.orderPriceMinTickSize ?? 0.01}
           minOrderSize={selectedMarket?.orderMinSize ?? 1}
           conditionId={selectedMarket?.conditionId}

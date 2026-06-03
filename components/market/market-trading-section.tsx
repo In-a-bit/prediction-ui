@@ -4,8 +4,9 @@ import { useState } from "react";
 import { OrderBookView } from "@/components/market/order-book";
 import { MarketOpenOrders } from "@/components/market/market-open-orders";
 import { PriceChart } from "@/components/market/price-chart";
-import { TradePanel } from "@/components/market/trade-panel";
+import { MarketSidePanel } from "@/components/market/market-side-panel";
 import { TradeTicker } from "@/components/market/trade-ticker";
+import type { GammaEvent, GammaMarket } from "@/lib/types/event";
 
 /**
  * Client component that renders the orderbook, recent activity, and trade panel
@@ -23,6 +24,8 @@ export function MarketTradingSection({
   conditionId,
   tokenIds,
   outcomeLabels = ["Yes", "No"],
+  selectedMarket,
+  resolutionEvent,
   hidePriceChart = false,
 }: {
   children: React.ReactNode;
@@ -31,6 +34,9 @@ export function MarketTradingSection({
   initialYesPrice: number;
   initialNoPrice: number;
   outcomeLabels?: [string, string];
+  selectedMarket?: GammaMarket;
+  /** Event context for crypto slot end → pending resolution. */
+  resolutionEvent?: GammaEvent;
   tickSize: number;
   minOrderSize: number;
   conditionId?: string;
@@ -76,9 +82,11 @@ export function MarketTradingSection({
         </div>
       </div>
 
-      {/* Right column: sticky trade panel */}
+      {/* Right column: trade or resolution (UMA / WS) */}
       <div className="lg:sticky lg:top-36 lg:self-start">
-        <TradePanel
+        <MarketSidePanel
+          market={selectedMarket}
+          event={resolutionEvent}
           yesTokenId={yesTokenId}
           noTokenId={noTokenId}
           initialYesPrice={initialYesPrice}

@@ -72,6 +72,8 @@ export default async function EventPage({ params }: EventPageProps) {
       initialYesPrice={yesPrice}
       initialNoPrice={noPrice}
       outcomeLabels={outcomeLabels}
+      selectedMarket={market}
+      resolutionEvent={event}
       tickSize={market?.orderPriceMinTickSize ?? 0.01}
       minOrderSize={market?.orderMinSize ?? 1}
       conditionId={market?.conditionId}

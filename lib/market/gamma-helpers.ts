@@ -122,3 +122,46 @@ export function getDeployedMarkets(event: GammaEvent): GammaMarket[] {
 export function isCryptoUpdownEvent(event: GammaEvent): boolean {
   return event.metadataType === "crypto_updown";
 }
+
+const UMA_RESOLVED_STATUSES = new Set(["RESOLVED", "MANUALLY_RESOLVED"]);
+
+export function isUmaResolved(market: GammaMarket | undefined): boolean {
+  const status = market?.umaResolutionStatus?.trim().toUpperCase();
+  return status != null && UMA_RESOLVED_STATUSES.has(status);
+}
+
+/** Index of the winning outcome from settled outcomePrices (e.g. ["1","0"]). */
+export function getWinningOutcomeIndex(
+  market: GammaMarket | undefined,
+): number | null {
+  if (!market?.outcomePrices) return null;
+  try {
+    const prices = JSON.parse(market.outcomePrices) as string[];
+    for (let i = 0; i < prices.length; i++) {
+      if (parseFloat(prices[i]) >= 0.99) return i;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function getWinningOutcomeLabel(
+  market: GammaMarket | undefined,
+): string | null {
+  const idx = getWinningOutcomeIndex(market);
+  if (idx == null) return null;
+  const labels = parseOutcomes(market);
+  return labels[idx] ?? null;
+}
+
+export function isMarketAwaitingResolution(
+  market: GammaMarket | undefined,
+  event?: GammaEvent,
+  slotEnded?: boolean,
+): boolean {
+  if (!market || isUmaResolved(market)) return false;
+  if (market.closed) return true;
+  if (slotEnded) return true;
+  return false;
+}
