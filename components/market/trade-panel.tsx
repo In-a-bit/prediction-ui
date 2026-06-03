@@ -119,6 +119,7 @@ export function TradePanel({
   noTokenId,
   initialYesPrice,
   initialNoPrice,
+  outcomeLabels = ["Yes", "No"],
   tickSize = 0.01,
   minOrderSize = 1,
   onOutcomeChange,
@@ -127,6 +128,8 @@ export function TradePanel({
   noTokenId: string | undefined;
   initialYesPrice: number;
   initialNoPrice: number;
+  /** Outcome names from gamma market.outcomes (index 0 = yes token, 1 = no token). */
+  outcomeLabels?: [string, string];
   /** Price min tick size as a decimal (e.g. 0.01 = 1¢). Default 0.01 */
   tickSize?: number;
   /** Minimum order size in shares. Default 1 */
@@ -134,6 +137,7 @@ export function TradePanel({
   /** Called when the user switches outcome (yes/no) — parent can use this to sync orderbook */
   onOutcomeChange?: (outcome: "yes" | "no") => void;
 }) {
+  const [yesLabel, noLabel] = outcomeLabels;
   const { data: session } = useSession();
   const { dpmSdk, userProfile } = useMagic();
   const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
@@ -386,6 +390,8 @@ export function TradePanel({
           onSelect={setOutcome}
           yesPrice={bestPrices.yesPrice}
           noPrice={bestPrices.noPrice}
+          yesLabel={yesLabel}
+          noLabel={noLabel}
         />
       </div>
 
@@ -401,7 +407,9 @@ export function TradePanel({
             </BalanceBreakdown>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted">{outcome === "yes" ? "Yes" : "No"} Shares</span>
+            <span className="text-muted">
+              {outcome === "yes" ? yesLabel : noLabel} Shares
+            </span>
             <TokenBalanceBreakdown
               tokenId={currentTokenId}
               onchainBalance={currentTokenBalance}
@@ -692,7 +700,7 @@ export function TradePanel({
         <p className="mt-3 text-center text-xs font-medium text-red">
           {side === "buy"
             ? "Insufficient USDC.e balance"
-            : `Insufficient ${outcome === "yes" ? "Yes" : "No"} token balance`}
+            : `Insufficient ${outcome === "yes" ? yesLabel : noLabel} token balance`}
         </p>
       )}
 

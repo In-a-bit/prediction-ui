@@ -7,11 +7,15 @@ export function OutcomeToggle({
   onSelect,
   yesPrice,
   noPrice,
+  yesLabel = "Yes",
+  noLabel = "No",
 }: {
   selected: "yes" | "no";
   onSelect: (outcome: "yes" | "no") => void;
   yesPrice: number;
   noPrice: number;
+  yesLabel?: string;
+  noLabel?: string;
 }) {
   return (
     <div className="flex gap-2">
@@ -30,7 +34,7 @@ export function OutcomeToggle({
             selected === "yes" ? "text-green" : "text-muted"
           )}
         >
-          Yes
+          {yesLabel}
         </span>
         <span
           className={cn(
@@ -56,7 +60,7 @@ export function OutcomeToggle({
             selected === "no" ? "text-red" : "text-muted"
           )}
         >
-          No
+          {noLabel}
         </span>
         <span
           className={cn(

@@ -2,42 +2,19 @@
 
 import Link from "next/link";
 import { cryptoUpdownDisplayTitle } from "@/lib/crypto-updown";
-import { isCryptoUpdownEvent } from "@/lib/market/gamma-helpers";
+import {
+  isCryptoUpdownEvent,
+  parseOutcomePrices,
+} from "@/lib/market/gamma-helpers";
 import type { GammaEvent } from "@/lib/types/event";
 import { formatCompactNumber } from "@/lib/utils";
-
-function parseOutcomePrices(event: GammaEvent): { yes: number; no: number } {
-  const market = event.markets?.find((m) => {
-    if (m.closed || !m.active) return false;
-    if (m.outcomePrices) {
-      try {
-        const prices = JSON.parse(m.outcomePrices) as string[];
-        if (prices.some((p) => parseFloat(p) >= 0.99 || parseFloat(p) <= 0.01))
-          return false;
-      } catch {}
-    }
-    return true;
-  }) ?? event.markets?.[0];
-
-  if (!market?.outcomePrices) return { yes: 0.5, no: 0.5 };
-  try {
-    const prices = JSON.parse(market.outcomePrices);
-    return {
-      yes: parseFloat(prices[0]) || 0.5,
-      no: parseFloat(prices[1]) || 0.5,
-    };
-  } catch {
-    return { yes: 0.5, no: 0.5 };
-  }
-}
 
 export function PlaeEventCard({ event }: { event: GammaEvent }) {
   const displayTitle =
     (isCryptoUpdownEvent(event) && cryptoUpdownDisplayTitle(event)) ||
     event.title;
-  const prices = parseOutcomePrices(event);
-  const yesPercent = Math.round(prices.yes * 100);
-  const noPercent = Math.round(prices.no * 100);
+  const { yes: yesPercent, no: noPercent, labels } = parseOutcomePrices(event);
+  const [yesLabel, noLabel] = labels;
 
   return (
     <Link
@@ -76,11 +53,11 @@ export function PlaeEventCard({ event }: { event: GammaEvent }) {
 
         <div className="flex gap-2">
           <div className="flex flex-1 items-center justify-between rounded-xl bg-green-dim px-3 py-2">
-            <span className="text-xs font-medium text-green">Yes</span>
+            <span className="text-xs font-medium text-green">{yesLabel}</span>
             <span className="text-sm font-bold text-green">{yesPercent}¢</span>
           </div>
           <div className="flex flex-1 items-center justify-between rounded-xl bg-red-dim px-3 py-2">
-            <span className="text-xs font-medium text-red">No</span>
+            <span className="text-xs font-medium text-red">{noLabel}</span>
             <span className="text-sm font-bold text-red">{noPercent}¢</span>
           </div>
         </div>

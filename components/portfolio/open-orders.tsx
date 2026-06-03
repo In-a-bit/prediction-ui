@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useOpenOrders, useCancelOrder, type OpenOrder } from "@/lib/hooks/use-open-orders";
 import { useEventLookup, type EventInfo } from "@/lib/hooks/use-event-lookup";
+import { outcomeBadgeClass } from "@/lib/market/gamma-helpers";
 
 interface MarketGroup {
   market: string;
@@ -58,6 +59,7 @@ function MarketGroupRow({
   cancellingIds,
   onCancelOrder,
   eventInfo,
+  tokenLookup,
 }: {
   group: MarketGroup;
   expanded: boolean;
@@ -65,6 +67,7 @@ function MarketGroupRow({
   cancellingIds: Set<string>;
   onCancelOrder: (order: OpenOrder) => void;
   eventInfo?: EventInfo;
+  tokenLookup?: Map<string, EventInfo>;
 }) {
   return (
     <>
@@ -142,9 +145,9 @@ function MarketGroupRow({
                 <span
                   className={cn(
                     "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold",
-                    order.outcome.toLowerCase() === "yes"
-                      ? "bg-green-dim text-green"
-                      : "bg-red-dim text-red",
+                    outcomeBadgeClass(
+                      tokenLookup?.get(order.asset_id)?.isPrimaryToken,
+                    ),
                   )}
                 >
                   {order.outcome} {formatPrice(order.price)}
@@ -349,6 +352,7 @@ export function OpenOrders() {
                   cancellingIds={cancellingIds}
                   onCancelOrder={handleCancelOrder}
                   eventInfo={eventLookup?.get(group.orders[0]?.asset_id)}
+                  tokenLookup={eventLookup}
                 />
               ))}
             </tbody>

@@ -10,6 +10,10 @@ import {
 } from "@/lib/hooks/use-open-orders";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
 import { useMagic } from "@/components/providers/magic-provider";
+import {
+  isPrimaryOutcomeToken,
+  outcomeBadgeClass,
+} from "@/lib/market/gamma-helpers";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
 function formatPrice(price: string): string {
@@ -150,7 +154,13 @@ export function MarketOpenOrders({
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => (
+            {orders.map((order) => {
+              const isPrimary = isPrimaryOutcomeToken(
+                order.asset_id,
+                yesTokenId,
+                noTokenId,
+              );
+              return (
               <tr
                 key={order.id}
                 className="border-b border-card-border/30 last:border-0"
@@ -169,9 +179,7 @@ export function MarketOpenOrders({
                   <span
                     className={cn(
                       "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold",
-                      order.outcome.toLowerCase() === "yes"
-                        ? "bg-green-dim text-green"
-                        : "bg-red-dim text-red",
+                      outcomeBadgeClass(isPrimary),
                     )}
                   >
                     {order.outcome}
@@ -200,7 +208,8 @@ export function MarketOpenOrders({
                   </button>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>

@@ -158,7 +158,7 @@ export function PositionsTable() {
 }
 
 function PositionRow({ position: pos }: { position: Position }) {
-  const isYes = pos.outcome.toLowerCase() === "yes";
+  const isYes = pos.outcomeIndex === 0;
   const toWin = pos.size;
   const pnlPositive = pos.cashPnl >= 0;
   const redeem = useRedeemPosition();

@@ -13,6 +13,7 @@ import {
   formatVolume,
   getDeployedMarkets,
   isCryptoUpdownEvent,
+  parseOutcomes,
   parsePrices,
   parseTokenIds,
 } from "@/lib/market/gamma-helpers";
@@ -111,6 +112,7 @@ export default function PlaeEventPage() {
   const { yes: yesPrice, no: noPrice } = selectedMarket
     ? parsePrices(selectedMarket)
     : { yes: 50, no: 50 };
+  const outcomeLabels = parseOutcomes(selectedMarket);
 
   return (
     <div>
@@ -127,6 +129,7 @@ export default function PlaeEventPage() {
         noTokenId={noTokenId}
         initialYesPrice={yesPrice}
         initialNoPrice={noPrice}
+        outcomeLabels={outcomeLabels}
         tickSize={selectedMarket?.orderPriceMinTickSize ?? 0.01}
         minOrderSize={selectedMarket?.orderMinSize ?? 1}
         conditionId={selectedMarket?.conditionId}
@@ -175,6 +178,7 @@ export default function PlaeEventPage() {
               noTokenId={noTokenId}
               initialYesPrice={yesPrice}
               initialNoPrice={noPrice}
+              outcomeLabels={outcomeLabels}
             />
             {deployedMarkets.length > 1 && (
               <span className="rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
@@ -199,6 +203,7 @@ export default function PlaeEventPage() {
             <div className="space-y-2">
               {deployedMarkets.map((m) => {
                 const { yes: mYes, no: mNo } = parsePrices(m);
+                const [mYesLabel, mNoLabel] = parseOutcomes(m);
                 const isSelected = String(m.id) === selectedMarketId;
                 return (
                   <button
@@ -216,9 +221,13 @@ export default function PlaeEventPage() {
                     >
                       {m.question}
                     </span>
-                    <div className="ml-4 flex shrink-0 gap-3">
-                      <span className="text-sm font-bold text-green">{mYes}¢</span>
-                      <span className="text-sm font-bold text-red">{mNo}¢</span>
+                    <div className="ml-4 flex shrink-0 gap-4 text-xs">
+                      <span className="font-bold text-green">
+                        {mYesLabel} {mYes}¢
+                      </span>
+                      <span className="font-bold text-red">
+                        {mNoLabel} {mNo}¢
+                      </span>
                     </div>
                   </button>
                 );

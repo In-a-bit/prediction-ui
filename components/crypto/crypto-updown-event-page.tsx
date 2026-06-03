@@ -35,6 +35,7 @@ import {
 import {
   formatVolume,
   getDeployedMarkets,
+  parseOutcomes,
   parsePrices,
   parseTokenIds,
 } from "@/lib/market/gamma-helpers";
@@ -141,6 +142,7 @@ export function CryptoUpdownEventPage({
   const { yes: yesPrice, no: noPrice } = selectedMarket
     ? parsePrices(selectedMarket)
     : { yes: 50, no: 50 };
+  const outcomeLabels = parseOutcomes(selectedMarket);
 
   const handleSelectSlot = useCallback(
     (slug: string, source: SlotSelectSource = "bar") => {
@@ -209,6 +211,7 @@ export function CryptoUpdownEventPage({
     noTokenId,
     yesPrice,
     noPrice,
+    outcomeLabels,
   };
 
   return (
@@ -221,6 +224,7 @@ export function CryptoUpdownEventPage({
           noTokenId={noTokenId}
           initialYesPrice={yesPrice}
           initialNoPrice={noPrice}
+          outcomeLabels={outcomeLabels}
           tickSize={selectedMarket?.orderPriceMinTickSize ?? 0.01}
           minOrderSize={selectedMarket?.orderMinSize ?? 1}
           conditionId={selectedMarket?.conditionId}
@@ -279,6 +283,7 @@ function EventCardContent({
   noTokenId,
   yesPrice,
   noPrice,
+  outcomeLabels = ["Yes", "No"],
   selectedMarket,
 }: {
   displayTitle: string;
@@ -294,6 +299,7 @@ function EventCardContent({
   noTokenId?: string;
   yesPrice?: number;
   noPrice?: number;
+  outcomeLabels?: [string, string];
   selectedMarket?: ReturnType<typeof getDeployedMarkets>[0];
 }) {
   return (
@@ -326,6 +332,7 @@ function EventCardContent({
             noTokenId={noTokenId}
             initialYesPrice={yesPrice ?? 50}
             initialNoPrice={noPrice ?? 50}
+            outcomeLabels={outcomeLabels}
           />
           <div className="ml-auto text-sm text-muted">
             Vol.{" "}

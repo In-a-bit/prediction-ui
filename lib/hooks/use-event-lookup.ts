@@ -10,6 +10,8 @@ export interface EventInfo {
   title: string;
   icon: string | null;
   slug: string;
+  /** True when this clob token is outcomes[0] / first token in the market. */
+  isPrimaryToken: boolean;
 }
 
 /**
@@ -34,18 +36,18 @@ async function fetchEventLookup(): Promise<Map<string, EventInfo>> {
 
   for (const ev of events) {
     if (!ev.title || !ev.slug) continue;
-    const info: EventInfo = {
-      title: ev.title,
-      icon: ev.icon ?? null,
-      slug: ev.slug,
-    };
     for (const market of ev.markets ?? []) {
       if (!market.clobTokenIds) continue;
       try {
         const ids: string[] = JSON.parse(market.clobTokenIds);
-        for (const id of ids) {
-          lookup.set(id, info);
-        }
+        ids.forEach((id, index) => {
+          lookup.set(id, {
+            title: ev.title!,
+            icon: ev.icon ?? null,
+            slug: ev.slug!,
+            isPrimaryToken: index === 0,
+          });
+        });
       } catch {
         // clobTokenIds wasn't valid JSON
       }

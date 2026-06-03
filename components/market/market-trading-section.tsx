@@ -22,6 +22,7 @@ export function MarketTradingSection({
   minOrderSize,
   conditionId,
   tokenIds,
+  outcomeLabels = ["Yes", "No"],
   hidePriceChart = false,
 }: {
   children: React.ReactNode;
@@ -29,6 +30,7 @@ export function MarketTradingSection({
   noTokenId: string | undefined;
   initialYesPrice: number;
   initialNoPrice: number;
+  outcomeLabels?: [string, string];
   tickSize: number;
   minOrderSize: number;
   conditionId?: string;
@@ -81,6 +83,7 @@ export function MarketTradingSection({
           noTokenId={noTokenId}
           initialYesPrice={initialYesPrice}
           initialNoPrice={initialNoPrice}
+          outcomeLabels={outcomeLabels}
           tickSize={tickSize}
           minOrderSize={minOrderSize}
           onOutcomeChange={setOutcome}

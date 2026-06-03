@@ -1,4 +1,5 @@
 import { fetchEventBySlug } from "@/lib/api/gamma";
+import { parseOutcomes, parsePrices } from "@/lib/market/gamma-helpers";
 import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import { notFound } from "next/navigation";
@@ -59,15 +60,10 @@ export default async function EventPage({ params }: EventPageProps) {
   const yesTokenId = tokenIds[0] as string | undefined;
   const noTokenId = tokenIds[1] as string | undefined;
 
-  let yesPrice = 50;
-  let noPrice = 50;
-  if (market?.outcomePrices) {
-    try {
-      const prices = JSON.parse(market.outcomePrices);
-      yesPrice = Math.round(parseFloat(prices[0]) * 100);
-      noPrice = Math.round(parseFloat(prices[1]) * 100);
-    } catch {}
-  }
+  const { yes: yesPrice, no: noPrice } = market
+    ? parsePrices(market)
+    : { yes: 50, no: 50 };
+  const outcomeLabels = parseOutcomes(market);
 
   return (
     <MarketTradingSection
@@ -75,6 +71,7 @@ export default async function EventPage({ params }: EventPageProps) {
       noTokenId={noTokenId}
       initialYesPrice={yesPrice}
       initialNoPrice={noPrice}
+      outcomeLabels={outcomeLabels}
       tickSize={market?.orderPriceMinTickSize ?? 0.01}
       minOrderSize={market?.orderMinSize ?? 1}
       conditionId={market?.conditionId}
@@ -113,6 +110,7 @@ export default async function EventPage({ params }: EventPageProps) {
             noTokenId={noTokenId}
             initialYesPrice={yesPrice}
             initialNoPrice={noPrice}
+            outcomeLabels={outcomeLabels}
           />
           <div className="ml-auto text-sm text-muted">
             Vol. {formatVolume(event.volume || market?.volume_num || parseFloat(market?.volume ?? "0") || 0)}
