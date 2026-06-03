@@ -14,7 +14,6 @@ import {
 import type { SpotChartPoint } from "@/lib/hooks/use-crypto-spot-chart";
 import { formatCryptoPriceToBeat } from "@/lib/crypto-updown";
 
-const LIVE_WINDOW_MS = 60_000;
 const CHART_RESAMPLE_MS = 250;
 
 interface CryptoSpotPriceChartProps {
@@ -23,6 +22,7 @@ interface CryptoSpotPriceChartProps {
   liveMode: boolean;
   frozenAtMs?: number | null;
   slotStartSec?: number;
+  intervalMinutes?: number;
   loading: boolean;
   error: string | null;
   target?: string;
@@ -31,13 +31,15 @@ interface CryptoSpotPriceChartProps {
 function liveXDomain(
   now: number,
   slotStartSec: number,
+  intervalMinutes: number,
 ): [number, number] {
   const slotStartMs = slotStartSec * 1000;
+  const windowMs = intervalMinutes * 60 * 1000;
   const elapsed = now - slotStartMs;
-  if (elapsed <= LIVE_WINDOW_MS) {
+  if (elapsed <= windowMs) {
     return [slotStartMs, now];
   }
-  return [now - LIVE_WINDOW_MS, now];
+  return [now - windowMs, now];
 }
 
 /** Build a line that always spans the full X window; only grows forward. */
@@ -45,11 +47,12 @@ function buildLiveChartData(
   points: SpotChartPoint[],
   now: number,
   slotStartSec: number,
+  intervalMinutes: number,
 ): SpotChartPoint[] {
   if (points.length === 0 || now === 0) return [];
 
   const sorted = [...points].sort((a, b) => a.time - b.time);
-  const [windowStart, windowEnd] = liveXDomain(now, slotStartSec);
+  const [windowStart, windowEnd] = liveXDomain(now, slotStartSec, intervalMinutes);
 
   const inWindow = sorted.filter(
     (p) => p.time >= windowStart && p.time <= windowEnd,
@@ -125,6 +128,7 @@ export function CryptoSpotPriceChart({
   liveMode,
   frozenAtMs,
   slotStartSec,
+  intervalMinutes = 5,
   loading,
   error,
   target,
@@ -148,8 +152,13 @@ export function CryptoSpotPriceChart({
 
     if (liveMode && displayNow > 0 && slotStartSec != null) {
       return {
-        chartData: buildLiveChartData(points, displayNow, slotStartSec),
-        xDomain: liveXDomain(displayNow, slotStartSec),
+        chartData: buildLiveChartData(
+          points,
+          displayNow,
+          slotStartSec,
+          intervalMinutes,
+        ),
+        xDomain: liveXDomain(displayNow, slotStartSec, intervalMinutes),
       };
     }
 
@@ -157,7 +166,7 @@ export function CryptoSpotPriceChart({
       chartData: [...points].sort((a, b) => a.time - b.time),
       xDomain: undefined,
     };
-  }, [points, liveMode, displayNow, slotStartSec]);
+  }, [points, liveMode, displayNow, slotStartSec, intervalMinutes]);
 
   const yDomain = useMemo<[number, number]>(() => {
     if (chartData.length === 0) return [0, 1];

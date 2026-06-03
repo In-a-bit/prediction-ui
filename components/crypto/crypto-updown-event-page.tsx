@@ -30,6 +30,7 @@ import {
   cryptoUpdownDisplayTitle,
   cryptoUpdownSlotHeader,
   slotEndAfterForLookback,
+  spotChartEvent,
 } from "@/lib/crypto-updown";
 import {
   formatVolume,
@@ -112,12 +113,28 @@ export function CryptoUpdownEventPage({
 
   const seriesEvents = series?.events ?? [];
 
+  const liveEvent = useMemo(
+    () => findLiveEvent(seriesEvents),
+    [seriesEvents],
+  );
+
+  const chartEvent = useMemo(
+    () => spotChartEvent(tradeEvent, liveEvent),
+    [tradeEvent, liveEvent],
+  );
+
   const deployedMarkets = useMemo(
     () => getDeployedMarkets(tradeEvent),
     [tradeEvent],
   );
 
+  const chartMarkets = useMemo(
+    () => getDeployedMarkets(chartEvent),
+    [chartEvent],
+  );
+
   const selectedMarket = deployedMarkets[0];
+  const chartMarket = chartMarkets[0];
   const tokenIds = selectedMarket ? parseTokenIds(selectedMarket) : [];
   const yesTokenId = tokenIds[0] as string | undefined;
   const noTokenId = tokenIds[1] as string | undefined;
@@ -185,6 +202,8 @@ export function CryptoUpdownEventPage({
     onToggleDescription: () =>
       setDescriptionExpanded((prev) => !prev),
     slotPicker,
+    chartEvent,
+    chartMarket,
     selectedMarket,
     yesTokenId,
     noTokenId,
@@ -254,6 +273,8 @@ function EventCardContent({
   descriptionExpanded,
   onToggleDescription,
   slotPicker,
+  chartEvent,
+  chartMarket,
   yesTokenId,
   noTokenId,
   yesPrice,
@@ -267,6 +288,8 @@ function EventCardContent({
   descriptionExpanded: boolean;
   onToggleDescription: () => void;
   slotPicker: ReactNode;
+  chartEvent: GammaEvent;
+  chartMarket?: ReturnType<typeof getDeployedMarkets>[0];
   yesTokenId?: string;
   noTokenId?: string;
   yesPrice?: number;
@@ -285,9 +308,11 @@ function EventCardContent({
       />
 
       <CryptoSpotChartSection
-        key={cryptoSpotHistoryKey(tradeEvent)}
+        key={cryptoSpotHistoryKey(chartEvent)}
         tradeEvent={tradeEvent}
+        chartEvent={chartEvent}
         market={selectedMarket}
+        chartMarket={chartMarket}
       />
 
       {slotPicker && (

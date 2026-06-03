@@ -11,16 +11,6 @@ export type CryptoPricePoint = {
   price: number;
 };
 
-/** Visible live chart viewport — still 1 minute on screen. */
-export const LIVE_CHART_WINDOW_MS = 60_000;
-
-/**
- * /price-history with interval=1m only returns fully closed minute buckets.
- * A 60s request window often returns [] (current minute is still open).
- * Fetch at least 2 minutes so one closed bucket is usually included.
- */
-const LIVE_HISTORY_FETCH_MS = 120_000;
-
 function intervalMs(interval: string): number {
   switch (interval) {
     case "1m":
@@ -89,28 +79,42 @@ async function fetchPriceHistoryRange(
   return Array.isArray(data) ? data : [];
 }
 
-/** Live chart bootstrap via /price-history (1m closed buckets) + /latest fallback. */
-export async function fetchCryptoLivePriceHistory(
-  meta: CryptoUpdownMetadata,
-  nowMs = Date.now(),
-): Promise<CryptoPricePoint[]> {
-  const slotStartMs = meta.slot_start * 1000;
-  const closeTimeMs = nowMs;
-  const openTimeMs = Math.max(slotStartMs, closeTimeMs - LIVE_HISTORY_FETCH_MS);
-
-  const history = await fetchPriceHistoryRange(meta, openTimeMs, closeTimeMs);
-  const latest = await fetchCryptoLatest(meta, nowMs);
-
-  if (!latest) {
-    return history;
-  }
-
+/** Merge closed 1m buckets with /latest so live charts start even when history is []. */
+export function mergeHistoryWithLatest(
+  history: CryptoPricePoint[],
+  latest: CryptoPricePoint | null,
+): CryptoPricePoint[] {
+  if (!latest) return history;
   const last = history[history.length - 1];
   if (!last || latest.timestamp > last.timestamp) {
     return [...history, latest];
   }
-
+  if (latest.timestamp === last.timestamp && latest.price !== last.price) {
+    return [...history.slice(0, -1), latest];
+  }
   return history;
+}
+
+/**
+ * Live/upcoming chart bootstrap: fetch the full market window (5m → 5 minutes,
+ * 15m → 15 minutes) via /price-history (1m buckets) plus /latest for the
+ * open minute.
+ */
+export async function fetchCryptoLivePriceHistory(
+  meta: CryptoUpdownMetadata,
+  nowMs = Date.now(),
+): Promise<CryptoPricePoint[]> {
+  const window = priceHistoryWindow(meta, nowMs);
+  const [history, latest] = await Promise.all([
+    fetchPriceHistoryRange(
+      meta,
+      window.openTimeMs,
+      window.closeTimeMs,
+      "1m",
+    ),
+    fetchCryptoLatest(meta, nowMs),
+  ]);
+  return mergeHistoryWithLatest(history, latest);
 }
 
 /** Current spot from Redis (live) or last closed 1m candle (stale). */

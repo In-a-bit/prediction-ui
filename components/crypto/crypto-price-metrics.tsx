@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import {
   countdownTargetSec,
   formatCryptoPriceToBeat,
-  isUpcomingSlot,
   type CryptoChartMode,
   type CryptoUpdownMetadata,
 } from "@/lib/crypto-updown";
@@ -35,12 +34,24 @@ export function CryptoPriceMetrics({
   currentPrice,
   target,
 }: CryptoPriceMetricsProps) {
-  const [nowMs, setNowMs] = useState(0);
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  const [countdownVisible, setCountdownVisible] = useState(false);
 
   useEffect(() => {
+    setNowMs(Date.now());
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (nowMs == null || chartMode === "past") {
+      setCountdownVisible(false);
+      return;
+    }
+    setCountdownVisible(false);
+    const frame = requestAnimationFrame(() => setCountdownVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, [nowMs, chartMode]);
 
   const beatLabel =
     priceToBeatRaw != null
@@ -58,13 +69,20 @@ export function CryptoPriceMetrics({
       : null;
   const deltaPositive = delta != null && delta >= 0;
 
-  const effectiveNow = nowMs || 0;
-  const targetSec = countdownTargetSec(meta, effectiveNow || undefined);
-  const secondsLeft =
-    effectiveNow > 0
-      ? Math.max(0, Math.floor(targetSec - effectiveNow / 1000))
-      : 0;
-  const upcoming = effectiveNow > 0 && isUpcomingSlot(meta, effectiveNow);
+  const countdownReady = nowMs != null;
+  const targetSec = countdownReady
+    ? countdownTargetSec(meta, nowMs)
+    : 0;
+  const secondsLeft = countdownReady
+    ? Math.max(0, Math.floor(targetSec - nowMs / 1000))
+    : 0;
+
+  const countdownLabel =
+    chartMode === "past"
+      ? "Ended"
+      : chartMode === "upcoming"
+        ? "Starts in"
+        : "Time left";
 
   return (
     <div className="mb-4 grid gap-4 sm:grid-cols-3">
@@ -78,37 +96,55 @@ export function CryptoPriceMetrics({
       </div>
 
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-brand">
-          Current price
-        </p>
-        {delta != null && (
-          <p
-            className={cn(
-              "text-xs font-medium",
-              deltaPositive ? "text-green" : "text-red",
-            )}
-          >
-            {deltaPositive ? "▲" : "▼"} $
-            {Math.abs(delta).toLocaleString("en-US", {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 0,
-            })}
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-brand">
+            Current price
           </p>
-        )}
-        <p className="mt-0.5 text-2xl font-bold text-brand lg:text-3xl">
+          {delta != null && (
+            <span
+              className={cn(
+                "text-xs font-medium",
+                deltaPositive ? "text-green" : "text-red",
+              )}
+            >
+              {deltaPositive ? "▲" : "▼"} $
+              {Math.abs(delta).toLocaleString("en-US", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              })}
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-2xl font-bold text-brand lg:text-3xl">
           {currentLabel}
         </p>
       </div>
 
       <div className="sm:text-right">
         <p className="text-xs font-medium uppercase tracking-wide text-muted">
-          {upcoming ? "Starts in" : chartMode === "past" ? "Ended" : "Time left"}
+          {countdownLabel}
         </p>
-        <p className="mt-1 text-xl font-bold tabular-nums text-brand lg:text-2xl">
-          {chartMode === "past"
-            ? "—"
-            : formatCountdown(secondsLeft)}
-        </p>
+        {chartMode === "past" ? (
+          <p className="mt-1 text-xl font-bold tabular-nums text-brand lg:text-2xl">
+            —
+          </p>
+        ) : countdownReady ? (
+          <p
+            className={cn(
+              "mt-1 text-xl font-bold tabular-nums text-brand transition-opacity duration-500 ease-out lg:text-2xl",
+              countdownVisible ? "opacity-100" : "opacity-0",
+            )}
+          >
+            {formatCountdown(secondsLeft)}
+          </p>
+        ) : (
+          <p
+            className="mt-1 text-xl font-bold lg:text-2xl"
+            aria-hidden
+          >
+            &nbsp;
+          </p>
+        )}
       </div>
     </div>
   );

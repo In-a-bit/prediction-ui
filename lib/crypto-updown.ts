@@ -204,6 +204,18 @@ export function getLiveEventSlug(
   return findLiveEvent(events, nowMs)?.slug ?? null;
 }
 
+/** Slug of a slot whose window contains now — null when nothing is actively live. */
+export function getActiveLiveEventSlug(
+  events: GammaEvent[],
+  nowMs = Date.now(),
+): string | null {
+  for (const e of events) {
+    const meta = parseCryptoMetadata(e);
+    if (meta && isLiveSlot(meta, nowMs)) return e.slug;
+  }
+  return null;
+}
+
 const SLOT_LABEL_TZ = "UTC";
 
 export function formatSlotLabel(slotEndUnix: number): string {
@@ -403,6 +415,24 @@ export function isChartLiveMode(
 ): boolean {
   const mode = cryptoChartMode(meta, nowMs);
   return mode === "live" || mode === "upcoming";
+}
+
+/** Upcoming slots have no spot history yet — show the current live slot chart instead. */
+export function spotChartEvent(
+  selected: GammaEvent,
+  live: GammaEvent | null,
+  nowMs = Date.now(),
+): GammaEvent {
+  const meta = parseCryptoMetadata(selected);
+  if (meta && isUpcomingSlot(meta, nowMs) && live) {
+    return live;
+  }
+  return selected;
+}
+
+/** Live chart fetch + viewport width — matches market interval (5m market → 5 minutes). */
+export function liveChartWindowMs(meta: CryptoUpdownMetadata): number {
+  return meta.interval_minutes * 60 * 1000;
 }
 
 export function priceHistoryWindow(

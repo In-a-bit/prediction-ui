@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   eventsToBarSlugs,
-  getLiveEventSlug,
+  getActiveLiveEventSlug,
   getMoreEvents,
   getPastEvents,
   slotLabelForEvent,
@@ -29,6 +29,7 @@ function SlotDropdown({
   align,
   emptyMessage,
   selectSource,
+  disabled = false,
 }: {
   label: string;
   items: GammaEvent[];
@@ -38,6 +39,7 @@ function SlotDropdown({
   align: "left" | "right";
   emptyMessage: string;
   selectSource: SlotSelectSource;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -53,23 +55,32 @@ function SlotDropdown({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
   const selectedInList = items.some((e) => e.slug === selectedSlug);
 
   return (
     <div className="relative z-50 shrink-0" ref={ref}>
       <button
         type="button"
+        disabled={disabled}
         onClick={(e) => {
           e.stopPropagation();
+          if (disabled) return;
           setOpen((o) => !o);
         }}
-        className={`flex cursor-pointer items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-          selectedInList
-            ? "bg-neutral-200 text-neutral-900"
-            : "bg-neutral-800 text-white hover:bg-neutral-700"
+        className={`flex items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          disabled
+            ? "bg-neutral-800 text-white"
+            : selectedInList
+              ? "cursor-pointer bg-neutral-200 text-neutral-900"
+              : "cursor-pointer bg-neutral-800 text-white hover:bg-neutral-700"
         }`}
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-disabled={disabled}
       >
         {label}
         <span className="text-xs opacity-70" aria-hidden>
@@ -77,7 +88,7 @@ function SlotDropdown({
         </span>
       </button>
 
-      {open && (
+      {open && !disabled && (
         <ul
           className={`absolute top-full z-50 mt-2 max-h-64 min-w-[10rem] overflow-y-auto rounded-xl border border-card-border bg-card py-1 shadow-lg ${
             align === "left" ? "left-0" : "right-0"
@@ -132,7 +143,7 @@ export function SeriesSlotPicker({
     return () => clearInterval(id);
   }, []);
 
-  const liveSlug = getLiveEventSlug(events, nowMs || undefined);
+  const liveSlug = getActiveLiveEventSlug(events, nowMs || undefined);
   const pastEvents = getPastEvents(events, nowMs || undefined);
   const moreEvents = getMoreEvents(events, barSlugs, nowMs || undefined);
   const visible = eventsToBarSlugs(events, barSlugs);
@@ -191,6 +202,7 @@ export function SeriesSlotPicker({
         align="right"
         emptyMessage="No more events"
         selectSource="more"
+        disabled={moreEvents.length === 0}
       />
     </div>
   );

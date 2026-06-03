@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  fetchCryptoLatest,
   fetchCryptoLivePriceHistory,
   fetchCryptoPriceHistory,
 } from "@/lib/api/crypto-prices";
@@ -103,9 +104,20 @@ export function useCryptoSpotChart(
     const loadTimeMs = Date.now();
     const live = isChartLiveMode(slotMeta);
 
+    const seedFromLatest = async () => {
+      const latest = await fetchCryptoLatest(slotMeta, loadTimeMs);
+      if (cancelled || !latest) return;
+      setPoints([{ time: latest.timestamp, price: latest.price }]);
+      seedLivePrice(latest.price);
+    };
+
     const loadPromise = live
-      ? fetchCryptoLivePriceHistory(slotMeta, loadTimeMs).then((history) => {
+      ? fetchCryptoLivePriceHistory(slotMeta, loadTimeMs).then(async (history) => {
           if (cancelled) return;
+          if (history.length === 0) {
+            await seedFromLatest();
+            return;
+          }
           setPoints(historyToPoints(history));
           const last = history[history.length - 1];
           if (last) seedLivePrice(last.price);
