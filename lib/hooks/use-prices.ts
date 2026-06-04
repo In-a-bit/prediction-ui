@@ -4,7 +4,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
 import { useDataSource } from "@/components/providers/data-source-provider";
-import { normalizeWsPrice } from "@/lib/orderbook-scaled";
+import { parseWireDecimal } from "@/lib/parse-wire-decimal";
 import type { PriceHistoryPoint } from "@/lib/types/orderbook";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
@@ -40,7 +40,22 @@ async function getMidpoint(
   const res = await fetch(url);
   if (!res.ok) return 0;
   const data = await res.json();
-  return parseFloat(data.mid);
+  return parseWireDecimal(data.mid);
+}
+
+function wireStr(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+function midpointFromBestBidAsk(data: Record<string, unknown>): number | null {
+  const bestBid = parseWireDecimal(wireStr(data.best_bid));
+  const bestAsk = parseWireDecimal(wireStr(data.best_ask));
+  if (bestBid > 0 && bestAsk > 0) {
+    return (bestBid + bestAsk) / 2;
+  }
+  if (bestBid > 0) return bestBid;
+  if (bestAsk > 0) return bestAsk;
+  return null;
 }
 
 export function usePriceHistory(
@@ -51,7 +66,6 @@ export function usePriceHistory(
   const queryClient = useQueryClient();
   const ws = useMarketWS();
   const { buildClobUrl } = useDataSource();
-  // Debounce rapid book events — refetch at most once per second.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const query = useQuery({
@@ -103,34 +117,17 @@ export function useMidpoint(tokenId: string | undefined) {
     queryKey: ["midpoint", tokenId],
     queryFn: () => getMidpoint(buildClobUrl, tokenId!),
     enabled: !!tokenId,
-    refetchInterval: 60_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 
-  const handleBestBidAsk: MarketEventCallback = useCallback(
-    (data) => {
+  const applyMidpointFromWs = useCallback(
+    (data: Record<string, unknown>) => {
       if (data.asset_id !== tokenId) return;
-      const bestBid = normalizeWsPrice(data.best_bid as string);
-      const bestAsk = normalizeWsPrice(data.best_ask as string);
-      if (!isNaN(bestBid) && !isNaN(bestAsk)) {
-        queryClient.setQueryData(
-          ["midpoint", tokenId],
-          (bestBid + bestAsk) / 2
-        );
-      }
-    },
-    [tokenId, queryClient]
-  );
-
-  const handlePriceChange: MarketEventCallback = useCallback(
-    (data) => {
-      if (data.asset_id !== tokenId) return;
-      const bestBid = normalizeWsPrice(data.best_bid as string);
-      const bestAsk = normalizeWsPrice(data.best_ask as string);
-      if (!isNaN(bestBid) && !isNaN(bestAsk)) {
-        queryClient.setQueryData(
-          ["midpoint", tokenId],
-          (bestBid + bestAsk) / 2
-        );
+      const mid = midpointFromBestBidAsk(data);
+      if (mid !== null) {
+        queryClient.setQueryData(["midpoint", tokenId], mid);
       }
     },
     [tokenId, queryClient]
@@ -139,14 +136,14 @@ export function useMidpoint(tokenId: string | undefined) {
   useEffect(() => {
     if (!tokenId) return;
     ws.subscribe(tokenId);
-    ws.on("best_bid_ask", handleBestBidAsk);
-    ws.on("price_change", handlePriceChange);
+    ws.on("best_bid_ask", applyMidpointFromWs);
+    ws.on("price_change", applyMidpointFromWs);
     return () => {
-      ws.off("best_bid_ask", handleBestBidAsk);
-      ws.off("price_change", handlePriceChange);
+      ws.off("best_bid_ask", applyMidpointFromWs);
+      ws.off("price_change", applyMidpointFromWs);
       ws.unsubscribe(tokenId);
     };
-  }, [tokenId, ws, handleBestBidAsk, handlePriceChange]);
+  }, [tokenId, ws, applyMidpointFromWs]);
 
   return query;
 }

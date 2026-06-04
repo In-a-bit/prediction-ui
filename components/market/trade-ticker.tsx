@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/utils";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
-import { normalizeWsPrice, normalizeWsSize } from "@/lib/orderbook-scaled";
+import { parseWireDecimal } from "@/lib/parse-wire-decimal";
 import type { MarketEventCallback } from "@/lib/ws/market-ws";
 
 interface TradeActivity {
@@ -26,7 +26,7 @@ export function TradeTicker({
   const [trades, setTrades] = useState<TradeActivity[]>([]);
   const ws = useMarketWS();
 
-  // REST fallback polling at 60s
+  // One-time bootstrap from DB; live updates come from last_trade_price WS events.
   useEffect(() => {
     if (!conditionId) return;
 
@@ -46,15 +46,11 @@ export function TradeTicker({
     }
 
     fetchActivity();
-    const interval = setInterval(fetchActivity, 60_000);
-    return () => clearInterval(interval);
   }, [conditionId]);
 
-  // WebSocket real-time trade events
   const handleTrade: MarketEventCallback = useCallback(
     (data) => {
       if (!tokenIds?.includes(data.asset_id as string)) return;
-      // WS timestamps are epoch milliseconds as strings
       const rawTs = data.timestamp as string | undefined;
       const tsMs = rawTs ? parseInt(rawTs, 10) : NaN;
       const timestamp = !isNaN(tsMs)
@@ -65,8 +61,12 @@ export function TradeTicker({
         id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         side: (data.side as string) ?? "BUY",
         outcome: data.asset_id === tokenIds[0] ? "Yes" : "No",
-        price: normalizeWsPrice(data.price as string) || 0,
-        size: normalizeWsSize(data.size as string) || 0,
+        price: parseWireDecimal(
+          typeof data.price === "string" ? data.price : ""
+        ),
+        size: parseWireDecimal(
+          typeof data.size === "string" ? data.size : ""
+        ),
         timestamp,
       };
       setTrades((prev) => [trade, ...prev].slice(0, 20));

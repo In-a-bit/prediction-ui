@@ -5,10 +5,10 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
+import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
 import { useMagic } from "@/components/providers/magic-provider";
 import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
 import { useTokenBalances } from "@/lib/hooks/use-token-balances";
-import { useOrderBook } from "@/lib/hooks/use-orderbook";
 import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
@@ -165,26 +165,21 @@ export function TradePanel({
   const currentTokenId = outcome === "yes" ? yesTokenId : noTokenId;
   const { data: midpoint } = useMidpoint(currentTokenId);
 
-  // Orderbook data for best bid/ask prices
-  const { data: yesBook } = useOrderBook(yesTokenId);
-  const { data: noBook } = useOrderBook(noTokenId);
+  const { yesPrice: yesOutcomePrice, noPrice: noOutcomePrice } = useOutcomePrices({
+    yesTokenId,
+    noTokenId,
+    side,
+    initialYesPrice,
+    initialNoPrice,
+  });
 
-  // Best prices from orderbook: buy = best ask (lowest sell), sell = best bid (highest buy)
-  const bestPrices = useMemo(() => {
-    const yesBestAsk = yesBook?.asks?.[0] ? Math.round(parseFloat(yesBook.asks[0].price) * 100) : 0;
-    const yesBestBid = yesBook?.bids?.[0] ? Math.round(parseFloat(yesBook.bids[0].price) * 100) : 0;
-    const noBestAsk = noBook?.asks?.[0] ? Math.round(parseFloat(noBook.asks[0].price) * 100) : 0;
-    const noBestBid = noBook?.bids?.[0] ? Math.round(parseFloat(noBook.bids[0].price) * 100) : 0;
-
-    return {
-      yesPrice: side === "buy"
-        ? (yesBestAsk || initialYesPrice)
-        : (yesBestBid || initialYesPrice),
-      noPrice: side === "buy"
-        ? (noBestAsk || initialNoPrice)
-        : (noBestBid || initialNoPrice),
-    };
-  }, [yesBook, noBook, side, initialYesPrice, initialNoPrice]);
+  const bestPrices = useMemo(
+    () => ({
+      yesPrice: yesOutcomePrice || initialYesPrice,
+      noPrice: noOutcomePrice || initialNoPrice,
+    }),
+    [yesOutcomePrice, noOutcomePrice, initialYesPrice, initialNoPrice]
+  );
 
   // Tick size in cents for display (e.g. 0.01 -> 1, 0.1 -> 10)
   const tickCents = round6(tickSize * 100);
