@@ -15,6 +15,7 @@ interface UsePlaeEventsParams {
   order?: string;
   ascending?: boolean;
   group_by_series?: boolean;
+  tag_slug?: string;
 }
 
 export interface PlaeEventsResult {

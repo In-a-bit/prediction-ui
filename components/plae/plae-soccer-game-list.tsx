@@ -1,37 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePlaeEvents } from "@/lib/hooks/use-plae-events";
-import { PlaeEventCard } from "./plae-event-card";
+import { buildSoccerGameView, groupGamesByDate } from "@/lib/sports-soccer";
+import { PlaeSoccerGameCard } from "./plae-soccer-game-card";
 
 const PAGE_SIZE = 12;
 
-interface PlaeEventGridProps {
-  tagSlug?: string;
-  groupBySeries?: boolean;
+interface PlaeSoccerGameListProps {
+  tagSlug: string;
 }
 
-export function PlaeEventGrid({
-  tagSlug,
-  groupBySeries = true,
-}: PlaeEventGridProps = {}) {
+export function PlaeSoccerGameList({ tagSlug }: PlaeSoccerGameListProps) {
   const [page, setPage] = useState(0);
 
   const { data, isLoading } = usePlaeEvents({
     active: true,
-    group_by_series: groupBySeries,
+    group_by_series: false,
     tag_slug: tagSlug,
+    order: "created_at",
+    ascending: true,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
 
-  const events = data?.events ?? [];
+  const games = useMemo(() => {
+    return (data?.events ?? [])
+      .map(buildSoccerGameView)
+      .filter((game): game is NonNullable<typeof game> => game != null);
+  }, [data?.events]);
+
+  const groupedGames = useMemo(() => groupGamesByDate(games), [games]);
   const hasMore = data?.hasMore ?? false;
 
-  if (!events.length && !isLoading) {
+  if (!games.length && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-card-border bg-card px-8 py-16">
-        <p className="text-sm text-muted">No events found</p>
+        <p className="text-sm text-muted">No games found</p>
       </div>
     );
   }
@@ -39,23 +44,31 @@ export function PlaeEventGrid({
   return (
     <div>
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-64 animate-pulse rounded-2xl border border-card-border bg-card"
+              className="h-36 animate-pulse rounded-2xl border border-card-border bg-card"
             />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {events.map((event) => (
-            <PlaeEventCard key={event.id} event={event} />
+        <div className="space-y-8">
+          {groupedGames.map((group) => (
+            <section key={group.label}>
+              <h2 className="mb-4 text-lg font-bold text-foreground">
+                {group.label}
+              </h2>
+              <div className="space-y-3">
+                {group.games.map((game) => (
+                  <PlaeSoccerGameCard key={game.event.id} game={game} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
 
-      {/* Pagination controls */}
       <div className="mt-6 flex items-center justify-center gap-3">
         <button
           onClick={() => setPage((p) => Math.max(0, p - 1))}

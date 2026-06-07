@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { PlaeSidebarNav } from "@/components/plae/plae-sidebar-nav";
 import { cn } from "@/lib/utils";
 
 const categories = [
@@ -131,6 +132,9 @@ export function Sidebar() {
           })}
         </nav>
       )}
+
+      {/* Topic nav for Plaee tab */}
+      {isPlaeActive && <PlaeSidebarNav />}
 
       {/* Bottom section */}
       <div className="absolute bottom-4 left-4 right-4">

@@ -45,6 +45,7 @@ export interface GammaMarket {
   tokenId?: string;
   bestBid?: number;
   bestAsk?: number;
+  metadataType?: string;
 }
 
 export interface CryptoUpdownMetadata {
@@ -86,6 +87,7 @@ export interface GammaEvent {
   openInterest: number;
   createdAt: string;
   updatedAt: string;
+  startDate?: string;
   endDate: string;
   image: string;
   icon: string;
