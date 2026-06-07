@@ -1,11 +1,10 @@
-/** Polymarket-shaped payload from order-engine → public-ws (libs/mq/market_resolved.go). */
+/** market_resolved payload from order-engine → public-ws. */
 export interface MarketResolvedWsEvent {
   event_type: "market_resolved";
-  /** Numeric DB market id. */
-  id?: string;
   question?: string;
-  /** Condition id (0x-prefixed), not the numeric market id. */
+  /** Numeric engine/DB market id. */
   market?: string;
+  condition_id?: string;
   winning_outcome?: string;
   winning_asset_id?: string;
   assets_ids?: string[];
@@ -22,20 +21,15 @@ function optionalStringArray(value: unknown): string[] | undefined {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-function normalizeConditionId(raw: string): string {
-  const s = raw.trim().toLowerCase();
-  return s.startsWith("0x") ? s : `0x${s}`;
-}
-
 export function parseMarketResolvedEvent(
   data: Record<string, unknown>,
 ): MarketResolvedWsEvent | null {
   if (data.event_type !== "market_resolved") return null;
   return {
     event_type: "market_resolved",
-    id: optionalString(data.id),
     question: optionalString(data.question),
     market: optionalString(data.market),
+    condition_id: optionalString(data.condition_id),
     winning_outcome: optionalString(data.winning_outcome),
     winning_asset_id: optionalString(data.winning_asset_id),
     assets_ids: optionalStringArray(data.assets_ids),
@@ -49,7 +43,6 @@ export function marketResolvedEventKey(
   evt: MarketResolvedWsEvent,
 ): string {
   return [
-    evt.id ?? "",
     evt.market ?? "",
     evt.winning_asset_id ?? "",
     evt.timestamp ?? "",
@@ -58,19 +51,12 @@ export function marketResolvedEventKey(
 
 export function marketResolvedMatchesSubscription(
   evt: MarketResolvedWsEvent,
-  market: { id?: number | string; conditionId?: string } | undefined,
+  market: { id?: number | string } | undefined,
   tokenIds: string[],
 ): boolean {
-  if (market?.id != null && evt.id != null && String(evt.id) === String(market.id)) {
+  const marketId = market?.id != null ? String(market.id) : undefined;
+  if (marketId && evt.market != null && evt.market === marketId) {
     return true;
-  }
-  if (market?.conditionId && evt.market) {
-    if (
-      normalizeConditionId(evt.market) ===
-      normalizeConditionId(market.conditionId)
-    ) {
-      return true;
-    }
   }
   const assets = evt.assets_ids ?? [];
   return assets.some((id) => tokenIds.includes(id));
