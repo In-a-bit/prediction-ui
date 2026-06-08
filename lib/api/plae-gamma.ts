@@ -44,17 +44,72 @@ export async function fetchPlaeEvents(
   }
 }
 
+async function fetchGammaWithRetry(
+  url: string,
+  init: RequestInit,
+  retries = 1,
+): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      lastError = err;
+      if (init.signal?.aborted) {
+        throw err;
+      }
+      if (attempt === retries) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    }
+  }
+
+  throw lastError;
+}
+
+function withFetchTimeout(
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!signal) {
+    return timeout;
+  }
+
+  const merged = new AbortController();
+  const abort = () => merged.abort();
+
+  if (signal.aborted || timeout.aborted) {
+    merged.abort();
+    return merged.signal;
+  }
+
+  signal.addEventListener("abort", abort, { once: true });
+  timeout.addEventListener("abort", abort, { once: true });
+  return merged.signal;
+}
+
 export async function fetchPlaeEventBySlug(
   slug: string,
+  signal?: AbortSignal,
 ): Promise<GammaEvent | null> {
   try {
-    const res = await fetch(`${PLAE_GAMMA_BASE}/events/slug/${slug}`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(10000),
-    });
+    const res = await fetchGammaWithRetry(
+      `${PLAE_GAMMA_BASE}/events/slug/${slug}`,
+      {
+        cache: "no-store",
+        signal: withFetchTimeout(signal, 15_000),
+      },
+    );
     if (!res.ok) return null;
     return res.json();
-  } catch {
+  } catch (err) {
+    if (signal?.aborted) {
+      return null;
+    }
+    console.error("fetchPlaeEventBySlug failed", { slug, err });
     return null;
   }
 }

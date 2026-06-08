@@ -15,16 +15,16 @@ import { cn } from "@/lib/utils";
 
 const timeRanges = [
   { label: "24H", days: 1, fidelity: 5 },
-  { label: "7D", days: 7, fidelity: 60 },
-  { label: "30D", days: 30, fidelity: 360 },
-  { label: "ALL", days: 365, fidelity: 1440 },
+  { label: "7D", days: 7, fidelity: 5 },
+  { label: "30D", days: 30, fidelity: 60 },
+  { label: "ALL", days: 365, fidelity: 360 },
 ];
 
 export function PriceChart({ tokenId }: { tokenId: string | undefined }) {
-  const [rangeIdx, setRangeIdx] = useState(1); // default 7D
+  const [rangeIdx, setRangeIdx] = useState(0);
   const range = timeRanges[rangeIdx];
 
-  const { data: history, isLoading } = usePriceHistory(
+  const { data: history, isLoading, isFetching } = usePriceHistory(
     tokenId,
     range.fidelity,
     range.days
@@ -66,6 +66,10 @@ export function PriceChart({ tokenId }: { tokenId: string | undefined }) {
 
   return (
     <div>
+      <p className="mb-2 break-all text-[10px] leading-tight text-muted/70">
+        token: {tokenId}
+      </p>
+
       {/* Range selector */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -101,7 +105,7 @@ export function PriceChart({ tokenId }: { tokenId: string | undefined }) {
       </div>
 
       {/* Chart */}
-      {isLoading ? (
+      {(!history?.length && (isLoading || isFetching)) ? (
         <div className="flex h-64 items-center justify-center">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand border-t-transparent" />
         </div>

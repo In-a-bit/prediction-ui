@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  getPlaeSoccerTopics,
   plaeCryptoTopic,
   plaeSoccerGroup,
 } from "@/lib/data/plae-topics";
@@ -35,7 +36,8 @@ function topicIsActive(pathname: string, slug: string) {
 
 export function PlaeSidebarNav() {
   const pathname = usePathname();
-  const soccerChildActive = plaeSoccerGroup.topics.some((topic) =>
+  const soccerTopics = getPlaeSoccerTopics();
+  const soccerChildActive = soccerTopics.some((topic) =>
     topicIsActive(pathname, topic.slug),
   );
   const [soccerOpen, setSoccerOpen] = useState(soccerChildActive);
@@ -92,7 +94,7 @@ export function PlaeSidebarNav() {
 
         {soccerOpen ? (
           <div className="ml-3 mt-1 space-y-1 border-l border-card-border pl-3">
-            {plaeSoccerGroup.topics.map((topic) => {
+            {soccerTopics.map((topic) => {
               const isActive = topicIsActive(pathname, topic.slug);
 
               return (

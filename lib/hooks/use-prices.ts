@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useCallback, useRef, useState } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
 import { useDataSource } from "@/components/providers/data-source-provider";
 import { parseWireDecimal } from "@/lib/parse-wire-decimal";
@@ -27,7 +27,15 @@ async function getPriceHistory(
   });
 
   const res = await fetch(url);
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.warn("[getPriceHistory] request failed", {
+      tokenId,
+      days,
+      fidelity,
+      status: res.status,
+    });
+    throw new Error(`Price history request failed (${res.status})`);
+  }
   const data = await res.json();
   return data.history ?? [];
 }
@@ -72,7 +80,9 @@ export function usePriceHistory(
     queryKey: ["priceHistory", tokenId, fidelity, days],
     queryFn: () => getPriceHistory(buildClobUrl, tokenId!, fidelity, days),
     enabled: !!tokenId,
-    staleTime: Infinity,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    retry: 1,
     refetchOnWindowFocus: false,
     refetchInterval: false,
   });
@@ -146,4 +156,44 @@ export function useMidpoint(tokenId: string | undefined) {
   }, [tokenId, ws, applyMidpointFromWs]);
 
   return query;
+}
+
+/**
+ * Yes-token display price for moneyline / list buttons: midpoint with
+ * last-trade WS updates. Not bid/ask (those belong on the trade panel).
+ */
+export function useYesTokenDisplayPrice(
+  tokenId: string | undefined,
+  initialCents: number,
+): number {
+  const ws = useMarketWS();
+  const { data: midpoint } = useMidpoint(tokenId);
+  const [lastTradeCents, setLastTradeCents] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLastTradeCents(null);
+  }, [tokenId]);
+
+  const handleLastTrade = useCallback(
+    (data: Record<string, unknown>) => {
+      if (data.asset_id !== tokenId) return;
+      const raw = typeof data.price === "string" ? data.price : "";
+      const price = parseWireDecimal(raw);
+      if (price <= 0 || price >= 1) return;
+      setLastTradeCents(Math.round(price * 100));
+    },
+    [tokenId],
+  );
+
+  useEffect(() => {
+    if (!tokenId) return;
+    ws.on("last_trade_price", handleLastTrade);
+    return () => {
+      ws.off("last_trade_price", handleLastTrade);
+    };
+  }, [tokenId, ws, handleLastTrade]);
+
+  if (lastTradeCents !== null) return lastTradeCents;
+  if (midpoint) return Math.round(midpoint * 100);
+  return initialCents;
 }

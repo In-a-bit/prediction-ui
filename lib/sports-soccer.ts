@@ -1,4 +1,5 @@
 import { formatVolume } from "@/lib/market/gamma-helpers";
+import { getPlaeSoccerTopics, type PlaeTopic } from "@/lib/data/plae-topics";
 import type { GammaEvent, GammaMarket } from "@/lib/types/event";
 
 export const SPORTS_SOCCER_FIXTURE_METADATA_TYPE = "sports_soccer_fixture";
@@ -33,6 +34,30 @@ export interface SoccerMoneylineMarkets {
   draw?: GammaMarket;
   away?: GammaMarket;
 }
+
+export type SoccerMarketGroup = SoccerMoneylineMarkets;
+
+export type SoccerMarketTab = "moneyline" | "halftime";
+
+export const SOCCER_MARKET_TABS: {
+  id: SoccerMarketTab;
+  label: string;
+  marketType: string;
+  title: string;
+}[] = [
+  {
+    id: "moneyline",
+    label: "Game Lines",
+    marketType: "moneyline",
+    title: "Moneyline",
+  },
+  {
+    id: "halftime",
+    label: "Halftime Result",
+    marketType: "halftime",
+    title: "Halftime Result",
+  },
+];
 
 export interface SoccerGameView {
   event: GammaEvent;
@@ -129,17 +154,54 @@ export function isSportsSoccerFixtureEvent(event: GammaEvent): boolean {
 export function extractMoneylineMarkets(
   event: GammaEvent,
 ): SoccerMoneylineMarkets {
-  const moneyline: SoccerMoneylineMarkets = {};
+  return extractMarketsByType(event, "moneyline");
+}
+
+export function extractHalftimeMarkets(
+  event: GammaEvent,
+): SoccerMarketGroup {
+  return extractMarketsByType(event, "halftime");
+}
+
+export function extractMarketsByType(
+  event: GammaEvent,
+  marketType: string,
+): SoccerMarketGroup {
+  const group: SoccerMarketGroup = {};
 
   for (const market of event.markets ?? []) {
     if (!isSportsSoccerMarket(market)) continue;
     const meta = parseSportsSoccerMarketMetadata(market);
-    if (meta?.market_type !== "moneyline" || !meta.outcome_key) continue;
-    moneyline[meta.outcome_key] = market;
+    if (meta?.market_type !== marketType || !meta.outcome_key) continue;
+    group[meta.outcome_key] = market;
   }
 
-  return moneyline;
+  return group;
 }
+
+export function resolvePlaeSoccerTopicFromEvent(
+  event: GammaEvent,
+): PlaeTopic | undefined {
+  const tagSlugs = new Set(event.tags?.map((tag) => tag.slug) ?? []);
+  return getPlaeSoccerTopics().find((topic) => tagSlugs.has(topic.slug));
+}
+
+export function pickDefaultSoccerMarket(
+  group: SoccerMarketGroup,
+): GammaMarket | undefined {
+  return group.home ?? group.draw ?? group.away;
+}
+
+export function sumMarketGroupVolume(group: SoccerMarketGroup): number {
+  let total = 0;
+  for (const market of Object.values(group)) {
+    if (!market) continue;
+    total += market.volume_num || parseFloat(market.volume ?? "0") || 0;
+  }
+  return total;
+}
+
+export const SOCCER_OUTCOME_ORDER: SoccerOutcomeKey[] = ["home", "draw", "away"];
 
 function readKickoff(metadata: SoccerFixtureMetadata, event: GammaEvent): Date | null {
   const iso =
@@ -215,6 +277,29 @@ export function formatFixtureTime(date: Date | null): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+export function formatFixtureDateShort(date: Date | null): string {
+  if (!date) return "";
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+  });
+}
+
+export function formatKickoffCountdown(date: Date | null): string | null {
+  if (!date) return null;
+  const diffMs = date.getTime() - Date.now();
+  if (diffMs <= 0) return null;
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 export function formatFixtureDateHeader(date: Date | null): string {

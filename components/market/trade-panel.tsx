@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
@@ -139,6 +140,7 @@ export function TradePanel({
 }) {
   const [yesLabel, noLabel] = outcomeLabels;
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const { dpmSdk, userProfile } = useMagic();
   const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -299,13 +301,16 @@ export function TradePanel({
       setOrderResult(`Order ${result.status} (${result.orderHash.slice(0, 10)}…)`);
       if (orderType === "market") setAmount("");
       else setLimitShares("");
+
+     
+      await queryClient.invalidateQueries({ queryKey: ["open-orders"] });
     } catch (err) {
       console.error("[TradePanel] order submission error:", err);
       setOrderResult(err instanceof Error ? err.message : "Order failed");
     } finally {
       setSubmitting(false);
     }
-  }, [dpmSdk, currentTokenId, order, priceValid, side, orderType, userProfile, feeRate.bps]);
+  }, [dpmSdk, currentTokenId, order, priceValid, side, orderType, userProfile, feeRate.bps, queryClient]);
 
   if (!session?.user) {
     return (

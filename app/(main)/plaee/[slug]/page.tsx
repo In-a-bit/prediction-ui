@@ -4,11 +4,12 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 
 import { CryptoUpdownEventPage } from "@/components/crypto/crypto-updown-event-page";
+import { SoccerFixtureEventPage } from "@/components/plae/soccer-fixture-event-page";
 import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
 import Link from "next/link";
+import { fetchPlaeEventBySlug } from "@/lib/api/plae-gamma";
 import type { GammaEvent } from "@/lib/types/event";
-import { predictionServiceBase } from "@/lib/prediction-proxy";
 import {
   formatVolume,
   getDeployedMarkets,
@@ -17,8 +18,7 @@ import {
   parsePrices,
   parseTokenIds,
 } from "@/lib/market/gamma-helpers";
-
-const PLAE_GAMMA_BASE = predictionServiceBase("gamma");
+import { isSportsSoccerFixtureEvent } from "@/lib/sports-soccer";
 
 export default function PlaeEventPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -28,21 +28,20 @@ export default function PlaeEventPage() {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function load() {
-      try {
-        const res = await fetch(`${PLAE_GAMMA_BASE}/events/slug/${slug}`);
-        if (!res.ok) {
-          setEvent(null);
-          return;
-        }
-        setEvent(await res.json());
-      } catch {
-        setEvent(null);
-      } finally {
-        setLoading(false);
+      setLoading(true);
+      const loaded = await fetchPlaeEventBySlug(slug, controller.signal);
+      if (controller.signal.aborted) {
+        return;
       }
+      setEvent(loaded);
+      setLoading(false);
     }
-    load();
+
+    void load();
+    return () => controller.abort();
   }, [slug]);
 
   const deployedMarkets = useMemo(
@@ -93,6 +92,10 @@ export default function PlaeEventPage() {
         urlSlug={slug}
       />
     );
+  }
+
+  if (isSportsSoccerFixtureEvent(event)) {
+    return <SoccerFixtureEventPage event={event} />;
   }
 
   if (deployedMarkets.length === 0) {
