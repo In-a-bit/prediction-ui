@@ -31,7 +31,7 @@ async function getPlaeEvents(
     if (value !== undefined) searchParams.set(key, String(value));
   });
 
-  const res = await fetch(`${PLAE_GAMMA_BASE}/events/pagination?${searchParams}`);
+  const res = await fetch(`${PLAE_GAMMA_BASE}/events?${searchParams}`);
   if (!res.ok) return { events: [], hasMore: false };
   const json = await res.json();
   return {

@@ -88,6 +88,7 @@ export interface GammaEvent {
   createdAt: string;
   updatedAt: string;
   startDate?: string;
+  startTime?: string;
   endDate: string;
   image: string;
   icon: string;

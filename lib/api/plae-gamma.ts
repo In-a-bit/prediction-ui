@@ -29,7 +29,7 @@ export async function fetchPlaeEvents(
   });
 
   try {
-    const res = await fetch(`${PLAE_GAMMA_BASE}/events/pagination?${searchParams}`, {
+    const res = await fetch(`${PLAE_GAMMA_BASE}/events?${searchParams}`, {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(5000),
     });

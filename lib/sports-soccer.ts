@@ -205,6 +205,7 @@ export const SOCCER_OUTCOME_ORDER: SoccerOutcomeKey[] = ["home", "draw", "away"]
 
 function readKickoff(metadata: SoccerFixtureMetadata, event: GammaEvent): Date | null {
   const iso =
+    event.startTime ??
     metadata.fixture?.fixture?.date ??
     event.startDate ??
     event.endDate;
@@ -315,12 +316,28 @@ export function formatGameVolume(volume: number): string {
   return `${formatVolume(volume)} Vol.`;
 }
 
+export function sortGamesByKickoff(
+  games: SoccerGameView[],
+  ascending = true,
+): SoccerGameView[] {
+  return [...games].sort((a, b) => {
+    const aTime = a.kickoff?.getTime();
+    const bTime = b.kickoff?.getTime();
+    const aMissing = aTime == null || Number.isNaN(aTime);
+    const bMissing = bTime == null || Number.isNaN(bTime);
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
+    return ascending ? aTime - bTime : bTime - aTime;
+  });
+}
+
 export function groupGamesByDate(
   games: SoccerGameView[],
 ): { label: string; games: SoccerGameView[] }[] {
   const groups = new Map<string, SoccerGameView[]>();
 
-  for (const game of games) {
+  for (const game of sortGamesByKickoff(games)) {
     const label = formatFixtureDateHeader(game.kickoff);
     const bucket = groups.get(label) ?? [];
     bucket.push(game);

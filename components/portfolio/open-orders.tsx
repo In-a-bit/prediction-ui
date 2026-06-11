@@ -3,7 +3,11 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useOpenOrders, useCancelOrder, type OpenOrder } from "@/lib/hooks/use-open-orders";
-import { useEventLookup, type EventInfo } from "@/lib/hooks/use-event-lookup";
+import {
+  useMarketLookup,
+  isPrimaryOutcomeToken,
+  type MarketDisplayInfo,
+} from "@/lib/hooks/use-market-lookup";
 import { outcomeBadgeClass } from "@/lib/market/gamma-helpers";
 
 interface MarketGroup {
@@ -58,16 +62,14 @@ function MarketGroupRow({
   onToggle,
   cancellingIds,
   onCancelOrder,
-  eventInfo,
-  tokenLookup,
+  marketInfo,
 }: {
   group: MarketGroup;
   expanded: boolean;
   onToggle: () => void;
   cancellingIds: Set<string>;
   onCancelOrder: (order: OpenOrder) => void;
-  eventInfo?: EventInfo;
-  tokenLookup?: Map<string, EventInfo>;
+  marketInfo?: MarketDisplayInfo;
 }) {
   return (
     <>
@@ -78,20 +80,20 @@ function MarketGroupRow({
       >
         <td className="px-4 py-3">
           <div className="flex items-center gap-3">
-            {eventInfo?.icon ? (
+            {marketInfo?.icon ? (
               <img
-                src={eventInfo.icon}
+                src={marketInfo.icon}
                 alt=""
                 className="h-8 w-8 rounded-lg object-cover"
               />
             ) : (
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-card-hover text-xs font-bold text-muted">
-                {(eventInfo?.title?.[0] ?? "?").toUpperCase()}
+                {(marketInfo?.question?.[0] ?? "?").toUpperCase()}
               </div>
             )}
             <div>
               <p className="text-sm font-medium text-foreground leading-tight">
-                {eventInfo?.title ?? group.market}
+                {marketInfo?.question ?? group.market}
               </p>
               <button
                 className="flex items-center gap-1 text-xs text-muted hover:text-foreground"
@@ -146,7 +148,10 @@ function MarketGroupRow({
                   className={cn(
                     "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold",
                     outcomeBadgeClass(
-                      tokenLookup?.get(order.asset_id)?.isPrimaryToken,
+                      isPrimaryOutcomeToken(
+                        order.asset_id,
+                        marketInfo?.clobTokenIds ?? [],
+                      ),
                     ),
                   )}
                 >
@@ -183,7 +188,11 @@ function MarketGroupRow({
 
 export function OpenOrders() {
   const { data: orders, isPending, error } = useOpenOrders();
-  const { data: eventLookup } = useEventLookup();
+  const marketIds = useMemo(
+    () => (orders ?? []).map((order) => order.market),
+    [orders],
+  );
+  const { data: marketLookup } = useMarketLookup(marketIds, orders ?? []);
   const cancelMutation = useCancelOrder();
   const [expandedMarkets, setExpandedMarkets] = useState<Set<string>>(
     new Set(),
@@ -351,8 +360,7 @@ export function OpenOrders() {
                   onToggle={() => toggleMarket(group.market)}
                   cancellingIds={cancellingIds}
                   onCancelOrder={handleCancelOrder}
-                  eventInfo={eventLookup?.get(group.orders[0]?.asset_id)}
-                  tokenLookup={eventLookup}
+                  marketInfo={marketLookup?.get(group.market)}
                 />
               ))}
             </tbody>

@@ -18,7 +18,7 @@ export function PlaeSoccerGameList({ tagSlug }: PlaeSoccerGameListProps) {
     active: true,
     group_by_series: false,
     tag_slug: tagSlug,
-    order: "created_at",
+    order: "start_time",
     ascending: true,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
