@@ -25,18 +25,26 @@ function parseClobTokenIds(raw: string | undefined): string[] {
   }
 }
 
-function toDisplayInfo(market: {
+type MarketLookupPayload = {
   question?: string;
   icon?: string | null;
   image?: string | null;
   slug?: string | null;
   clobTokenIds?: string;
-}): MarketDisplayInfo | null {
+  events?: Array<{ icon?: string | null; image?: string | null }>;
+};
+
+function marketIcon(market: MarketLookupPayload): string | null {
+  const event = market.events?.[0];
+  return event?.icon ?? event?.image ?? market.icon ?? market.image ?? null;
+}
+
+function toDisplayInfo(market: MarketLookupPayload): MarketDisplayInfo | null {
   if (!market.question) return null;
   return {
     marketId: "",
     question: market.question,
-    icon: market.icon ?? market.image ?? null,
+    icon: marketIcon(market),
     slug: market.slug ?? null,
     clobTokenIds: parseClobTokenIds(market.clobTokenIds),
   };
@@ -46,13 +54,7 @@ function toDisplayInfo(market: {
 function indexMarketsByClobMarketId(
   marketIds: string[],
   orders: OpenOrder[],
-  markets: Array<{
-    question?: string;
-    icon?: string | null;
-    image?: string | null;
-    slug?: string | null;
-    clobTokenIds?: string;
-  }>,
+  markets: MarketLookupPayload[],
 ): Map<string, MarketDisplayInfo> {
   const byToken = new Map<string, MarketDisplayInfo>();
   for (const market of markets) {
@@ -90,16 +92,7 @@ async function fetchMarketsByIds(
   const res = await fetch(`${GAMMA_API_URL}/markets?${params}`);
   if (!res.ok) return new Map();
 
-  const json = (await res.json()) as {
-    data?: Array<{
-      id?: string;
-      question?: string;
-      icon?: string | null;
-      image?: string | null;
-      slug?: string | null;
-      clobTokenIds?: string;
-    }>;
-  };
+  const json = (await res.json()) as { data?: MarketLookupPayload[] };
 
   return indexMarketsByClobMarketId(unique, orders, json.data ?? []);
 }
