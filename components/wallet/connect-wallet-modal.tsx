@@ -3,21 +3,41 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthCancelledError } from "@inabit-com/dpm-sdk";
+import {
+  Captcha,
+  useCreateWallet,
+  useLoginWithEmail,
+  useLoginWithOAuth,
+  usePrivy,
+} from "@privy-io/react-auth";
 
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 
 type Props = {
   onClose: () => void;
 };
 
+type OtpResolver = {
+  resolve: (code: string) => void;
+  reject: (err: Error) => void;
+};
+
 export function ConnectWalletModal({ onClose }: Props) {
-  const { dpmSdk } = useMagic();
+  const { dpmSdk } = useWallet();
+  const { ready, authenticated, logout } = usePrivy();
+  const { sendCode, loginWithCode } = useLoginWithEmail();
+  const { initOAuth } = useLoginWithOAuth();
+  const { createWallet } = useCreateWallet();
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const otpResolverRef = useRef<OtpResolver | null>(null);
 
-  // Close on Escape — but not while OTP is in progress
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && loading === null) onClose();
@@ -26,18 +46,42 @@ export function ConnectWalletModal({ onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, loading]);
 
+  /**
+   * Headless `useLoginWith*` links the new login method onto the current Privy
+   * user when a session is already live. Clear it before every fresh login so
+   * email/Google always create or restore a distinct account + wallet.
+   */
+  async function ensureCleanPrivySession() {
+    if (!ready) throw new Error("Privy is not ready");
+    if (authenticated) {
+      await logout();
+    }
+  }
+
+  async function finalizeGammaSession() {
+    if (!dpmSdk) throw new Error("Wallet SDK is not ready");
+    try {
+      await createWallet();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.toLowerCase().includes("already")) {
+        throw err;
+      }
+    }
+    await dpmSdk.auth.connectExisting("privy");
+  }
+
   async function handleGoogle() {
     if (!dpmSdk) return;
     setError(null);
     setLoading("google");
-    console.info("[connect-wallet-modal.handleGoogle] startOAuth begin");
     try {
-      await dpmSdk.auth.startOAuth({
-        provider: "google",
-        redirectURI: `${window.location.origin}/oauth/callback`,
-        returnTo: window.location.pathname + window.location.search,
-      });
-      // Browser will redirect; loading state never clears here.
+      await ensureCleanPrivySession();
+      dpmSdk.auth.prepareOAuth(
+        "privy",
+        `${window.location.pathname}${window.location.search}`,
+      );
+      await initOAuth({ provider: "google" });
     } catch (err) {
       console.error("[connect-wallet-modal.handleGoogle] failed:", err);
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
@@ -51,22 +95,43 @@ export function ConnectWalletModal({ onClose }: Props) {
     if (!dpmSdk || !email.trim()) return;
     setError(null);
     setLoading("email");
-    console.info("[connect-wallet-modal.handleEmail] loginWithEmailOTP begin");
+    const normalizedEmail = email.trim();
     try {
-      const session = await dpmSdk.auth.loginWithEmailOTP(email.trim());
-      console.info("[connect-wallet-modal.handleEmail] success", {
-        proxyWallet: session.proxyWallet,
+      await ensureCleanPrivySession();
+      await sendCode({ email: normalizedEmail });
+      setLoading(null);
+      const code = await new Promise<string>((resolve, reject) => {
+        otpResolverRef.current = { resolve, reject };
+        setOtpStep(true);
+        setOtpCode("");
+        setVerifyingOtp(false);
+        setError(null);
       });
+      setVerifyingOtp(true);
+      await loginWithCode({ code, email: normalizedEmail });
+      await finalizeGammaSession();
       onClose();
     } catch (err) {
       if (err instanceof AuthCancelledError) {
+        setOtpStep(false);
+        setVerifyingOtp(false);
         setLoading(null);
         return;
       }
       console.error("[connect-wallet-modal.handleEmail] failed:", err);
       setError(err instanceof Error ? err.message : String(err));
+      setOtpStep(false);
+      setVerifyingOtp(false);
       setLoading(null);
     }
+  }
+
+  function handleOtpSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!otpCode.trim() || !otpResolverRef.current || verifyingOtp) return;
+    setVerifyingOtp(true);
+    otpResolverRef.current.resolve(otpCode.trim().replace(/\s/g, ""));
+    otpResolverRef.current = null;
   }
 
   const modal = (
@@ -74,18 +139,15 @@ export function ConnectWalletModal({ onClose }: Props) {
       ref={overlayRef}
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
       onClick={(e) => {
-        // Don't close while login is in progress — Magic's OTP iframe
-        // can cause spurious clicks on the overlay
         if (loading !== null) return;
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      {/* Modal */}
       <div className="relative z-10 w-full max-w-sm rounded-2xl border border-card-border bg-card p-6 shadow-2xl">
-        {/* Close button — always visible */}
+        <Captcha />
+
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-lg p-1.5 text-muted transition-colors hover:bg-card-hover hover:text-foreground"
@@ -95,14 +157,68 @@ export function ConnectWalletModal({ onClose }: Props) {
           </svg>
         </button>
 
+        {otpStep ? (
+          <>
+            <div className="mb-6 pr-6">
+              <h2 className="text-lg font-semibold text-foreground">Enter verification code</h2>
+              <p className="mt-1 text-sm text-muted">
+                We sent a code to <strong className="text-foreground">{email}</strong>
+              </p>
+            </div>
+
+            <form onSubmit={handleOtpSubmit} className="space-y-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                placeholder="Enter code"
+                required
+                autoFocus
+                disabled={verifyingOtp}
+                className="w-full rounded-xl border border-card-border bg-input px-4 py-3 text-center text-lg font-mono tracking-widest text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={!otpCode.trim() || verifyingOtp}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {verifyingOtp && <Spinner />}
+                Verify
+              </button>
+            </form>
+
+            <button
+              type="button"
+              disabled={verifyingOtp}
+              onClick={() => {
+                otpResolverRef.current?.reject(
+                  new AuthCancelledError("OTP verification cancelled"),
+                );
+                otpResolverRef.current = null;
+                setOtpStep(false);
+                setVerifyingOtp(false);
+                setLoading(null);
+              }}
+              className="mt-4 w-full text-center text-xs text-brand underline disabled:opacity-50"
+            >
+              Back
+            </button>
+
+            {error && (
+              <p className="mt-4 text-center text-xs text-red">{error}</p>
+            )}
+          </>
+        ) : (
           <>
             <div className="mb-6 pr-6">
               <h2 className="text-lg font-semibold text-foreground">Connect Wallet</h2>
               <p className="mt-1 text-sm text-muted">Sign in to create or access your wallet</p>
             </div>
 
-            {/* Google Button */}
             <button
+              type="button"
               onClick={handleGoogle}
               disabled={loading !== null}
               className="flex w-full items-center justify-center gap-3 rounded-xl border border-card-border bg-card-hover px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
@@ -111,14 +227,12 @@ export function ConnectWalletModal({ onClose }: Props) {
               Continue with Google
             </button>
 
-            {/* Divider */}
             <div className="my-5 flex items-center gap-3">
               <div className="h-px flex-1 bg-card-border" />
               <span className="text-xs text-muted">or</span>
               <div className="h-px flex-1 bg-card-border" />
             </div>
 
-            {/* Email Form */}
             <form onSubmit={handleEmail} className="space-y-3">
               <input
                 type="email"
@@ -134,12 +248,11 @@ export function ConnectWalletModal({ onClose }: Props) {
                 disabled={loading !== null || !email.trim() || !dpmSdk}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading === "email" && <Spinner />}
+                {loading === "email" && !otpStep && <Spinner />}
                 Continue with Email
               </button>
             </form>
 
-            {/* Error */}
             {error && (
               <p className="mt-4 text-center text-xs text-red">{error}</p>
             )}
@@ -150,6 +263,7 @@ export function ConnectWalletModal({ onClose }: Props) {
               No seed phrase required.
             </p>
           </>
+        )}
       </div>
     </div>
   );

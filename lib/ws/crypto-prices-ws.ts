@@ -52,10 +52,11 @@ export class CryptoPricesWS {
 
     const ws = this.ws;
     this.ws = null;
-    ws.onopen = null;
-    ws.onmessage = null;
-    ws.onerror = null;
-    ws.onclose = null;
+    const noop = () => {};
+    ws.onopen = noop;
+    ws.onmessage = noop;
+    ws.onerror = noop;
+    ws.onclose = noop;
 
     if (ws.readyState === WebSocket.CONNECTING) {
       // Closing during CONNECTING logs "closed before connection established".

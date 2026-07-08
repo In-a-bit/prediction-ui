@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMagic } from "@/components/providers/magic-provider";
+
+import { useWallet } from "@/components/providers/wallet-provider";
+import { isPrivyOAuthReturn, stripPrivyOAuthParams } from "@/lib/privy-oauth";
 
 export default function OAuthCallbackPage() {
-  const { dpmSdk } = useMagic();
+  const { dpmSdk } = useWallet();
   const router = useRouter();
   const handled = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,21 +16,18 @@ export default function OAuthCallbackPage() {
     if (!dpmSdk || handled.current) return;
     handled.current = true;
 
-    console.log("[oauth-callback] completeRedirect: begin");
     const timeout = setTimeout(() => {
-      console.error("[oauth-callback] completeRedirect timed out after 10s");
       setError("Timed out waiting for OAuth result");
       setTimeout(() => router.replace("/"), 2000);
-    }, 10_000);
+    }, 30_000);
 
     dpmSdk.auth
       .completeRedirect()
-      .then(({ session, returnTo }) => {
+      .then(({ returnTo }) => {
         clearTimeout(timeout);
-        console.log("[oauth-callback] completeRedirect: success", {
-          proxyWallet: session.proxyWallet,
-          returnTo,
-        });
+        if (isPrivyOAuthReturn()) {
+          stripPrivyOAuthParams();
+        }
         router.replace(returnTo ?? "/");
       })
       .catch((err: unknown) => {
@@ -55,12 +54,6 @@ export default function OAuthCallbackPage() {
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
       </svg>
       <p className="text-sm text-muted">Connecting your wallet…</p>
-      <button
-        onClick={() => router.replace("/")}
-        className="mt-2 text-xs text-brand underline"
-      >
-        Cancel and go back
-      </button>
     </div>
   );
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AuthCancelledError } from "@inabit-com/dpm-sdk";
 
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";
 import { submitAllowanceRegardlessOfStatus } from "@/lib/allowance";
 import { copyToClipboard } from "@/lib/utils";
@@ -13,14 +12,12 @@ function truncateAddress(address: string): string {
 }
 
 export function WalletButton() {
-  const { dpmSdk, walletAddress, userProfile, disconnect } = useMagic();
+  const { dpmSdk, walletAddress, userProfile, disconnect } = useWallet();
   const [showProfile, setShowProfile] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [allowanceBusy, setAllowanceBusy] = useState(false);
   const [allowanceMsg, setAllowanceMsg] = useState<string | null>(null);
-  const [connectUiBusy, setConnectUiBusy] = useState(false);
-  const [connectUiError, setConnectUiError] = useState<string | null>(null);
 
   async function handleCopy() {
     if (!walletAddress) return;
@@ -28,29 +25,6 @@ export function WalletButton() {
     if (!ok) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function handleConnectWithUi() {
-    if (!dpmSdk) return;
-    setConnectUiError(null);
-    setConnectUiBusy(true);
-    console.info("[wallet-button.handleConnectWithUi] start");
-    try {
-      const session = await dpmSdk.auth.connectWithProviderUI();
-      console.info("[wallet-button.handleConnectWithUi] success", {
-        proxyWallet: session.proxyWallet,
-      });
-    } catch (err) {
-      if (err instanceof AuthCancelledError) {
-        console.info("[wallet-button.handleConnectWithUi] user cancelled");
-      } else {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("[wallet-button.handleConnectWithUi] failed", { error: msg });
-        setConnectUiError(msg);
-      }
-    } finally {
-      setConnectUiBusy(false);
-    }
   }
 
   if (walletAddress) {
@@ -74,13 +48,9 @@ export function WalletButton() {
 
         {showProfile && (
           <>
-            {/* Click-away overlay */}
             <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)} />
 
-            {/* Profile card */}
             <div className="absolute right-0 top-full z-50 mt-1.5 w-72 rounded-2xl border border-card-border bg-card shadow-2xl">
-
-              {/* Header */}
               <div className="border-b border-card-border px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15 text-brand">
@@ -101,7 +71,6 @@ export function WalletButton() {
                 </div>
               </div>
 
-              {/* Wallet address row */}
               <div className="px-4 py-3">
                 <p className="mb-1.5 text-xs text-muted">Proxy wallet address</p>
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-card-border bg-input px-3 py-2">
@@ -168,7 +137,6 @@ export function WalletButton() {
                 </div>
               )}
 
-              {/* Disconnect */}
               <div className="border-t border-card-border px-2 py-1.5">
                 <button
                   onClick={async () => {
@@ -183,7 +151,6 @@ export function WalletButton() {
                   Disconnect wallet
                 </button>
               </div>
-
             </div>
           </>
         )}
@@ -193,29 +160,16 @@ export function WalletButton() {
 
   return (
     <>
-      <div className="flex items-start gap-2">
-        <button
-          onClick={() => setShowModal(true)}
-          className="hidden flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover"
-        >
-          <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3H3m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6" />
-          </svg>
-          Connect Wallet
-        </button>
-
-        <button
-          onClick={handleConnectWithUi}
-          disabled={!dpmSdk || connectUiBusy}
-          className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 20L20 4M14 4l1-2m4 7l2-1M3 15l-1-1m6 6l1 2" />
-          </svg>
-          {connectUiBusy ? "Connecting..." : "Connect Wallet"}
-        </button>
-      </div>
-      {connectUiError && <p className="max-w-72 text-xs text-red">{connectUiError}</p>}
+      <button
+        onClick={() => setShowModal(true)}
+        disabled={!dpmSdk}
+        className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3H3m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6" />
+        </svg>
+        Connect Wallet
+      </button>
 
       {showModal && <ConnectWalletModal onClose={() => setShowModal(false)} />}
     </>

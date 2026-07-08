@@ -90,7 +90,7 @@ export class MarketWS {
     this.destroyed = true;
     this.clearTimers();
     if (this.ws) {
-      this.ws.onclose = null;
+      this.ws.onclose = () => {};
       this.ws.close();
       this.ws = null;
     }
