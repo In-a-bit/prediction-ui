@@ -250,8 +250,8 @@ async function resolvePrivyAppId(): Promise<string> {
     wallet_type?: string | null;
     wallet_public_key?: string | null;
   };
-  if (body.wallet_type && body.wallet_type !== "privy") {
-    throw new Error(`Builder wallet_type is ${body.wallet_type}, expected privy`);
+  if (body.wallet_type && body.wallet_type !== "privy_proxy") {
+    throw new Error(`Builder wallet_type is ${body.wallet_type}, expected privy_proxy`);
   }
   const id = body.wallet_public_key?.trim() ?? "";
   if (!id) throw new Error("DPM response missing wallet_public_key");
