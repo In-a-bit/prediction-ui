@@ -68,7 +68,7 @@ export function ConnectWalletModal({ onClose }: Props) {
         throw err;
       }
     }
-    await dpmSdk.auth.connectExisting("privy");
+    await dpmSdk.auth.connectExisting("privy_proxy");
   }
 
   async function handleGoogle() {
@@ -78,7 +78,7 @@ export function ConnectWalletModal({ onClose }: Props) {
     try {
       await ensureCleanPrivySession();
       dpmSdk.auth.prepareOAuth(
-        "privy",
+        "privy_proxy",
         `${window.location.pathname}${window.location.search}`,
       );
       await initOAuth({ provider: "google" });
@@ -108,7 +108,7 @@ export function ConnectWalletModal({ onClose }: Props) {
         setError(null);
       });
       setVerifyingOtp(true);
-      await loginWithCode({ code, email: normalizedEmail });
+      await loginWithCode({ code });
       await finalizeGammaSession();
       onClose();
     } catch (err) {

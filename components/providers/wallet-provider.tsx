@@ -118,7 +118,7 @@ function WalletProviderInner({ children }: { children: ReactNode }) {
       },
       chainId: chainIdFromEnv(),
       auth: {
-        providers: [{ id: "privy", bridge }],
+        providers: [{ id: "privy_proxy", bridge }],
       },
       builderApiPublicKey: builderApiPublicKeyFromEnv() ?? undefined,
     })
@@ -172,7 +172,7 @@ function WalletProviderInner({ children }: { children: ReactNode }) {
       .catch(async (err: unknown) => {
         if (cancelled) return;
         try {
-          await dpmSdk.auth.connectExisting("privy");
+          await dpmSdk.auth.connectExisting("privy_proxy");
           stripPrivyOAuthParams();
         } catch (fallbackErr) {
           console.error("[wallet-provider] Privy OAuth return failed:", err, fallbackErr);
