@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDpmWallet } from "@inabit-com/dpm-sdk/react";
 
 import { useWallet } from "@/components/providers/wallet-provider";
 import { ConnectWalletModal } from "@/components/wallet/connect-wallet-modal";
@@ -12,12 +13,15 @@ function truncateAddress(address: string): string {
 }
 
 export function WalletButton() {
-  const { dpmSdk, walletAddress, userProfile, disconnect } = useWallet();
+  const { dpmSdk, walletAddress, userProfile, disconnect, isConnecting } =
+    useWallet();
+  const { loginWithUI } = useDpmWallet();
   const [showProfile, setShowProfile] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [allowanceBusy, setAllowanceBusy] = useState(false);
   const [allowanceMsg, setAllowanceMsg] = useState<string | null>(null);
+  const [privyUiBusy, setPrivyUiBusy] = useState(false);
 
   async function handleCopy() {
     if (!walletAddress) return;
@@ -158,20 +162,77 @@ export function WalletButton() {
     );
   }
 
+  const busy = isConnecting || !dpmSdk || privyUiBusy;
+
+  async function handlePrivyUiLogin() {
+    setPrivyUiBusy(true);
+    try {
+      await loginWithUI();
+    } catch (err) {
+      console.error("[wallet-button.handlePrivyUiLogin] failed:", err);
+    } finally {
+      setPrivyUiBusy(false);
+    }
+  }
+
   return (
-    <>
+    <div className="flex items-center gap-2">
+      {/* Remove the `hidden` attribute to show Privy's hosted login modal again. */}
       <button
-        onClick={() => setShowModal(true)}
-        disabled={!dpmSdk}
-        className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
+        type="button"
+        hidden
+        onClick={() => void handlePrivyUiLogin()}
+        disabled={busy}
+        className="flex items-center gap-2 rounded-xl border border-brand/40 bg-brand/10 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3H3m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6" />
-        </svg>
-        Connect Wallet
+        {(isConnecting || privyUiBusy) && <Spinner />}
+        {privyUiBusy || isConnecting ? "Connecting…" : "Privy UI"}
       </button>
 
-      {showModal && <ConnectWalletModal onClose={() => setShowModal(false)} />}
-    </>
+      <button
+        onClick={() => setShowModal(true)}
+        disabled={busy}
+        aria-busy={busy}
+        className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-brand/50 hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {busy ? (
+          <Spinner />
+        ) : (
+          <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3H3m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6" />
+          </svg>
+        )}
+        {isConnecting ? "Connecting…" : "Connect Wallet"}
+      </button>
+
+      {showModal && !isConnecting && (
+        <ConnectWalletModal onClose={() => setShowModal(false)} />
+      )}
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg
+      className="h-4 w-4 animate-spin text-brand"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useWallet } from "@/components/providers/wallet-provider";
-import { isPrivyOAuthReturn, stripPrivyOAuthParams } from "@/lib/privy-oauth";
+import { isPrivyOAuthReturn, stripPrivyOAuthParams } from "@inabit-com/dpm-sdk/react";
 
 export default function OAuthCallbackPage() {
   const { dpmSdk } = useWallet();

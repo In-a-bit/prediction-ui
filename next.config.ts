@@ -1,10 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // transpilePackages: ["dpm-sdk"],
-  // for working locally with the dpm-sdk package use with
-  // dpm-sdk": "file:../dpm-sdk" in the package.json
-
+  // Privy is now used exclusively inside @inabit-com/dpm-sdk (<DpmWalletProvider>),
+  // so there is a single Privy instance and no duplicate-context aliasing is
+  // needed — the app never imports @privy-io/react-auth directly.
   images: {
     remotePatterns: [
       {

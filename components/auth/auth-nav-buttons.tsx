@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import { authNavOutlineClass, authNavPrimaryClass } from "./auth-nav-styles";
 
 export { authNavOutlineClass, authNavPrimaryClass } from "./auth-nav-styles";
@@ -26,7 +26,7 @@ export function AuthNavSignupLink() {
 /** Signed-in strip: avatar initial, display name, log out (same on every route). */
 export function AuthNavSignedInBar() {
   const { data: session } = useSession();
-  const { disconnect } = useMagic();
+  const { disconnect } = useWallet();
   const name = session?.user?.name ?? "";
   const initial = name.trim()[0]?.toUpperCase() ?? "U";
 

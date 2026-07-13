@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@inabit-com/dpm-sdk": "file:../dpm-sdk",
-    "@privy-io/react-auth": "^2.25.0",
     "@polymarket/clob-client": "^5.2.4",
     "@polymarket/real-time-data-client": "^1.4.0",
     "@prisma/client": "^6.19.2",

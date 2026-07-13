@@ -3,15 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthCancelledError } from "@inabit-com/dpm-sdk";
-import {
-  Captcha,
-  useCreateWallet,
-  useLoginWithEmail,
-  useLoginWithOAuth,
-  usePrivy,
-} from "@privy-io/react-auth";
-
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useDpmWallet } from "@inabit-com/dpm-sdk/react";
 
 type Props = {
   onClose: () => void;
@@ -23,11 +15,8 @@ type OtpResolver = {
 };
 
 export function ConnectWalletModal({ onClose }: Props) {
-  const { dpmSdk } = useWallet();
-  const { ready, authenticated, logout } = usePrivy();
-  const { sendCode, loginWithCode } = useLoginWithEmail();
-  const { initOAuth } = useLoginWithOAuth();
-  const { createWallet } = useCreateWallet();
+  const { sdk, sendEmailCode, loginWithEmailCode, loginWithOAuth } =
+    useDpmWallet();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
@@ -46,42 +35,11 @@ export function ConnectWalletModal({ onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, loading]);
 
-  /**
-   * Headless `useLoginWith*` links the new login method onto the current Privy
-   * user when a session is already live. Clear it before every fresh login so
-   * email/Google always create or restore a distinct account + wallet.
-   */
-  async function ensureCleanPrivySession() {
-    if (!ready) throw new Error("Privy is not ready");
-    if (authenticated) {
-      await logout();
-    }
-  }
-
-  async function finalizeGammaSession() {
-    if (!dpmSdk) throw new Error("Wallet SDK is not ready");
-    try {
-      await createWallet();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (!message.toLowerCase().includes("already")) {
-        throw err;
-      }
-    }
-    await dpmSdk.auth.connectExisting("privy_proxy");
-  }
-
   async function handleGoogle() {
-    if (!dpmSdk) return;
     setError(null);
     setLoading("google");
     try {
-      await ensureCleanPrivySession();
-      dpmSdk.auth.prepareOAuth(
-        "privy_proxy",
-        `${window.location.pathname}${window.location.search}`,
-      );
-      await initOAuth({ provider: "google" });
+      await loginWithOAuth("google");
     } catch (err) {
       console.error("[connect-wallet-modal.handleGoogle] failed:", err);
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
@@ -92,38 +50,43 @@ export function ConnectWalletModal({ onClose }: Props) {
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
-    if (!dpmSdk || !email.trim()) return;
+    if (!email.trim()) return;
     setError(null);
     setLoading("email");
-    const normalizedEmail = email.trim();
     try {
-      await ensureCleanPrivySession();
-      await sendCode({ email: normalizedEmail });
+      await sendEmailCode(email.trim());
       setLoading(null);
-      const code = await new Promise<string>((resolve, reject) => {
-        otpResolverRef.current = { resolve, reject };
-        setOtpStep(true);
-        setOtpCode("");
-        setVerifyingOtp(false);
-        setError(null);
-      });
+      const code = await waitForOtpCode();
       setVerifyingOtp(true);
-      await loginWithCode({ code });
-      await finalizeGammaSession();
+      await loginWithEmailCode(code);
       onClose();
     } catch (err) {
-      if (err instanceof AuthCancelledError) {
-        setOtpStep(false);
-        setVerifyingOtp(false);
-        setLoading(null);
-        return;
-      }
-      console.error("[connect-wallet-modal.handleEmail] failed:", err);
-      setError(err instanceof Error ? err.message : String(err));
+      handleEmailError(err);
+    }
+  }
+
+  function waitForOtpCode(): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      otpResolverRef.current = { resolve, reject };
+      setOtpStep(true);
+      setOtpCode("");
+      setVerifyingOtp(false);
+      setError(null);
+    });
+  }
+
+  function handleEmailError(err: unknown) {
+    if (err instanceof AuthCancelledError) {
       setOtpStep(false);
       setVerifyingOtp(false);
       setLoading(null);
+      return;
     }
+    console.error("[connect-wallet-modal.handleEmail] failed:", err);
+    setError(err instanceof Error ? err.message : String(err));
+    setOtpStep(false);
+    setVerifyingOtp(false);
+    setLoading(null);
   }
 
   function handleOtpSubmit(e: React.FormEvent) {
@@ -146,8 +109,6 @@ export function ConnectWalletModal({ onClose }: Props) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       <div className="relative z-10 w-full max-w-sm rounded-2xl border border-card-border bg-card p-6 shadow-2xl">
-        <Captcha />
-
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-lg p-1.5 text-muted transition-colors hover:bg-card-hover hover:text-foreground"
@@ -245,7 +206,7 @@ export function ConnectWalletModal({ onClose }: Props) {
               />
               <button
                 type="submit"
-                disabled={loading !== null || !email.trim() || !dpmSdk}
+                disabled={loading !== null || !email.trim() || !sdk}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading === "email" && !otpStep && <Spinner />}

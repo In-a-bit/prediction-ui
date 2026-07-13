@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import {
   getUserDetailedBalance,
   type UserDetailResponse,
@@ -15,7 +15,7 @@ export type DetailedBalanceData = {
 };
 
 export function useDetailedBalance() {
-  const { userProfile } = useMagic();
+  const { userProfile } = useWallet();
   const proxyWallet = userProfile?.proxyWallet ?? null;
 
   const query = useQuery<UserDetailResponse | null, Error>({

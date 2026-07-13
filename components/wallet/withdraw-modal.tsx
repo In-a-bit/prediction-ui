@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAddress, parseUnits } from "viem";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import { formatTradeBalanceUsd } from "@/lib/utils";
 import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 import {
@@ -26,7 +26,7 @@ export function WithdrawModal({
 }: WithdrawModalProps) {
   const queryClient = useQueryClient();
   const { balanceNormalized } = useCollateralBalance();
-  const { dpmSdk, userProfile, walletAddress } = useMagic();
+  const { dpmSdk, userProfile, walletAddress } = useWallet();
   const proxyWallet = userProfile?.proxyWallet ?? walletAddress ?? "";
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");

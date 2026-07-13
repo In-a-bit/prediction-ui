@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import { getConditionalTokenBalanceBatch } from "@/lib/dpm-api";
 
 const ONE_E6 = BigInt("1000000");
@@ -26,7 +26,7 @@ export function useTokenBalances(
   yesTokenId: string | undefined,
   noTokenId: string | undefined,
 ) {
-  const { walletAddress } = useMagic();
+  const { walletAddress } = useWallet();
 
   const query = useQuery({
     queryKey: [

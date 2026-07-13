@@ -8,7 +8,7 @@ import {
   AuthNavSignedInBar,
   AuthNavSignupLink,
 } from "@/components/auth/auth-nav-buttons";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { CollateralBalance } from "@/components/wallet/collateral-balance";
 import { DepositModal } from "@/components/wallet/deposit-modal";
@@ -29,7 +29,7 @@ function isCasinoSurface(pathname: string) {
 
 export function Header() {
   const { data: session, status } = useSession();
-  const { walletAddress } = useMagic();
+  const { walletAddress } = useWallet();
   const walletConnected = Boolean(walletAddress);
   const [depositOpen, setDepositOpen] = useState(false);
   const router = useRouter();

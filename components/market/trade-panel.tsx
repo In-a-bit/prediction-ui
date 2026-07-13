@@ -7,7 +7,7 @@ import Link from "next/link";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
 import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { cn } from "@/lib/utils";
@@ -141,7 +141,7 @@ export function TradePanel({
   const [yesLabel, noLabel] = outcomeLabels;
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const { dpmSdk, userProfile } = useMagic();
+  const { dpmSdk, userProfile } = useWallet();
   const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, type QueryClient } from "@tanstack/react-query";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 import {
   getCollateralBalance,
   type CollateralBalanceResponse,
@@ -30,7 +30,7 @@ export function invalidateAllCollateralBalances(queryClient: QueryClient) {
  * All components should use this hook so refetch / invalidate stays in sync.
  */
 export function useCollateralBalance() {
-  const { walletAddress } = useMagic();
+  const { walletAddress } = useWallet();
 
   const query = useQuery<CollateralBalanceResponse, Error>({
     queryKey: collateralBalanceQueryKey(walletAddress),

@@ -6,17 +6,17 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { PrivyProvider } from "@privy-io/react-auth";
-import { DpmSdk, type AuthSession, type UserProfile } from "@inabit-com/dpm-sdk";
+import {
+  DpmWalletProvider,
+  useDpmWallet,
+} from "@inabit-com/dpm-sdk/react";
+import { type AuthSession, type DpmSdk, type UserProfile } from "@inabit-com/dpm-sdk";
 
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { useUserWs } from "@/lib/hooks/use-user-ws";
-import { usePrivyAuthBridge } from "@/lib/privy-bridge";
-import { isPrivyOAuthReturn, stripPrivyOAuthParams } from "@/lib/privy-oauth";
 import { predictionServiceBase } from "@/lib/prediction-proxy";
 
 const DPM_PROXY_BASE = predictionServiceBase("dpm");
@@ -28,6 +28,8 @@ type WalletContextType = {
   session: AuthSession | null;
   walletAddress: string | null;
   userProfile: UserProfile | null;
+  /** True while an OAuth return (or email code) login is in flight. */
+  isConnecting: boolean;
   disconnect: () => Promise<void>;
 };
 
@@ -36,6 +38,7 @@ const WalletContext = createContext<WalletContextType>({
   session: null,
   walletAddress: null,
   userProfile: null,
+  isConnecting: false,
   disconnect: async () => {},
 });
 
@@ -43,176 +46,85 @@ export function useWallet() {
   return useContext(WalletContext);
 }
 
-/** @deprecated Use {@link useWallet}. */
-export function useMagic() {
-  return useWallet();
-}
-
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [appId, setAppId] = useState<string | null>(null);
-  const [appIdError, setAppIdError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void resolvePrivyAppId()
-      .then((id) => {
-        if (!cancelled) setAppId(id);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setAppIdError(err instanceof Error ? err.message : String(err));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (appIdError) {
-    return (
-      <div className="p-4 text-sm text-red">
-        Failed to load Privy configuration: {appIdError}
-      </div>
-    );
-  }
-  if (!appId) {
-    return null;
-  }
-
   return (
-    <PrivyProvider
-      appId={appId}
-      config={{
-        embeddedWallets: {
-          ethereum: { createOnLogin: "users-without-wallets" },
-          showWalletUIs: false,
-        },
-        loginMethods: ["email", "google"],
-      }}
-    >
-      <WalletProviderInner>{children}</WalletProviderInner>
-    </PrivyProvider>
-  );
-}
-
-/** @deprecated Use {@link WalletProvider}. */
-export const MagicProvider = WalletProvider;
-
-function WalletProviderInner({ children }: { children: ReactNode }) {
-  const bridge = usePrivyAuthBridge();
-  const [dpmSdk, setDpmSdk] = useState<DpmSdk | null>(null);
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [clobReady, setClobReady] = useState(false);
-  const oauthReturnHandled = useRef(false);
-  const primeGen = useRef(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    let unsubscribe: (() => void) | undefined;
-
-    void DpmSdk.create({
-      urls: {
+    <DpmWalletProvider
+      urls={{
         gammaUrl: predictionServiceBase("gamma"),
         clobUrl: predictionServiceBase("clob"),
         relayerUrl: predictionServiceBase("relayer"),
-      },
-      chainId: chainIdFromEnv(),
-      auth: {
-        providers: [{ id: "privy_proxy", bridge }],
-      },
-      builderApiPublicKey: builderApiPublicKeyFromEnv() ?? undefined,
-    })
-      .then(async (sdk) => {
-        if (cancelled) return;
-        setDpmSdk(sdk);
-        unsubscribe = sdk.auth.on("change", (event) => {
-          if (event.type === "connected" || event.type === "accountChanged") {
-            setSession(event.session);
-            setClobReady(false);
-            const gen = ++primeGen.current;
-            void primeAfterLogin(sdk, event.session.user).then((ok) => {
-              if (!cancelled && gen === primeGen.current) setClobReady(ok);
-            });
-          } else if (event.type === "disconnected") {
-            primeGen.current += 1;
-            setSession(null);
-            setClobReady(false);
-          }
-        });
-        await sdk.auth.restore();
-      })
-      .catch((err: unknown) => {
-        console.error("[wallet-provider] DpmSdk.create failed:", err);
-        if (!cancelled) {
-          setDpmSdk(null);
-          setSession(null);
-          setClobReady(false);
-        }
-      });
+      }}
+      chainId={chainIdFromEnv()}
+      builderApiPublicKey={builderApiPublicKeyFromEnv() ?? undefined}
+      privyAppId={resolvePrivyAppId}
+      errorFallback={(error) => (
+        <div className="p-4 text-sm text-red">
+          Failed to load Privy configuration: {error}
+        </div>
+      )}
+    >
+      <AppWalletBridge>{children}</AppWalletBridge>
+    </DpmWalletProvider>
+  );
+}
 
-    return () => {
-      cancelled = true;
-      unsubscribe?.();
-    };
-    // bridge is stable (refs inside usePrivyAuthBridge); init once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!dpmSdk || !isPrivyOAuthReturn() || oauthReturnHandled.current) return;
-    oauthReturnHandled.current = true;
-
-    let cancelled = false;
-    void dpmSdk.auth
-      .completeRedirect()
-      .then(() => {
-        if (cancelled) return;
-        stripPrivyOAuthParams();
-      })
-      .catch(async (err: unknown) => {
-        if (cancelled) return;
-        try {
-          await dpmSdk.auth.connectExisting("privy_proxy");
-          stripPrivyOAuthParams();
-        } catch (fallbackErr) {
-          console.error("[wallet-provider] Privy OAuth return failed:", err, fallbackErr);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [dpmSdk]);
+/**
+ * Adapts the SDK's turnkey wallet context into this app's `useWallet` shape and
+ * runs app-specific priming (allowance + CLOB credentials) after login.
+ */
+function AppWalletBridge({ children }: { children: ReactNode }) {
+  const { sdk, session, address, user, isConnecting, logout } = useDpmWallet();
+  const clobReady = usePrimeAfterLogin(sdk, session);
 
   const disconnect = useCallback(async () => {
-    if (!dpmSdk) return;
     try {
-      await dpmSdk.auth.logout();
+      await logout();
     } catch (err) {
       console.error("[wallet-provider.disconnect] logout failed:", err);
     }
-  }, [dpmSdk]);
+  }, [logout]);
 
-  const walletAddress = session?.proxyWallet ?? null;
-  const userProfile = session?.user ?? null;
-
-  const value = useMemo(
+  const value = useMemo<WalletContextType>(
     () => ({
-      dpmSdk,
+      dpmSdk: sdk,
       session,
-      walletAddress,
-      userProfile,
+      walletAddress: address,
+      userProfile: user,
+      isConnecting,
       disconnect,
     }),
-    [dpmSdk, session, walletAddress, userProfile, disconnect],
+    [sdk, session, address, user, isConnecting, disconnect],
   );
 
   // Wait for CLOB credential derive so useUserWs hits cache instead of racing a second sign.
-  useUserWs(dpmSdk, !!walletAddress && clobReady);
+  useUserWs(sdk, !!address && clobReady);
 
   return (
     <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
   );
+}
+
+/** Derive CLOB credentials once per session; returns true when ready.
+ *  Tracks the primed session by identity so no state is reset synchronously
+ *  inside the effect (which would trigger cascading renders). */
+function usePrimeAfterLogin(
+  sdk: DpmSdk | null,
+  session: AuthSession | null,
+): boolean {
+  const [primedSession, setPrimedSession] = useState<AuthSession | null>(null);
+
+  useEffect(() => {
+    if (!sdk || !session) return;
+    let cancelled = false;
+    void primeAfterLogin(sdk, session.user).then((ok) => {
+      if (!cancelled && ok) setPrimedSession(session);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sdk, session]);
+
+  return session !== null && primedSession === session;
 }
 
 function chainIdFromEnv(): number {

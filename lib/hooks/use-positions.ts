@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMagic } from "@/components/providers/magic-provider";
+import { useWallet } from "@/components/providers/wallet-provider";
 
 import { predictionServiceBase } from "@/lib/prediction-proxy";
 
@@ -50,7 +50,7 @@ async function fetchPositions(proxyWallet: string): Promise<Position[]> {
 }
 
 export function usePositions() {
-  const { walletAddress } = useMagic();
+  const { walletAddress } = useWallet();
 
   return useQuery({
     queryKey: ["positions", walletAddress?.toLowerCase()],

@@ -1,5 +1,5 @@
 import type { DpmSdk } from "@inabit-com/dpm-sdk";
-import type { UserProfile } from "@/components/providers/magic-provider";
+import type { UserProfile } from "@/components/providers/wallet-provider";
 
 /**
  * Submits a PROXY approval (USDC approve CTF) via the relayer-api when the
