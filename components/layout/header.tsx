@@ -9,9 +9,11 @@ import {
   AuthNavSignupLink,
 } from "@/components/auth/auth-nav-buttons";
 import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
 import { WalletButton } from "@/components/wallet/wallet-button";
 import { CollateralBalance } from "@/components/wallet/collateral-balance";
 import { DepositModal } from "@/components/wallet/deposit-modal";
+import { LpConnectButton } from "@/components/lp/lp-connect-button";
 
 /** Predictions + Plaee surfaces where wallet, deposit, and portfolio balance belong. */
 function isTradingSurface(pathname: string) {
@@ -23,24 +25,33 @@ function isTradingSurface(pathname: string) {
   );
 }
 
+function isLpSurface(pathname: string) {
+  return pathname === "/lp" || pathname.startsWith("/lp/");
+}
+
 function isCasinoSurface(pathname: string) {
   return pathname === "/" || pathname.startsWith("/games/");
 }
 
 export function Header() {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const showLpToolbar = isLpSurface(pathname);
+  // Privy wallet is not mounted on /lp — only read it on other surfaces.
   const { walletAddress } = useWallet();
+  const trading = useTrading();
   const walletConnected = Boolean(walletAddress);
   const [depositOpen, setDepositOpen] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const showTradingToolbar = isTradingSurface(pathname);
   const searchPlaceholder = isCasinoSurface(pathname)
     ? "Search casino"
-    : "Search prediction markets";
+    : showLpToolbar
+      ? "Search LP markets"
+      : "Search prediction markets";
 
   // Sync input from URL on external navigation (back/forward, sidebar clicks)
   useEffect(() => {
@@ -84,7 +95,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 mb-6 border-b border-card-border bg-header backdrop-blur-xl">
-      {/* Row 1 — every screen: search + shared auth nav (login/signup or log out) */}
+      {/* Row 1 — search + auth (hidden on LP — independent of prediction-ui login) */}
       <div className="flex w-full items-center gap-4 py-3">
         <div className="relative min-w-0 max-w-xl flex-1">
           <svg
@@ -117,24 +128,26 @@ export function Header() {
           )}
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-3">
-          {status === "loading" && (
-            <div
-              className="h-10 w-[min(100%,14rem)] max-w-[14rem] animate-pulse rounded-xl border border-card-border bg-input"
-              aria-hidden
-            />
-          )}
-          {status !== "loading" && session?.user && <AuthNavSignedInBar />}
-          {status !== "loading" && !session?.user && (
-            <>
-              <AuthNavLoginLink />
-              <AuthNavSignupLink />
-            </>
-          )}
-        </div>
+        {!showLpToolbar && (
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            {status === "loading" && (
+              <div
+                className="h-10 w-[min(100%,14rem)] max-w-[14rem] animate-pulse rounded-xl border border-card-border bg-input"
+                aria-hidden
+              />
+            )}
+            {status !== "loading" && session?.user && <AuthNavSignedInBar />}
+            {status !== "loading" && !session?.user && (
+              <>
+                <AuthNavLoginLink />
+                <AuthNavSignupLink />
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Row 2 — Predictions & Plaee only: trading wallet strip */}
+      {/* Row 2 — Predictions & Plaee: Privy wallet strip */}
       {showTradingToolbar && status !== "loading" && session?.user && (
         <div className="flex justify-center border-t border-card-border/70 bg-card/20 py-3">
           <div className="inline-flex flex-wrap items-center justify-center gap-2">
@@ -149,6 +162,16 @@ export function Header() {
             )}
             <WalletButton />
             <CollateralBalance />
+          </div>
+        </div>
+      )}
+
+      {/* Row 2 — LP: API key + EOA session (no NextAuth / Privy) */}
+      {showLpToolbar && trading.mode === "lp" && (
+        <div className="flex justify-center border-t border-card-border/70 bg-card/20 py-3">
+          <div className="inline-flex flex-wrap items-center justify-center gap-2">
+            <LpConnectButton />
+            {trading.walletAddress ? <CollateralBalance /> : null}
           </div>
         </div>
       )}

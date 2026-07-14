@@ -30,7 +30,7 @@ export function useMarketResolution({
   yesTokenId: string | undefined;
   noTokenId: string | undefined;
 }) {
-  const { on, off, subscribe, unsubscribe } = useMarketWS();
+  const { on, off, subscribe, unsubscribe, connectionGeneration } = useMarketWS();
   const [wsWinningOutcome, setWsWinningOutcome] = useState<string | null>(null);
 
   const tokenIds = useMemo(
@@ -67,7 +67,7 @@ export function useMarketResolution({
       if (yesTokenId) unsubscribe(yesTokenId);
       if (noTokenId) unsubscribe(noTokenId);
     };
-  }, [subscribe, unsubscribe, yesTokenId, noTokenId]);
+  }, [subscribe, unsubscribe, yesTokenId, noTokenId, connectionGeneration]);
 
   useEffect(() => {
     if (tokenIds.length === 0) return;
@@ -84,7 +84,7 @@ export function useMarketResolution({
 
     on("market_resolved", handler);
     return () => off("market_resolved", handler);
-  }, [on, off, market, tokenIds, yesTokenId, noTokenId]);
+  }, [on, off, market, tokenIds, yesTokenId, noTokenId, connectionGeneration]);
 
   const outcomeText = useMemo(() => {
     if (wsWinningOutcome) return wsWinningOutcome;

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
+import { MainShell } from "@/components/layout/main-shell";
 
 export default function MainLayout({
   children,
@@ -14,9 +14,8 @@ export default function MainLayout({
       </Suspense>
       <main className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
         <Suspense>
-          <Header />
+          <MainShell>{children}</MainShell>
         </Suspense>
-        {children}
       </main>
     </div>
   );

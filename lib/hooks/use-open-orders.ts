@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
 import type { OpenOrder } from "@inabit-com/dpm-sdk";
 
 export type { OpenOrder };
@@ -41,7 +41,7 @@ async function syncOpenOrdersAfterCancel(
 }
 
 export function useOpenOrders() {
-  const { dpmSdk, walletAddress } = useWallet();
+  const { dpmSdk, walletAddress } = useTrading();
   const queryKey = openOrdersQueryKey(walletAddress);
 
   return useQuery({
@@ -62,7 +62,7 @@ export interface CancelOrderParams {
 }
 
 export function useCancelOrder() {
-  const { dpmSdk, walletAddress } = useWallet();
+  const { dpmSdk, walletAddress } = useTrading();
   const queryClient = useQueryClient();
   const queryKey = openOrdersQueryKey(walletAddress);
 

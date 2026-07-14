@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
 import { copyToClipboard } from "@/lib/utils";
 
 type DepositModalProps = {
@@ -11,7 +11,7 @@ type DepositModalProps = {
 };
 
 export function DepositModal({ open, onClose }: DepositModalProps) {
-  const { userProfile, walletAddress } = useWallet();
+  const { userProfile, walletAddress } = useTrading();
   const proxyAddress = userProfile?.proxyWallet ?? walletAddress ?? "";
   const [copied, setCopied] = useState(false);
   const isClient = useSyncExternalStore(

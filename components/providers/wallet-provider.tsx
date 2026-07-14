@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -9,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import {
   DpmWalletProvider,
   useDpmWallet,
@@ -46,6 +48,14 @@ export function useWallet() {
   return useContext(WalletContext);
 }
 
+function isLpPath(pathname: string) {
+  return pathname === "/lp" || pathname.startsWith("/lp/");
+}
+
+/**
+ * LP demo does not use Privy / prediction-gateway. Skip wallet bootstrap there so
+ * `/lp` still loads when the gateway is down.
+ */
 export function WalletProvider({ children }: { children: ReactNode }) {
   const builderApiPublicKey = builderApiPublicKeyFromEnv();
   if (!builderApiPublicKey) {
@@ -57,6 +67,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }
 
   return (
+    <Suspense fallback={<>{children}</>}>
+      <WalletProviderGate>{children}</WalletProviderGate>
+    </Suspense>
+  );
+}
+
+function WalletProviderGate({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  if (isLpPath(pathname)) {
+    return <>{children}</>;
+  }
+  return <WalletProviderWithPrivy>{children}</WalletProviderWithPrivy>;
+}
+
+function WalletProviderWithPrivy({ children }: { children: ReactNode }) {
+  return (
     <DpmWalletProvider
       urls={{
         gammaUrl: predictionServiceBase("gamma"),
@@ -66,7 +92,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       chainId={chainIdFromEnv()}
       builderApiPublicKey={builderApiPublicKey}
       privyAppId={resolvePrivyAppId}
-      errorFallback={(error) => (
+      errorFallback={(error: any) => (
         <div className="p-4 text-sm text-red">
           Failed to load Privy configuration: {error}
         </div>

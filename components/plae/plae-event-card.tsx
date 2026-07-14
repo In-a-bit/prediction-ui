@@ -8,8 +8,10 @@ import {
 } from "@/lib/market/gamma-helpers";
 import type { GammaEvent } from "@/lib/types/event";
 import { formatCompactNumber } from "@/lib/utils";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 
 export function PlaeEventCard({ event }: { event: GammaEvent }) {
+  const { basePath } = useMarketSurface();
   const displayTitle =
     (isCryptoUpdownEvent(event) && cryptoUpdownDisplayTitle(event)) ||
     event.title;
@@ -18,7 +20,7 @@ export function PlaeEventCard({ event }: { event: GammaEvent }) {
 
   return (
     <Link
-      href={`/plaee/${event.slug}`}
+      href={`${basePath}/${event.slug}`}
       className="group flex flex-col rounded-2xl border border-card-border bg-card transition-all hover:border-brand/30 hover:bg-card-hover"
     >
       {event.image && (

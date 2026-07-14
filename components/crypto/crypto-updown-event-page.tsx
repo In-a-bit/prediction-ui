@@ -19,6 +19,7 @@ import {
 } from "@/components/crypto/series-slot-picker";
 import { LivePrices } from "@/components/market/live-prices";
 import { MarketTradingSection } from "@/components/market/market-trading-section";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import { fetchPlaeEventBySlug } from "@/lib/api/plae-gamma";
 import { fetchSeriesBySlug } from "@/lib/api/plae-gamma-series";
 import {
@@ -53,6 +54,8 @@ export function CryptoUpdownEventPage({
   urlSlug,
 }: CryptoUpdownEventPageProps) {
   const router = useRouter();
+  const { basePath, label, serviceBase } = useMarketSurface();
+  const gammaBase = serviceBase("gamma");
   const [series, setSeries] = useState<GammaSeries | null>(null);
   const [seriesLoading, setSeriesLoading] = useState(true);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -72,6 +75,7 @@ export function CryptoUpdownEventPage({
       const lookback = slotEndAfterForLookback(intervalMinutes);
       const data = await fetchSeriesBySlug(seriesSlug, {
         slotEndAfter: lookback,
+        gammaBase,
       });
       if (cancelled) return;
       setSeries(data);
@@ -100,7 +104,7 @@ export function CryptoUpdownEventPage({
 
     async function loadTradeEvent() {
       setTradeLoading(true);
-      const full = await fetchPlaeEventBySlug(selectedSlug!);
+      const full = await fetchPlaeEventBySlug(selectedSlug!, undefined, gammaBase);
       if (cancelled) return;
       if (full) setTradeEvent(full);
       setTradeLoading(false);
@@ -155,7 +159,7 @@ export function CryptoUpdownEventPage({
         });
       }
       if (slug !== urlSlug) {
-        router.replace(`/plaee/${slug}`, { scroll: false });
+        router.replace(`${basePath}/${slug}`, { scroll: false });
       }
     },
     [router, seriesEvents, urlSlug],
@@ -216,7 +220,7 @@ export function CryptoUpdownEventPage({
 
   return (
     <div>
-      <Breadcrumb title={displayTitle} />
+      <Breadcrumb title={displayTitle} basePath={basePath} label={label} />
 
       {canTrade ? (
         <MarketTradingSection
@@ -249,10 +253,10 @@ export function CryptoUpdownEventPage({
               <>
                 <p className="text-sm text-muted">No tradeable markets yet</p>
                 <Link
-                  href="/plaee"
+                  href={basePath}
                   className="mt-4 text-sm text-brand hover:text-brand-hover"
                 >
-                  Back to Plaee
+                  Back to {label}
                 </Link>
               </>
             )}
@@ -410,11 +414,19 @@ function EventHeader({
   );
 }
 
-function Breadcrumb({ title }: { title: string }) {
+function Breadcrumb({
+  title,
+  basePath,
+  label,
+}: {
+  title: string;
+  basePath: string;
+  label: string;
+}) {
   return (
     <div className="mb-4 flex items-center gap-2 text-sm text-muted">
-      <Link href="/plaee" className="transition-colors hover:text-foreground">
-        Plaee
+      <Link href={basePath} className="transition-colors hover:text-foreground">
+        {label}
       </Link>
       <span>/</span>
       <span className="truncate text-foreground">{title}</span>

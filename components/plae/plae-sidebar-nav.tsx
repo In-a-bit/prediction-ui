@@ -8,6 +8,7 @@ import {
   plaeCryptoTopic,
   plaeSoccerGroup,
 } from "@/lib/data/plae-topics";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import { cn } from "@/lib/utils";
 
 function NavIcon({ path }: { path: string }) {
@@ -26,19 +27,27 @@ function NavIcon({ path }: { path: string }) {
   );
 }
 
-function topicHref(slug: string) {
-  return `/plaee/t/${slug}`;
-}
-
-function topicIsActive(pathname: string, slug: string) {
-  return pathname === topicHref(slug);
-}
-
+/** Shared topic nav for Plaee and LP surfaces. */
 export function PlaeSidebarNav() {
   const pathname = usePathname();
+  const surface = useMarketSurface();
+  const basePath = pathname.startsWith("/lp")
+    ? "/lp"
+    : pathname.startsWith("/plaee")
+      ? "/plaee"
+      : surface.basePath;
   const soccerTopics = getPlaeSoccerTopics();
+
+  function topicHref(slug: string) {
+    return `${basePath}/t/${slug}`;
+  }
+
+  function topicIsActive(slug: string) {
+    return pathname === topicHref(slug);
+  }
+
   const soccerChildActive = soccerTopics.some((topic) =>
-    topicIsActive(pathname, topic.slug),
+    topicIsActive(topic.slug),
   );
   const [soccerOpen, setSoccerOpen] = useState(soccerChildActive);
 
@@ -48,7 +57,7 @@ export function PlaeSidebarNav() {
     }
   }, [soccerChildActive]);
 
-  const cryptoActive = topicIsActive(pathname, plaeCryptoTopic.slug);
+  const cryptoActive = topicIsActive(plaeCryptoTopic.slug);
 
   return (
     <nav className="space-y-1">
@@ -95,7 +104,7 @@ export function PlaeSidebarNav() {
         {soccerOpen ? (
           <div className="ml-3 mt-1 space-y-1 border-l border-card-border pl-3">
             {soccerTopics.map((topic) => {
-              const isActive = topicIsActive(pathname, topic.slug);
+              const isActive = topicIsActive(topic.slug);
 
               return (
                 <Link

@@ -1,10 +1,12 @@
 import { predictionServiceBase } from "@/lib/prediction-proxy";
 
-const DPM_BASE = predictionServiceBase("dpm").replace(/\/$/, "");
+function resolveDpmBase(override?: string): string {
+  return (override ?? predictionServiceBase("dpm")).replace(/\/$/, "");
+}
 
-function dpmPath(path: string): string {
+function dpmPath(path: string, dpmBase?: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return `${DPM_BASE}${p}`;
+  return `${resolveDpmBase(dpmBase)}${p}`;
 }
 
 export type CollateralBalanceResponse = {
@@ -20,9 +22,10 @@ export type CollateralBalanceResponse = {
  */
 export async function getCollateralBalance(
   address: string,
+  dpmBase?: string,
 ): Promise<CollateralBalanceResponse | null> {
   const qs = new URLSearchParams({ address });
-  const res = await fetch(`${dpmPath("/collateral/balance")}?${qs}`);
+  const res = await fetch(`${dpmPath("/collateral/balance", dpmBase)}?${qs}`);
   if (!res.ok) return null;
   return res.json() as Promise<CollateralBalanceResponse>;
 }
@@ -64,13 +67,14 @@ export type UserDetailResponse = {
 
 export async function getUserDetailedBalance(
   proxyWallet: string,
+  dpmBase?: string,
 ): Promise<UserDetailResponse | null> {
   const qs = new URLSearchParams({
     proxy_wallet: proxyWallet,
     limit: "1",
   });
   try {
-    const res = await fetch(`${dpmPath("/users")}?${qs}`);
+    const res = await fetch(`${dpmPath("/users", dpmBase)}?${qs}`);
     if (!res.ok) return null;
     const json = await res.json();
     const users = json.data as UserDetailResponse[];
@@ -97,9 +101,10 @@ export type UserTokenBalancesResponse = {
 
 export async function getUserTokenBalances(
   userId: number,
+  dpmBase?: string,
 ): Promise<UserTokenBalancesResponse | null> {
   try {
-    const res = await fetch(dpmPath(`/users/${userId}/token-balances`));
+    const res = await fetch(dpmPath(`/users/${userId}/token-balances`, dpmBase));
     if (!res.ok) return null;
     return res.json() as Promise<UserTokenBalancesResponse>;
   } catch {
@@ -110,10 +115,11 @@ export async function getUserTokenBalances(
 export async function getConditionalTokenBalanceBatch(
   owners: string[],
   ids: string[],
+  dpmBase?: string,
 ): Promise<ConditionalTokenBalanceBatchResponse | null> {
   let res: Response;
   try {
-    res = await fetch(dpmPath("/conditional-tokens/balance-batch"), {
+    res = await fetch(dpmPath("/conditional-tokens/balance-batch", dpmBase), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ owners, ids }),

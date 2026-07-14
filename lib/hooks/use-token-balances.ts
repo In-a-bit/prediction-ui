@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import { getConditionalTokenBalanceBatch } from "@/lib/dpm-api";
 
 const ONE_E6 = BigInt("1000000");
@@ -26,11 +27,15 @@ export function useTokenBalances(
   yesTokenId: string | undefined,
   noTokenId: string | undefined,
 ) {
-  const { walletAddress } = useWallet();
+  const { walletAddress } = useTrading();
+  const { serviceBase, id } = useMarketSurface();
+  const dpmBase = serviceBase("dpm");
 
   const query = useQuery({
     queryKey: [
       "token-balances",
+      id,
+      dpmBase,
       walletAddress?.toLowerCase(),
       yesTokenId,
       noTokenId,
@@ -43,7 +48,7 @@ export function useTokenBalances(
       if (ids.length === 0) return { yes: 0, no: 0 };
 
       const owners = ids.map(() => walletAddress!);
-      const data = await getConditionalTokenBalanceBatch(owners, ids);
+      const data = await getConditionalTokenBalanceBatch(owners, ids, dpmBase);
       if (!data) {
         console.warn("[useTokenBalances] balance-batch returned null — API may be down or returned non-200", { wallet: walletAddress, ids });
         return { yes: 0, no: 0 };

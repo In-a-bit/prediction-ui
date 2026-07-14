@@ -3,9 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { GammaEvent } from "@/lib/types/event";
 
-import { predictionServiceBase } from "@/lib/prediction-proxy";
-
-const PLAE_GAMMA_BASE = predictionServiceBase("gamma");
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 
 interface UsePlaeEventsParams {
   active?: boolean;
@@ -24,6 +22,7 @@ export interface PlaeEventsResult {
 }
 
 async function getPlaeEvents(
+  gammaBase: string,
   params: UsePlaeEventsParams,
 ): Promise<PlaeEventsResult> {
   const searchParams = new URLSearchParams();
@@ -31,7 +30,7 @@ async function getPlaeEvents(
     if (value !== undefined) searchParams.set(key, String(value));
   });
 
-  const res = await fetch(`${PLAE_GAMMA_BASE}/events?${searchParams}`);
+  const res = await fetch(`${gammaBase}/events?${searchParams}`);
   if (!res.ok) return { events: [], hasMore: false };
   const json = await res.json();
   return {
@@ -41,8 +40,11 @@ async function getPlaeEvents(
 }
 
 export function usePlaeEvents(params: UsePlaeEventsParams) {
+  const { serviceBase, id } = useMarketSurface();
+  const gammaBase = serviceBase("gamma");
+
   return useQuery({
-    queryKey: ["plae-events", params],
-    queryFn: () => getPlaeEvents(params),
+    queryKey: ["plae-events", id, gammaBase, params],
+    queryFn: () => getPlaeEvents(gammaBase, params),
   });
 }

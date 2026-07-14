@@ -28,8 +28,8 @@ function wireLevel(entry: { price: unknown; size: unknown }) {
 
 export function useOrderBook(tokenId: string | undefined) {
   const queryClient = useQueryClient();
-  const ws = useMarketWS();
   const { buildClobUrl } = useDataSource();
+  const { subscribe, unsubscribe, on, off, connectionGeneration } = useMarketWS();
 
   const query = useQuery({
     queryKey: ["orderbook", tokenId],
@@ -73,17 +73,17 @@ export function useOrderBook(tokenId: string | undefined) {
 
   useEffect(() => {
     if (!tokenId) return;
-    ws.subscribe(tokenId);
-    ws.on("book", handleBook);
+    subscribe(tokenId);
+    on("book", handleBook);
     return () => {
-      ws.off("book", handleBook);
-      ws.unsubscribe(tokenId);
+      off("book", handleBook);
+      unsubscribe(tokenId);
       if (refetchDebounce.current) {
         clearTimeout(refetchDebounce.current);
         refetchDebounce.current = null;
       }
     };
-  }, [tokenId, ws, handleBook]);
+  }, [tokenId, subscribe, unsubscribe, on, off, connectionGeneration, handleBook]);
 
   return query;
 }

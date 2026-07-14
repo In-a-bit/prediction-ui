@@ -1,11 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useWallet } from "@/components/providers/wallet-provider";
-
-import { predictionServiceBase } from "@/lib/prediction-proxy";
-
-const DATA_API_URL = predictionServiceBase("data");
+import { useTrading } from "@/components/providers/trading-provider";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 
 export interface Position {
   proxyWallet: string;
@@ -37,9 +34,12 @@ export interface Position {
   negativeRisk: boolean;
 }
 
-async function fetchPositions(proxyWallet: string): Promise<Position[]> {
+async function fetchPositions(
+  dataBase: string,
+  proxyWallet: string,
+): Promise<Position[]> {
   const res = await fetch(
-    `${DATA_API_URL}/positions?user=${encodeURIComponent(proxyWallet)}`,
+    `${dataBase}/positions?user=${encodeURIComponent(proxyWallet)}`,
   );
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -50,13 +50,15 @@ async function fetchPositions(proxyWallet: string): Promise<Position[]> {
 }
 
 export function usePositions() {
-  const { walletAddress } = useWallet();
+  const { walletAddress } = useTrading();
+  const { serviceBase, id } = useMarketSurface();
+  const dataBase = serviceBase("data");
 
   return useQuery({
-    queryKey: ["positions", walletAddress?.toLowerCase()],
+    queryKey: ["positions", id, dataBase, walletAddress?.toLowerCase()],
     queryFn: () => {
       if (!walletAddress) throw new Error("No wallet address");
-      return fetchPositions(walletAddress);
+      return fetchPositions(dataBase, walletAddress);
     },
     enabled: Boolean(walletAddress),
   });

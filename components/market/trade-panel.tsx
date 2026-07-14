@@ -7,7 +7,7 @@ import Link from "next/link";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
 import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
 import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { cn } from "@/lib/utils";
@@ -141,7 +141,7 @@ export function TradePanel({
   const [yesLabel, noLabel] = outcomeLabels;
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const { dpmSdk, userProfile } = useWallet();
+  const { dpmSdk, userProfile, requiresAppLogin, mode } = useTrading();
   const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
 
@@ -304,6 +304,7 @@ export function TradePanel({
 
      
       await queryClient.invalidateQueries({ queryKey: ["open-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["orderbook"] });
     } catch (err) {
       console.error("[TradePanel] order submission error:", err);
       setOrderResult(err instanceof Error ? err.message : "Order failed");
@@ -312,7 +313,7 @@ export function TradePanel({
     }
   }, [dpmSdk, currentTokenId, order, priceValid, side, orderType, userProfile, feeRate.bps, queryClient]);
 
-  if (!session?.user) {
+  if (requiresAppLogin && !session?.user) {
     return (
       <div className="rounded-2xl border border-card-border bg-card p-6">
         <h3 className="mb-2 text-sm font-semibold text-foreground">Trade</h3>
@@ -325,6 +326,17 @@ export function TradePanel({
         >
           Log in to trade
         </Link>
+      </div>
+    );
+  }
+
+  if (mode === "lp" && !dpmSdk) {
+    return (
+      <div className="rounded-2xl border border-card-border bg-card p-6">
+        <h3 className="mb-2 text-sm font-semibold text-foreground">Trade</h3>
+        <p className="text-sm text-muted">
+          Connect an LP API key and EOA private key to trade.
+        </p>
       </div>
     );
   }

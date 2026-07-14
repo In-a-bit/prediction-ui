@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import {
   getUserDetailedBalance,
   type UserDetailResponse,
@@ -15,12 +16,14 @@ export type DetailedBalanceData = {
 };
 
 export function useDetailedBalance() {
-  const { userProfile } = useWallet();
+  const { userProfile } = useTrading();
+  const { serviceBase, id } = useMarketSurface();
+  const dpmBase = serviceBase("dpm");
   const proxyWallet = userProfile?.proxyWallet ?? null;
 
   const query = useQuery<UserDetailResponse | null, Error>({
-    queryKey: ["detailed-balance", proxyWallet?.toLowerCase()],
-    queryFn: () => getUserDetailedBalance(proxyWallet!),
+    queryKey: ["detailed-balance", id, dpmBase, proxyWallet?.toLowerCase()],
+    queryFn: () => getUserDetailedBalance(proxyWallet!, dpmBase),
     enabled: Boolean(proxyWallet),
     staleTime: 30_000,
   });

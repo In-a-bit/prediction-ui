@@ -28,6 +28,7 @@ import {
 } from "@/lib/market/gamma-helpers";
 import type { GammaEvent, GammaMarket } from "@/lib/types/event";
 import { cn } from "@/lib/utils";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 
 function marketGroupForTab(event: GammaEvent, tab: SoccerMarketTab) {
   return tab === "moneyline"
@@ -40,6 +41,7 @@ function tabConfig(tab: SoccerMarketTab) {
 }
 
 export function SoccerFixtureEventPage({ event }: { event: GammaEvent }) {
+  const { basePath, label } = useMarketSurface();
   const metadata = parseSportsSoccerEventMetadata(event);
   const topic = resolvePlaeSoccerTopicFromEvent(event);
   const moneyline = useMemo(() => extractMoneylineMarkets(event), [event]);
@@ -53,7 +55,7 @@ export function SoccerFixtureEventPage({ event }: { event: GammaEvent }) {
 
   const activeGroup = marketTab === "moneyline" ? moneyline : halftime;
   const activeTab = tabConfig(marketTab);
-  const topicHref = topic ? `/plaee/t/${topic.slug}` : "/plaee";
+  const topicHref = topic ? `${basePath}/t/${topic.slug}` : basePath;
 
   useEffect(() => {
     const group = marketGroupForTab(event, marketTab);
@@ -90,8 +92,8 @@ export function SoccerFixtureEventPage({ event }: { event: GammaEvent }) {
   return (
     <div>
       <nav className="mb-4 flex items-center gap-2 text-sm text-muted">
-        <Link href="/plaee" className="transition-colors hover:text-foreground">
-          Plaee
+        <Link href={basePath} className="transition-colors hover:text-foreground">
+          {label}
         </Link>
         <span>/</span>
         <Link href={topicHref} className="transition-colors hover:text-foreground">

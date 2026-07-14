@@ -9,7 +9,7 @@ import {
   type OpenOrder,
 } from "@/lib/hooks/use-open-orders";
 import { useMarketWS } from "@/components/providers/market-ws-provider";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
 import {
   isPrimaryOutcomeToken,
   outcomeBadgeClass,
@@ -43,7 +43,7 @@ export function MarketOpenOrders({
   yesTokenId: string | undefined;
   noTokenId: string | undefined;
 }) {
-  const { walletAddress } = useWallet();
+  const { walletAddress } = useTrading();
   const { data: allOrders, isPending } = useOpenOrders();
   const cancelMutation = useCancelOrder();
   const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());

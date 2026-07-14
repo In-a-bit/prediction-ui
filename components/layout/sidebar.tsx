@@ -28,6 +28,7 @@ export function Sidebar() {
     pathname === "/portfolio";
   const isPlaeActive =
     pathname === "/plaee" || pathname.startsWith("/plaee/");
+  const isLpActive = pathname === "/lp" || pathname.startsWith("/lp/");
 
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 border-r border-card-border bg-sidebar p-4 lg:block">
@@ -55,12 +56,12 @@ export function Sidebar() {
         </span>
       </Link>
 
-      {/* 3-Tab Switcher */}
-      <div className="mb-6 flex rounded-xl bg-card-border/30 p-1">
+      {/* Tab Switcher — 2×2 so four tabs fit the sidebar width */}
+      <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-card-border/30 p-1">
         <Link
           href="/"
           className={cn(
-            "flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
+            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
             isCasinoActive
               ? "bg-brand text-white"
               : "text-muted hover:text-foreground",
@@ -71,7 +72,7 @@ export function Sidebar() {
         <Link
           href="/predictions"
           className={cn(
-            "flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
+            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
             isPredictionsActive
               ? "bg-brand text-white"
               : "text-muted hover:text-foreground",
@@ -82,13 +83,24 @@ export function Sidebar() {
         <Link
           href="/plaee"
           className={cn(
-            "flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
+            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
             isPlaeActive
               ? "bg-brand text-white"
               : "text-muted hover:text-foreground",
           )}
         >
           Plaee
+        </Link>
+        <Link
+          href="/lp"
+          className={cn(
+            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
+            isLpActive
+              ? "bg-brand text-white"
+              : "text-muted hover:text-foreground",
+          )}
+        >
+          LP
         </Link>
       </div>
 
@@ -133,8 +145,8 @@ export function Sidebar() {
         </nav>
       )}
 
-      {/* Topic nav for Plaee tab */}
-      {isPlaeActive && <PlaeSidebarNav />}
+      {/* Topic nav for Plaee / LP tabs */}
+      {(isPlaeActive || isLpActive) && <PlaeSidebarNav />}
 
       {/* Bottom section */}
       <div className="absolute bottom-4 left-4 right-4">

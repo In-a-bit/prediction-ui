@@ -16,6 +16,7 @@ import {
   type CryptoChartMode,
 } from "@/lib/crypto-updown";
 import { useCryptoPricesWS } from "@/components/providers/crypto-prices-ws-provider";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import type { GammaEvent } from "@/lib/types/event";
 
 export type SpotChartPoint = { time: number; price: number };
@@ -61,6 +62,8 @@ export function useCryptoSpotChart(
   event: GammaEvent,
   market?: { metadata?: Record<string, unknown> },
 ) {
+  const { serviceBase } = useMarketSurface();
+  const priceBase = serviceBase("price");
   const meta = parseCryptoMetadata(event);
 
   const chartMode: CryptoChartMode = meta
@@ -105,14 +108,14 @@ export function useCryptoSpotChart(
     const live = isChartLiveMode(slotMeta);
 
     const seedFromLatest = async () => {
-      const latest = await fetchCryptoLatest(slotMeta, loadTimeMs);
+      const latest = await fetchCryptoLatest(slotMeta, loadTimeMs, priceBase);
       if (cancelled || !latest) return;
       setPoints([{ time: latest.timestamp, price: latest.price }]);
       seedLivePrice(latest.price);
     };
 
     const loadPromise = live
-      ? fetchCryptoLivePriceHistory(slotMeta, loadTimeMs).then(async (history) => {
+      ? fetchCryptoLivePriceHistory(slotMeta, loadTimeMs, priceBase).then(async (history) => {
           if (cancelled) return;
           if (history.length === 0) {
             await seedFromLatest();
@@ -122,7 +125,7 @@ export function useCryptoSpotChart(
           const last = history[history.length - 1];
           if (last) seedLivePrice(last.price);
         })
-      : fetchCryptoPriceHistory(slotMeta, loadTimeMs).then((history) => {
+      : fetchCryptoPriceHistory(slotMeta, loadTimeMs, priceBase).then((history) => {
           if (cancelled) return;
           const initial = historyToPoints(history);
           setPoints(initial);

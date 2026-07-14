@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery, type QueryClient } from "@tanstack/react-query";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import {
   getCollateralBalance,
   type CollateralBalanceResponse,
@@ -26,16 +27,18 @@ export function invalidateAllCollateralBalances(queryClient: QueryClient) {
 }
 
 /**
- * Shared on-chain collateral (USDC) balance for the Magic proxy wallet address.
+ * Shared on-chain collateral (USDC) balance for the connected proxy wallet address.
  * All components should use this hook so refetch / invalidate stays in sync.
  */
 export function useCollateralBalance() {
-  const { walletAddress } = useWallet();
+  const { walletAddress } = useTrading();
+  const { serviceBase, id } = useMarketSurface();
+  const dpmBase = serviceBase("dpm");
 
   const query = useQuery<CollateralBalanceResponse, Error>({
-    queryKey: collateralBalanceQueryKey(walletAddress),
+    queryKey: [...collateralBalanceQueryKey(walletAddress), id, dpmBase],
     queryFn: async () => {
-      const data = await getCollateralBalance(walletAddress!);
+      const data = await getCollateralBalance(walletAddress!, dpmBase);
       if (!data) {
         throw new Error("Failed to load collateral balance");
       }

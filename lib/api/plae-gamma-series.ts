@@ -2,12 +2,15 @@ import type { GammaSeries } from "@/lib/types/event";
 
 import { predictionServiceBase } from "@/lib/prediction-proxy";
 
-const PLAE_GAMMA_BASE = predictionServiceBase("gamma");
-
 export interface FetchSeriesBySlugOptions {
   slotEndAfter?: Date;
   slotEndBefore?: Date;
   limit?: number;
+  gammaBase?: string;
+}
+
+function resolveGammaBase(override?: string): string {
+  return (override ?? predictionServiceBase("gamma")).replace(/\/$/, "");
 }
 
 export async function fetchSeriesBySlug(
@@ -26,7 +29,8 @@ export async function fetchSeriesBySlug(
   }
 
   const qs = params.toString();
-  const url = `${PLAE_GAMMA_BASE}/series/slug/${encodeURIComponent(slug)}${qs ? `?${qs}` : ""}`;
+  const gammaBase = resolveGammaBase(opts.gammaBase);
+  const url = `${gammaBase}/series/slug/${encodeURIComponent(slug)}${qs ? `?${qs}` : ""}`;
 
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });

@@ -2,8 +2,6 @@ import type { GammaEvent } from "@/lib/types/event";
 
 import { predictionServiceBase } from "@/lib/prediction-proxy";
 
-const PLAE_GAMMA_BASE = predictionServiceBase("gamma");
-
 interface FetchPlaeEventsParams {
   active?: boolean;
   closed?: boolean;
@@ -13,6 +11,8 @@ interface FetchPlaeEventsParams {
   ascending?: boolean;
   group_by_series?: boolean;
   tag_slug?: string;
+  /** Override gamma base (LP uses `/api/lp/go/gamma`). */
+  gammaBase?: string;
 }
 
 export interface PlaeEventsResponse {
@@ -20,16 +20,22 @@ export interface PlaeEventsResponse {
   hasMore: boolean;
 }
 
+function resolveGammaBase(override?: string): string {
+  return (override ?? predictionServiceBase("gamma")).replace(/\/$/, "");
+}
+
 export async function fetchPlaeEvents(
   params: FetchPlaeEventsParams = {},
 ): Promise<PlaeEventsResponse> {
+  const { gammaBase: gammaBaseOverride, ...query } = params;
+  const gammaBase = resolveGammaBase(gammaBaseOverride);
   const searchParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
+  Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined) searchParams.set(key, String(value));
   });
 
   try {
-    const res = await fetch(`${PLAE_GAMMA_BASE}/events?${searchParams}`, {
+    const res = await fetch(`${gammaBase}/events?${searchParams}`, {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(5000),
     });
@@ -94,10 +100,12 @@ function withFetchTimeout(
 export async function fetchPlaeEventBySlug(
   slug: string,
   signal?: AbortSignal,
+  gammaBaseOverride?: string,
 ): Promise<GammaEvent | null> {
+  const gammaBase = resolveGammaBase(gammaBaseOverride);
   try {
     const res = await fetchGammaWithRetry(
-      `${PLAE_GAMMA_BASE}/events/slug/${slug}`,
+      `${gammaBase}/events/slug/${slug}`,
       {
         cache: "no-store",
         signal: withFetchTimeout(signal, 15_000),

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useCallback,
+  useMemo,
 } from "react";
 import {
   MarketWS,
@@ -20,6 +21,8 @@ interface MarketWSContextValue {
   on: (eventType: MarketEventType, callback: MarketEventCallback) => void;
   off: (eventType: MarketEventType, callback: MarketEventCallback) => void;
   isConnected: boolean;
+  /** Bumps when the underlying socket is (re)created so listeners re-bind. */
+  connectionGeneration: number;
 }
 
 const MarketWSContext = createContext<MarketWSContextValue | null>(null);
@@ -29,17 +32,33 @@ export function MarketWSProvider({
   wsUrl,
 }: {
   children: React.ReactNode;
+  /** Empty/undefined = not ready yet (do not fall back to Polymarket). */
   wsUrl?: string;
 }) {
   const wsRef = useRef<MarketWS | null>(null);
   const refCounts = useRef(new Map<string, number>());
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionGeneration, setConnectionGeneration] = useState(0);
 
   useEffect(() => {
-    const ws = new MarketWS(wsUrl);
-    wsRef.current = ws;
+    const url = wsUrl?.trim();
+    // Wait for a real URL. `new MarketWS("")` would use Polymarket's default host.
+    if (!url) {
+      wsRef.current?.destroy();
+      wsRef.current = null;
+      setIsConnected(false);
+      return;
+    }
 
-    // Poll connection status (lightweight since it just checks readyState)
+    const ws = new MarketWS(url);
+    wsRef.current = ws;
+    setConnectionGeneration((g) => g + 1);
+
+    const pending = [...refCounts.current.keys()];
+    if (pending.length > 0) {
+      ws.connect(pending);
+    }
+
     const statusInterval = setInterval(() => {
       setIsConnected(ws.isConnected);
     }, 1000);
@@ -47,37 +66,33 @@ export function MarketWSProvider({
     return () => {
       clearInterval(statusInterval);
       ws.destroy();
-      wsRef.current = null;
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
     };
   }, [wsUrl]);
 
   const subscribe = useCallback((tokenId: string) => {
-    const ws = wsRef.current;
-    if (!ws) return;
-
     const counts = refCounts.current;
     const current = counts.get(tokenId) ?? 0;
     counts.set(tokenId, current + 1);
 
-    if (current === 0) {
-      // First subscriber for this token — actually subscribe on WS
-      if (ws.isConnected) {
-        ws.subscribe([tokenId]);
-      } else {
-        ws.connect([tokenId]);
-      }
+    const ws = wsRef.current;
+    if (!ws || current > 0) return;
+
+    if (ws.isConnected) {
+      ws.subscribe([tokenId]);
+    } else {
+      ws.connect([tokenId]);
     }
   }, []);
 
   const unsubscribe = useCallback((tokenId: string) => {
-    const ws = wsRef.current;
-    if (!ws) return;
-
     const counts = refCounts.current;
     const current = counts.get(tokenId) ?? 0;
     if (current <= 1) {
       counts.delete(tokenId);
-      ws.unsubscribe([tokenId]);
+      wsRef.current?.unsubscribe([tokenId]);
     } else {
       counts.set(tokenId, current - 1);
     }
@@ -87,22 +102,30 @@ export function MarketWSProvider({
     (eventType: MarketEventType, callback: MarketEventCallback) => {
       wsRef.current?.on(eventType, callback);
     },
-    []
+    [],
   );
 
   const off = useCallback(
     (eventType: MarketEventType, callback: MarketEventCallback) => {
       wsRef.current?.off(eventType, callback);
     },
-    []
+    [],
+  );
+
+  const value = useMemo(
+    () => ({
+      subscribe,
+      unsubscribe,
+      on,
+      off,
+      isConnected,
+      connectionGeneration,
+    }),
+    [subscribe, unsubscribe, on, off, isConnected, connectionGeneration],
   );
 
   return (
-    <MarketWSContext.Provider
-      value={{ subscribe, unsubscribe, on, off, isConnected }}
-    >
-      {children}
-    </MarketWSContext.Provider>
+    <MarketWSContext.Provider value={value}>{children}</MarketWSContext.Provider>
   );
 }
 

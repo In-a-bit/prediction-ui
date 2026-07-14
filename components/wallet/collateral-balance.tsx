@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import { formatTradeBalanceUsd } from "@/lib/utils";
 import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
@@ -14,13 +15,16 @@ export function CollateralBalance() {
     isError,
     refetch,
   } = useCollateralBalance();
+  const { basePath, id } = useMarketSurface();
+  // Plaee/predictions keep the existing /portfolio route; LP uses /lp/portfolio.
+  const portfolioHref = id === "lp" ? `${basePath}/portfolio` : "/portfolio";
 
   if (!walletAddress) return null;
 
   return (
     <div className="flex items-stretch overflow-hidden rounded-xl border border-card-border bg-card text-sm">
       <Link
-        href="/portfolio"
+        href={portfolioHref}
         className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 transition-colors hover:bg-card-hover"
       >
         <span className="shrink-0 text-muted">Portfolio</span>

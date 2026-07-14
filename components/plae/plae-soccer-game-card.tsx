@@ -11,6 +11,7 @@ import {
   type SoccerOutcomeKey,
 } from "@/lib/sports-soccer";
 import { cn } from "@/lib/utils";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
 
 const OUTCOME_ORDER: SoccerOutcomeKey[] = ["home", "draw", "away"];
 
@@ -54,9 +55,10 @@ function OutcomeButton({
 }
 
 export function PlaeSoccerGameCard({ game }: { game: SoccerGameView }) {
+  const { basePath } = useMarketSurface();
   const { event, home, away, moneyline, kickoff, leagueLabel, volume, marketCount } =
     game;
-  const eventHref = `/plaee/${event.slug}`;
+  const eventHref = `${basePath}/${event.slug}`;
 
   return (
     <div className="rounded-2xl border border-card-border bg-card p-4">
