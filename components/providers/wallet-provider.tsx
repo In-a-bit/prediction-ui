@@ -47,6 +47,15 @@ export function useWallet() {
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const builderApiPublicKey = builderApiPublicKeyFromEnv();
+  if (!builderApiPublicKey) {
+    return (
+      <div className="p-4 text-sm text-red">
+        NEXT_PUBLIC_BUILDER_API_PUBLIC_KEY is required
+      </div>
+    );
+  }
+
   return (
     <DpmWalletProvider
       urls={{
@@ -55,7 +64,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         relayerUrl: predictionServiceBase("relayer"),
       }}
       chainId={chainIdFromEnv()}
-      builderApiPublicKey={builderApiPublicKeyFromEnv() ?? undefined}
+      builderApiPublicKey={builderApiPublicKey}
       privyAppId={resolvePrivyAppId}
       errorFallback={(error) => (
         <div className="p-4 text-sm text-red">
