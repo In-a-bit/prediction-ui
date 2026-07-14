@@ -68,20 +68,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   return (
     <Suspense fallback={<>{children}</>}>
-      <WalletProviderGate>{children}</WalletProviderGate>
+      <WalletProviderGate builderApiPublicKey={builderApiPublicKey}>
+        {children}
+      </WalletProviderGate>
     </Suspense>
   );
 }
 
-function WalletProviderGate({ children }: { children: ReactNode }) {
+function WalletProviderGate({
+  children,
+  builderApiPublicKey,
+}: {
+  children: ReactNode;
+  builderApiPublicKey: string;
+}) {
   const pathname = usePathname();
   if (isLpPath(pathname)) {
     return <>{children}</>;
   }
-  return <WalletProviderWithPrivy>{children}</WalletProviderWithPrivy>;
+  return (
+    <WalletProviderWithPrivy builderApiPublicKey={builderApiPublicKey}>
+      {children}
+    </WalletProviderWithPrivy>
+  );
 }
 
-function WalletProviderWithPrivy({ children }: { children: ReactNode }) {
+function WalletProviderWithPrivy({
+  children,
+  builderApiPublicKey,
+}: {
+  children: ReactNode;
+  builderApiPublicKey: string;
+}) {
   return (
     <DpmWalletProvider
       urls={{
