@@ -149,7 +149,7 @@ export function TradePanel({
     setOutcomeState(o);
     onOutcomeChange?.(o);
   }, [onOutcomeChange]);
-  const [orderType, setOrderType] = useState<OrderType>("market");
+  const [orderType, setOrderType] = useState<OrderType>("limit");
   const [amount, setAmount] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [limitShares, setLimitShares] = useState("");
@@ -377,18 +377,31 @@ export function TradePanel({
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowOrderTypeMenu(false)} />
               <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-card-border bg-card py-1 shadow-lg">
-                {(["market", "limit"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => { setOrderType(t); setShowOrderTypeMenu(false); }}
-                    className={cn(
-                      "block w-full px-4 py-1.5 text-left text-sm capitalize transition-colors",
-                      orderType === t ? "text-foreground" : "text-muted hover:text-foreground",
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
+                {(["market", "limit"] as const).map((t) => {
+                  const disabled = t === "market";
+                  return (
+                    <button
+                      key={t}
+                      disabled={disabled}
+                      title={disabled ? "Coming soon" : undefined}
+                      onClick={() => {
+                        if (disabled) return;
+                        setOrderType(t);
+                        setShowOrderTypeMenu(false);
+                      }}
+                      className={cn(
+                        "block w-full px-4 py-1.5 text-left text-sm capitalize transition-colors",
+                        disabled
+                          ? "cursor-not-allowed text-muted/50"
+                          : orderType === t
+                            ? "text-foreground"
+                            : "text-muted hover:text-foreground",
+                      )}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}
