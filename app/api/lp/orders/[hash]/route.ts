@@ -16,7 +16,7 @@ export async function DELETE(
       return NextResponse.json({ error: "marketId is required" }, { status: 400 });
     }
     const jar = await cookies();
-    const record = requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
+    const record = await requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
     const result = await record.sdk.cancelOrder(hash, marketId);
     return NextResponse.json({ result });
   } catch (err) {

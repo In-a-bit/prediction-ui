@@ -1,16 +1,20 @@
 import type { AuthSession, DpmSdk } from "@inabit-com/dpm-sdk/lp";
 
 export type LpSessionRecord = {
+  /** Sealed cookie token (cache key). */
   id: string;
   sdk: DpmSdk;
   session: AuthSession;
   apiKeyTruncated: string;
-  /** Full API key kept only in memory for reconnect/display helpers. */
   apiPrivateKey: string;
   eoaPrivateKey: string;
   createdAt: number;
 };
 
+/**
+ * Per-process cache only. Source of truth on Vercel is the sealed cookie;
+ * this Map avoids rebuilding the SDK on warm instances.
+ */
 const globalStore = globalThis as typeof globalThis & {
   __lpSessionStore?: Map<string, LpSessionRecord>;
 };

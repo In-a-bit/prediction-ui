@@ -5,15 +5,26 @@ import { LP_SESSION_COOKIE } from "@/lib/lp/format";
 import {
   connectLpSession,
   disconnectLpSession,
+  publicFromSealed,
   toPublicSession,
+  unsealLpSession,
 } from "@/lib/lp/sdk";
-import { getLpSession } from "@/lib/lp/session-store";
+
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  path: "/",
+  secure: process.env.NODE_ENV === "production",
+  /** 7 days — demo keys live in the sealed cookie, not server memory. */
+  maxAge: 60 * 60 * 24 * 7,
+};
 
 export async function GET() {
   const jar = await cookies();
-  const id = jar.get(LP_SESSION_COOKIE)?.value;
-  const record = id ? getLpSession(id) : undefined;
-  return NextResponse.json(toPublicSession(record));
+  const token = jar.get(LP_SESSION_COOKIE)?.value;
+  return NextResponse.json(
+    publicFromSealed(token ? unsealLpSession(token) : null),
+  );
 }
 
 export async function POST(req: Request) {
@@ -31,18 +42,13 @@ export async function POST(req: Request) {
       await disconnectLpSession(previous);
     }
 
-    const record = await connectLpSession({
+    const { record, sealed } = await connectLpSession({
       apiPrivateKey: body.apiPrivateKey ?? "",
       eoaPrivateKey: body.eoaPrivateKey ?? "",
     });
 
     const res = NextResponse.json(toPublicSession(record));
-    res.cookies.set(LP_SESSION_COOKIE, record.id, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
-    });
+    res.cookies.set(LP_SESSION_COOKIE, sealed, COOKIE_OPTS);
     return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -52,15 +58,13 @@ export async function POST(req: Request) {
 
 export async function DELETE() {
   const jar = await cookies();
-  const id = jar.get(LP_SESSION_COOKIE)?.value;
-  if (id) {
-    await disconnectLpSession(id);
+  const token = jar.get(LP_SESSION_COOKIE)?.value;
+  if (token) {
+    await disconnectLpSession(token);
   }
-  const res = NextResponse.json(toPublicSession(undefined));
+  const res = NextResponse.json(publicFromSealed(null));
   res.cookies.set(LP_SESSION_COOKIE, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
+    ...COOKIE_OPTS,
     maxAge: 0,
   });
   return res;

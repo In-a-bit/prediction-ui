@@ -12,7 +12,7 @@ import { requireLpSession } from "@/lib/lp/sdk";
 export async function GET() {
   try {
     const jar = await cookies();
-    const record = requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
+    const record = await requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
     return NextResponse.json(
       lpWsUrlsWithLpAuth(record.apiPrivateKey, record.session.eoaAddress),
     );

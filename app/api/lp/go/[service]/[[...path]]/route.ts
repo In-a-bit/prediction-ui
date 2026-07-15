@@ -44,7 +44,7 @@ async function proxyRequest(
   const jar = await cookies();
   let record;
   try {
-    record = requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
+    record = await requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
   } catch {
     return NextResponse.json(
       { error: "Connect LP session first (X-LP-Api-Key required)" },

@@ -7,7 +7,7 @@ import { requireLpSession } from "@/lib/lp/sdk";
 export async function GET() {
   try {
     const jar = await cookies();
-    const record = requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
+    const record = await requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
     const orders = await record.sdk.fetchOpenOrders();
     return NextResponse.json({ orders });
   } catch (err) {
@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const jar = await cookies();
-    const record = requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
+    const record = await requireLpSession(jar.get(LP_SESSION_COOKIE)?.value);
     const body = await req.json();
     const result = await record.sdk.submitOrder(body);
     return NextResponse.json(result);
