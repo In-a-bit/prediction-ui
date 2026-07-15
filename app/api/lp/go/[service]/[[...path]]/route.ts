@@ -32,7 +32,10 @@ function hopByHop(name: string): boolean {
     n === "transfer-encoding" ||
     n === "upgrade" ||
     n === "host" ||
-    n === "content-length"
+    n === "content-length" ||
+    // undici/fetch may decompress the body while leaving this header set;
+    // forwarding it causes browsers to fail with ERR_CONTENT_DECODING_FAILED.
+    n === "content-encoding"
   );
 }
 
@@ -68,7 +71,10 @@ async function proxyRequest(
       hopByHop(key) ||
       lower === "x-api-key" ||
       lower === "x-lp-api-key" ||
-      lower === "x-lp-address"
+      lower === "x-lp-address" ||
+      // Let the upstream choose encoding; never advertise the browser's encodings
+      // (esp. zstd) — Node may decode the body and we must not re-label it.
+      lower === "accept-encoding"
     ) {
       return;
     }
