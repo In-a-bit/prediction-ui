@@ -76,10 +76,17 @@ export function Header() {
         router.push(qs ? `/predictions?${qs}` : "/predictions");
       }
     },
-    [router, pathname, searchParams],
+    [router, pathname],
   );
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    // Browser password autofill often fills this field as a "username" when
+    // another dialog shows password inputs. Autofill is not an InputEvent —
+    // ignore it so it can't trigger the search debounce / navigation.
+    if (!(e.nativeEvent instanceof InputEvent)) {
+      return;
+    }
+
     const value = e.target.value;
     setSearchQuery(value);
 
@@ -114,6 +121,7 @@ export function Header() {
             value={searchQuery}
             onChange={handleChange}
             placeholder={searchPlaceholder}
+            autoComplete="off"
             className="w-full rounded-xl border border-card-border bg-input py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
           />
           {searchQuery && (
