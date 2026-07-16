@@ -73,6 +73,21 @@ function FeeRateInput({
   );
 }
 
+/**
+ * Order rejections that are part of normal trading flow (not bugs). These are
+ * shown to the user via the result line but should not be logged as errors.
+ */
+const EXPECTED_ORDER_ERROR_PATTERNS = [
+  "post-only",
+  "crosses book",
+  "crosses the book",
+];
+
+function isExpectedOrderError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return EXPECTED_ORDER_ERROR_PATTERNS.some((p) => lower.includes(p));
+}
+
 /** Round a number to the nearest tick size step */
 function roundToTick(value: number, tick: number): number {
   if (tick <= 0) return value;
@@ -154,9 +169,13 @@ export function TradePanel({
   const [limitPrice, setLimitPrice] = useState("");
   const [limitShares, setLimitShares] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [orderResult, setOrderResult] = useState<string | null>(null);
+  const [orderResult, setOrderResult] = useState<
+    { kind: "success" | "error"; message: string } | null
+  >(null);
   const [showOrderTypeMenu, setShowOrderTypeMenu] = useState(false);
   const [feeRateBpsInput, setFeeRateBpsInput] = useState("");
+  /** LP default: post-only (rest) orders. Ignored outside LP mode. */
+  const [restOrder, setRestOrder] = useState(true);
 
   const { balanceNormalized: usdcBalanceStr } = useCollateralBalance();
   const { yesBalance, noBalance } = useTokenBalances(yesTokenId, noTokenId);
@@ -167,20 +186,21 @@ export function TradePanel({
   const currentTokenId = outcome === "yes" ? yesTokenId : noTokenId;
   const { data: midpoint } = useMidpoint(currentTokenId);
 
-  const { yesPrice: yesOutcomePrice, noPrice: noOutcomePrice } = useOutcomePrices({
-    yesTokenId,
-    noTokenId,
-    side,
-    initialYesPrice,
-    initialNoPrice,
-  });
+  const { yesPrice: yesOutcomePrice, noPrice: noOutcomePrice } =
+    useOutcomePrices({
+      yesTokenId,
+      noTokenId,
+      side,
+      initialYesPrice,
+      initialNoPrice,
+    });
 
   const bestPrices = useMemo(
     () => ({
       yesPrice: yesOutcomePrice || initialYesPrice,
       noPrice: noOutcomePrice || initialNoPrice,
     }),
-    [yesOutcomePrice, noOutcomePrice, initialYesPrice, initialNoPrice]
+    [yesOutcomePrice, noOutcomePrice, initialYesPrice, initialNoPrice],
   );
 
   // Tick size in cents for display (e.g. 0.01 -> 1, 0.1 -> 10)
@@ -199,17 +219,20 @@ export function TradePanel({
   const order = useMemo(() => {
     if (orderType === "market") {
       // Use best ask (buy) or best bid (sell) — same price shown on the outcome buttons.
-      const bestPriceCents = outcome === "yes" ? bestPrices.yesPrice : bestPrices.noPrice;
+      const bestPriceCents =
+        outcome === "yes" ? bestPrices.yesPrice : bestPrices.noPrice;
       const price = bestPriceCents / 100;
       if (side === "sell") {
         // For market sell, amount is shares
         const shares = parseFloat(amount) || 0;
-        const dollarAmount = shares > 0 && price > 0 ? round6(shares * price) : 0;
+        const dollarAmount =
+          shares > 0 && price > 0 ? round6(shares * price) : 0;
         return { dollarAmount, price, shares };
       }
       // For market buy, amount is dollars
       const dollarAmount = parseFloat(amount) || 0;
-      const shares = dollarAmount > 0 && price > 0 ? round6(dollarAmount / price) : 0;
+      const shares =
+        dollarAmount > 0 && price > 0 ? round6(dollarAmount / price) : 0;
       return { dollarAmount, price, shares };
     }
     const priceCents = parseFloat(limitPrice) || 0;
@@ -283,35 +306,66 @@ export function TradePanel({
   }, [usdcBalance]);
 
   const handleSubmit = useCallback(async () => {
-    if (!dpmSdk || !currentTokenId || order.dollarAmount <= 0 || !priceValid || !userProfile?.proxyWallet) return;
+    if (
+      !dpmSdk ||
+      !currentTokenId ||
+      order.dollarAmount <= 0 ||
+      !priceValid ||
+      !userProfile?.proxyWallet
+    )
+      return;
 
     setSubmitting(true);
     setOrderResult(null);
 
     try {
-      console.log("[TradePanel] submitOrder: begin", { tokenId: currentTokenId });
+      console.log("[TradePanel] submitOrder: begin", {
+        tokenId: currentTokenId,
+      });
       const result = await dpmSdk.submitOrder({
         side: side === "buy" ? 0 : 1,
         tokenId: currentTokenId,
         shares: order.shares,
         price: order.price,
         feeRateBps: feeRate.bps,
+        ...(mode === "lp" && restOrder ? { postOnly: true } : {}),
       });
 
-      setOrderResult(`Order ${result.status} (${result.orderHash.slice(0, 10)}…)`);
+      setOrderResult({
+        kind: "success",
+        message: `Order ${result.status} (${result.orderHash.slice(0, 10)}…)`,
+      });
       if (orderType === "market") setAmount("");
       else setLimitShares("");
 
-     
       await queryClient.invalidateQueries({ queryKey: ["open-orders"] });
       await queryClient.invalidateQueries({ queryKey: ["orderbook"] });
     } catch (err) {
-      console.error("[TradePanel] order submission error:", err);
-      setOrderResult(err instanceof Error ? err.message : "Order failed");
+      const message = err instanceof Error ? err.message : "Order failed";
+      // Expected, user-facing rejections (e.g. post-only order crossing the
+      // book) shouldn't surface as console errors — only log unexpected ones.
+      if (isExpectedOrderError(message)) {
+        console.warn("[TradePanel] order rejected:", message);
+      } else {
+        console.error("[TradePanel] order submission error:", err);
+      }
+      setOrderResult({ kind: "error", message });
     } finally {
       setSubmitting(false);
     }
-  }, [dpmSdk, currentTokenId, order, priceValid, side, orderType, userProfile, feeRate.bps, queryClient]);
+  }, [
+    dpmSdk,
+    currentTokenId,
+    order,
+    priceValid,
+    side,
+    orderType,
+    userProfile,
+    feeRate.bps,
+    queryClient,
+    mode,
+    restOrder,
+  ]);
 
   if (requiresAppLogin && !session?.user) {
     return (
@@ -349,7 +403,10 @@ export function TradePanel({
           {(["buy", "sell"] as const).map((s) => (
             <button
               key={s}
-              onClick={() => { setSide(s); setAmount(""); }}
+              onClick={() => {
+                setSide(s);
+                setAmount("");
+              }}
               className={cn(
                 "pb-1 text-sm font-semibold capitalize transition-colors",
                 side === s
@@ -370,12 +427,21 @@ export function TradePanel({
           >
             <span className="capitalize">{orderType}</span>
             <svg className="h-3.5 w-3.5" viewBox="0 0 12 12" fill="none">
-              <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M3 5l3 3 3-3"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </button>
           {showOrderTypeMenu && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowOrderTypeMenu(false)} />
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowOrderTypeMenu(false)}
+              />
               <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-card-border bg-card py-1 shadow-lg">
                 {(["market", "limit"] as const).map((t) => {
                   const disabled = t === "market";
@@ -453,7 +519,9 @@ export function TradePanel({
           {/* Limit Price */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Limit Price</label>
+              <label className="text-sm font-medium text-foreground">
+                Limit Price
+              </label>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -487,18 +555,28 @@ export function TradePanel({
                 +
               </button>
             </div>
-            {limitPrice && (parseFloat(limitPrice) <= 0 || parseFloat(limitPrice) >= 100) && (
-              <p className="mt-1 text-[11px] text-red">
-                Price must be between {tickCents}¢ and {round6(100 - tickCents)}¢
-              </p>
-            )}
+            {limitPrice &&
+              (parseFloat(limitPrice) <= 0 ||
+                parseFloat(limitPrice) >= 100) && (
+                <p className="mt-1 text-[11px] text-red">
+                  Price must be between {tickCents}¢ and{" "}
+                  {round6(100 - tickCents)}¢
+                </p>
+              )}
           </div>
 
           {/* Shares */}
           <div>
             <div className="mb-2 flex items-baseline justify-between">
-              <label className="text-sm font-medium text-foreground">Shares</label>
-              <span className={cn("text-right text-[10px] text-muted", FEE_FIELD_WIDTH)}>
+              <label className="text-sm font-medium text-foreground">
+                Shares
+              </label>
+              <span
+                className={cn(
+                  "text-right text-[10px] text-muted",
+                  FEE_FIELD_WIDTH,
+                )}
+              >
                 Fee
               </span>
             </div>
@@ -513,7 +591,9 @@ export function TradePanel({
                 step={shareStep}
                 className={cn(
                   "h-10 min-w-0 flex-1 rounded-lg border bg-input px-4 text-right text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
-                  limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize
+                  limitShares &&
+                    parseFloat(limitShares) > 0 &&
+                    parseFloat(limitShares) < minOrderSize
                     ? "border-red/50"
                     : "border-card-border",
                 )}
@@ -528,11 +608,13 @@ export function TradePanel({
             {feeRate.error && (
               <p className="mt-1 text-[11px] text-red">{feeRate.error}</p>
             )}
-            {limitShares && parseFloat(limitShares) > 0 && parseFloat(limitShares) < minOrderSize && (
-              <p className="mt-1 text-[11px] text-red">
-                Minimum order size is {minOrderSize} shares
-              </p>
-            )}
+            {limitShares &&
+              parseFloat(limitShares) > 0 &&
+              parseFloat(limitShares) < minOrderSize && (
+                <p className="mt-1 text-[11px] text-red">
+                  Minimum order size is {minOrderSize} shares
+                </p>
+              )}
             <div className="mt-2 flex gap-2">
               {side === "buy" ? (
                 <>
@@ -540,7 +622,10 @@ export function TradePanel({
                     <button
                       key={pct}
                       onClick={() => {
-                        const shares = truncateToDecimals(maxBuyShares * pct, shareDp);
+                        const shares = truncateToDecimals(
+                          maxBuyShares * pct,
+                          shareDp,
+                        );
                         setLimitShares(shares > 0 ? String(shares) : "");
                       }}
                       className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
@@ -564,7 +649,10 @@ export function TradePanel({
                     <button
                       key={pct}
                       onClick={() => {
-                        const shares = truncateToDecimals(currentTokenBalance * pct, shareDp);
+                        const shares = truncateToDecimals(
+                          currentTokenBalance * pct,
+                          shareDp,
+                        );
                         setLimitShares(shares > 0 ? String(shares) : "");
                       }}
                       className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
@@ -574,7 +662,10 @@ export function TradePanel({
                   ))}
                   <button
                     onClick={() => {
-                      const shares = truncateToDecimals(currentTokenBalance, shareDp);
+                      const shares = truncateToDecimals(
+                        currentTokenBalance,
+                        shareDp,
+                      );
                       setLimitShares(shares > 0 ? String(shares) : "");
                     }}
                     className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
@@ -593,7 +684,12 @@ export function TradePanel({
             <label className="text-sm font-medium text-foreground">
               {side === "sell" ? "Shares" : "Amount"}
             </label>
-            <span className={cn("text-right text-[10px] text-muted", FEE_FIELD_WIDTH)}>
+            <span
+              className={cn(
+                "text-right text-[10px] text-muted",
+                FEE_FIELD_WIDTH,
+              )}
+            >
               Fee
             </span>
           </div>
@@ -654,7 +750,8 @@ export function TradePanel({
                   <button
                     key={pct}
                     onClick={() => {
-                      const shares = Math.floor(currentTokenBalance * pct * 1e6) / 1e6;
+                      const shares =
+                        Math.floor(currentTokenBalance * pct * 1e6) / 1e6;
                       setAmount(shares > 0 ? String(shares) : "");
                     }}
                     className="flex-1 rounded-lg border border-card-border py-1.5 text-xs font-medium text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
@@ -729,6 +826,46 @@ export function TradePanel({
         </p>
       )}
 
+      {mode === "lp" && (
+        <label
+          className={cn(
+            "group mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3.5 py-3 transition-colors",
+            restOrder
+              ? "border-brand/40 bg-brand/5"
+              : "border-card-border bg-input/40 hover:border-foreground/20",
+          )}
+        >
+          <span className="flex flex-col">
+            <span className="text-sm font-medium text-foreground">
+              Rest the Order
+            </span>
+            <span className="text-[11px] leading-tight text-muted">
+              Post as a maker only — reject if it would cross the book
+            </span>
+          </span>
+          <span className="relative shrink-0">
+            <input
+              type="checkbox"
+              checked={restOrder}
+              onChange={(e) => setRestOrder(e.target.checked)}
+              className="peer sr-only"
+            />
+            <span
+              className={cn(
+                "block h-6 w-10 rounded-full transition-colors",
+                restOrder ? "bg-brand" : "bg-card-border",
+              )}
+            />
+            <span
+              className={cn(
+                "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                restOrder && "translate-x-4",
+              )}
+            />
+          </span>
+        </label>
+      )}
+
       {/* Submit */}
       <button
         disabled={!canSubmit}
@@ -737,7 +874,7 @@ export function TradePanel({
           "mt-5 w-full rounded-xl py-3.5 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40",
           side === "buy"
             ? "bg-green hover:bg-green/90"
-            : "bg-red hover:bg-red/90"
+            : "bg-red hover:bg-red/90",
         )}
       >
         {submitting ? "Submitting…" : "Trade"}
@@ -750,7 +887,20 @@ export function TradePanel({
       )}
 
       {orderResult && (
-        <p className="mt-2 text-center text-xs text-muted">{orderResult}</p>
+        <div
+          className={cn(
+            "mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-medium",
+            orderResult.kind === "error"
+              ? "border-red/30 bg-red/10 text-red"
+              : "border-green/30 bg-green/10 text-green",
+          )}
+          role={orderResult.kind === "error" ? "alert" : "status"}
+        >
+          <span aria-hidden className="mt-px shrink-0 leading-none">
+            {orderResult.kind === "error" ? "⚠" : "✓"}
+          </span>
+          <span className="break-words">{orderResult.message}</span>
+        </div>
       )}
     </div>
   );
