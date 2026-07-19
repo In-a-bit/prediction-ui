@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { useTrading } from "@/components/providers/trading-provider";
 import { useMarketSurface } from "@/components/providers/market-surface-provider";
 
@@ -49,6 +49,56 @@ async function fetchPositions(
   return Array.isArray(json) ? json : [];
 }
 
+/**
+ * Positions optimistically hidden after a successful redeem, while the data-api
+ * catches up with on-chain state. Keyed by conditionId (redeem is per-market).
+ */
+const pendingRedeemedConditionIds = new Set<string>();
+
+function filterPendingRedeemed(positions: Position[]): Position[] {
+  if (pendingRedeemedConditionIds.size === 0) return positions;
+  return positions.filter((p) => !pendingRedeemedConditionIds.has(p.conditionId));
+}
+
+/** Mark a market's positions as redeemed so they disappear immediately. */
+export function markPositionRedeemed(conditionId: string): void {
+  pendingRedeemedConditionIds.add(conditionId);
+}
+
+/** Drop the redeemed positions from every cached positions query right away. */
+export function removeRedeemedFromCache(
+  queryClient: QueryClient,
+  conditionId: string,
+): void {
+  queryClient.setQueriesData<Position[]>(
+    { queryKey: ["positions"] },
+    (current) =>
+      current ? current.filter((p) => p.conditionId !== conditionId) : current,
+  );
+}
+
+/**
+ * Refetch positions after a redeem, then stop hiding the market once the
+ * server no longer returns it (otherwise keep it filtered out of the cache).
+ */
+export async function syncPositionsAfterRedeem(
+  queryClient: QueryClient,
+  conditionId: string,
+): Promise<void> {
+  console.log("[usePositions] syncPositionsAfterRedeem: refetch", { conditionId });
+  await queryClient.refetchQueries({ queryKey: ["positions"] });
+
+  const entries = queryClient.getQueriesData<Position[]>({ queryKey: ["positions"] });
+  const stillPresent = entries.some(([, data]) =>
+    data?.some((p) => p.conditionId === conditionId),
+  );
+  if (!stillPresent) {
+    pendingRedeemedConditionIds.delete(conditionId);
+    return;
+  }
+  removeRedeemedFromCache(queryClient, conditionId);
+}
+
 export function usePositions() {
   const { walletAddress } = useTrading();
   const { serviceBase, id } = useMarketSurface();
@@ -56,9 +106,10 @@ export function usePositions() {
 
   return useQuery({
     queryKey: ["positions", id, dataBase, walletAddress?.toLowerCase()],
-    queryFn: () => {
+    queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address");
-      return fetchPositions(dataBase, walletAddress);
+      const positions = await fetchPositions(dataBase, walletAddress);
+      return filterPendingRedeemed(positions);
     },
     enabled: Boolean(walletAddress),
   });
