@@ -80,6 +80,26 @@ function createLpSdkProxy(): DpmSdk {
       if (!res.ok) throw new Error(json.error ?? "cancelOrder failed");
       return json.result;
     },
+    async submitRedeemPositions(conditionId: string) {
+      const res = await fetch("/api/lp/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conditionId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "submitRedeemPositions failed");
+      return json as { transactionID: string; state: string };
+    },
+    async submitFundWithdraw(recipient: string, amount: string) {
+      const res = await fetch("/api/lp/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient, amount }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "submitFundWithdraw failed");
+      return json as { transactionID: string; state: string };
+    },
     async submitUsdcCtfAllowance() {
       const res = await fetch("/api/lp/allowance", { method: "POST" });
       const json = await res.json();

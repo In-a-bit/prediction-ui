@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useWallet } from "@/components/providers/wallet-provider";
+import { useTrading } from "@/components/providers/trading-provider";
 import { invalidateAllCollateralBalances } from "@/lib/hooks/use-collateral-balance";
 
 export interface RedeemPositionParams {
@@ -9,7 +9,7 @@ export interface RedeemPositionParams {
 }
 
 export function useRedeemPosition() {
-  const { dpmSdk } = useWallet();
+  const { dpmSdk } = useTrading();
   const queryClient = useQueryClient();
 
   return useMutation({
