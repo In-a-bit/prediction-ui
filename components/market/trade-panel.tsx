@@ -1,17 +1,35 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
 import { useTrading } from "@/components/providers/trading-provider";
-import { useCollateralBalance } from "@/lib/hooks/use-collateral-balance";
+import {
+  useCollateralBalance,
+  COLLATERAL_BALANCE_QUERY_ROOT,
+} from "@/lib/hooks/use-collateral-balance";
 import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
 type OrderType = "market" | "limit";
+
+/**
+ * Refresh every view affected by a trade: the user's open orders, the order
+ * book, YES/NO token balances, and the collateral (USDC) balance. Invalidation
+ * overrides each query's staleTime, forcing mounted consumers to refetch.
+ */
+async function refreshAfterTrade(queryClient: QueryClient) {
+  console.log("[TradePanel] refreshAfterTrade: invalidating trade-affected queries");
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["open-orders"] }),
+    queryClient.invalidateQueries({ queryKey: ["orderbook"] }),
+    queryClient.invalidateQueries({ queryKey: ["token-balances"] }),
+    queryClient.invalidateQueries({ queryKey: [COLLATERAL_BALANCE_QUERY_ROOT] }),
+  ]);
+}
 
 const DEFAULT_FEE_RATE_BPS = 200;
 const MIN_FEE_RATE_BPS = 200;
@@ -335,8 +353,14 @@ export function TradePanel({
       if (orderType === "market") setAmount("");
       else setLimitShares("");
 
-      await queryClient.invalidateQueries({ queryKey: ["open-orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["orderbook"] });
+      await refreshAfterTrade(queryClient);
+
+      // The matching engine indexes asynchronously; a freshly placed order and
+      // the resulting balance changes may not be queryable on the immediate
+      // refetch. Follow up once more so the UI updates without a manual refresh.
+      window.setTimeout(() => {
+        void refreshAfterTrade(queryClient);
+      }, 1500);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Order failed";
       // Expected, user-facing rejections (e.g. post-only order crossing the
