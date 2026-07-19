@@ -203,7 +203,6 @@ export function LpDemoProviders({ children }: { children: ReactNode }) {
   const trading = useMemo<TradingContextValue>(
     () => ({
       mode: "lp",
-      requiresAppLogin: false,
       dpmSdk: connected ? sdkProxy : null,
       session,
       walletAddress: session?.proxyWallet ?? null,

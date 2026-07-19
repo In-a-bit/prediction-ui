@@ -15,8 +15,6 @@ import { useWallet } from "@/components/providers/wallet-provider";
  */
 export type TradingContextValue = {
   mode: "privy" | "lp";
-  /** When true, TradePanel requires NextAuth login. LP is false. */
-  requiresAppLogin: boolean;
   dpmSdk: DpmSdk | null;
   session: AuthSession | null;
   walletAddress: string | null;
@@ -52,7 +50,6 @@ export function useTrading(): TradingContextValue {
 
   return {
     mode: "privy",
-    requiresAppLogin: true,
     dpmSdk: wallet.dpmSdk,
     session: wallet.session,
     walletAddress: wallet.walletAddress,

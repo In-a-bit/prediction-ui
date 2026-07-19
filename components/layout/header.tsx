@@ -1,13 +1,7 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import {
-  AuthNavLoginLink,
-  AuthNavSignedInBar,
-  AuthNavSignupLink,
-} from "@/components/auth/auth-nav-buttons";
 import { useWallet } from "@/components/providers/wallet-provider";
 import { useTrading } from "@/components/providers/trading-provider";
 import { WalletButton } from "@/components/wallet/wallet-button";
@@ -34,7 +28,6 @@ function isCasinoSurface(pathname: string) {
 }
 
 export function Header() {
-  const { data: session, status } = useSession();
   const pathname = usePathname();
   const showLpToolbar = isLpSurface(pathname);
   // Privy wallet is not mounted on /lp — only read it on other surfaces.
@@ -136,27 +129,10 @@ export function Header() {
           )}
         </div>
 
-        {!showLpToolbar && (
-          <div className="ml-auto flex shrink-0 items-center gap-3">
-            {status === "loading" && (
-              <div
-                className="h-10 w-[min(100%,14rem)] max-w-[14rem] animate-pulse rounded-xl border border-card-border bg-input"
-                aria-hidden
-              />
-            )}
-            {status !== "loading" && session?.user && <AuthNavSignedInBar />}
-            {status !== "loading" && !session?.user && (
-              <>
-                <AuthNavLoginLink />
-                <AuthNavSignupLink />
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Row 2 — Predictions & Plaee: Privy wallet strip */}
-      {showTradingToolbar && status !== "loading" && session?.user && (
+      {showTradingToolbar && (
         <div className="flex justify-center border-t border-card-border/70 bg-card/20 py-3">
           <div className="inline-flex flex-wrap items-center justify-center gap-2">
             {walletConnected && (

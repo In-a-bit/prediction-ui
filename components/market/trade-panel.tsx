@@ -2,8 +2,6 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
@@ -154,9 +152,8 @@ export function TradePanel({
   onOutcomeChange?: (outcome: "yes" | "no") => void;
 }) {
   const [yesLabel, noLabel] = outcomeLabels;
-  const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const { dpmSdk, userProfile, requiresAppLogin, mode } = useTrading();
+  const { dpmSdk, userProfile, mode } = useTrading();
   const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
 
@@ -366,23 +363,6 @@ export function TradePanel({
     mode,
     restOrder,
   ]);
-
-  if (requiresAppLogin && !session?.user) {
-    return (
-      <div className="rounded-2xl border border-card-border bg-card p-6">
-        <h3 className="mb-2 text-sm font-semibold text-foreground">Trade</h3>
-        <p className="mb-4 text-sm text-muted">
-          Log in to start trading on this market
-        </p>
-        <Link
-          href="/login"
-          className="block w-full rounded-xl bg-brand py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-hover"
-        >
-          Log in to trade
-        </Link>
-      </div>
-    );
-  }
 
   if (mode === "lp" && !dpmSdk) {
     return (
@@ -880,7 +860,7 @@ export function TradePanel({
         {submitting ? "Submitting…" : "Trade"}
       </button>
 
-      {!userProfile?.proxyWallet && session?.user && (
+      {!userProfile?.proxyWallet && (
         <p className="mt-2 text-center text-xs text-muted">
           Connect your wallet to trade
         </p>

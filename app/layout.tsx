@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { SessionProvider } from "@/components/providers/session-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { WalletProvider } from "@/components/providers/wallet-provider";
 
@@ -23,11 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
-        <SessionProvider>
-          <WalletProvider>
-            <QueryProvider>{children}</QueryProvider>
-          </WalletProvider>
-        </SessionProvider>
+        <WalletProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </WalletProvider>
       </body>
     </html>
   );

@@ -26,28 +26,7 @@ export function TradeTicker({
   const [trades, setTrades] = useState<TradeActivity[]>([]);
   const ws = useMarketWS();
 
-  // One-time bootstrap from DB; live updates come from last_trade_price WS events.
-  useEffect(() => {
-    if (!conditionId) return;
-
-    async function fetchActivity() {
-      try {
-        const res = await fetch(
-          `/api/trades?conditionId=${conditionId}&limit=15`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setTrades(data);
-        }
-      } catch {
-        // Silently fail — activity feed is non-critical
-      }
-    }
-
-    fetchActivity();
-  }, [conditionId]);
-
+  // Activity feed is populated live from last_trade_price WS events.
   const handleTrade: MarketEventCallback = useCallback(
     (data) => {
       if (!tokenIds?.includes(data.asset_id as string)) return;
