@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
 type OrderType = "market" | "limit";
+type TimeInForce = "GTC" | "ROK" | "FOK";
 
 /**
  * Refresh every view affected by a trade: the user's open orders, the order
@@ -97,6 +98,8 @@ const EXPECTED_ORDER_ERROR_PATTERNS = [
   "post-only",
   "crosses book",
   "crosses the book",
+  "fok_order_not_filled_error",
+  "fill-or-kill",
 ];
 
 function isExpectedOrderError(message: string): boolean {
@@ -146,6 +149,70 @@ function truncateToDecimals(value: number, decimals: number): number {
   return parseFloat(out);
 }
 
+const TIF_OPTIONS: { value: TimeInForce; label: string; description: string }[] = [
+  { value: "GTC", label: "GTC", description: "Good Till Cancelled — rests until filled or cancelled" },
+  { value: "ROK", label: "Rest or Kill", description: "Post-only — rejected if it would cross the book" },
+  { value: "FOK", label: "Fill or Kill", description: "Must fill entirely immediately or is cancelled" },
+];
+
+function TifDropdown({
+  value,
+  onChange,
+}: {
+  value: TimeInForce;
+  onChange: (v: TimeInForce) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = TIF_OPTIONS.find((o) => o.value === value)!;
+
+  return (
+    <div className="relative mt-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-foreground">Order Type</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 rounded-lg border border-card-border bg-input px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-foreground/30"
+        >
+          <span>{selected.label}</span>
+          <svg className="h-3.5 w-3.5 text-muted" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M3 5l3 3 3-3"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 min-w-[14rem] rounded-lg border border-card-border bg-card py-1 shadow-lg">
+            {TIF_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full flex-col gap-0.5 px-4 py-2 text-left transition-colors hover:bg-input/60",
+                  value === opt.value ? "text-foreground" : "text-muted hover:text-foreground",
+                )}
+              >
+                <span className="text-sm font-medium">{opt.label}</span>
+                <span className="text-[10px] leading-tight opacity-70">{opt.description}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function TradePanel({
   yesTokenId,
   noTokenId,
@@ -180,6 +247,7 @@ export function TradePanel({
     onOutcomeChange?.(o);
   }, [onOutcomeChange]);
   const [orderType, setOrderType] = useState<OrderType>("limit");
+  const [timeInForce, setTimeInForce] = useState<TimeInForce>("GTC");
   const [amount, setAmount] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [limitShares, setLimitShares] = useState("");
@@ -343,7 +411,8 @@ export function TradePanel({
         shares: order.shares,
         price: order.price,
         feeRateBps: feeRate.bps,
-        ...(mode === "lp" && restOrder ? { postOnly: true } : {}),
+        ...(timeInForce === "ROK" ? { postOnly: true } : {}),
+        ...(timeInForce === "FOK" ? { orderType: "FOK" } : {}),
       });
 
       setOrderResult({
@@ -381,6 +450,7 @@ export function TradePanel({
     priceValid,
     side,
     orderType,
+    timeInForce,
     userProfile,
     feeRate.bps,
     queryClient,
@@ -869,6 +939,9 @@ export function TradePanel({
           </span>
         </label>
       )}
+
+      {/* Time-in-force */}
+      <TifDropdown value={timeInForce} onChange={setTimeInForce} />
 
       {/* Submit */}
       <button
