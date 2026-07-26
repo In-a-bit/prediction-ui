@@ -30,3 +30,12 @@ export function predictionGoUserWsUrl(): string {
 export function predictionGoPricesWsUrl(): string {
   return `${gatewayWsBase()}/ws/prices`;
 }
+
+/**
+ * Builder-scoped activity stream. The builder publishable key is passed as a
+ * query parameter because browser WebSockets cannot set custom headers on the
+ * upgrade request; the gateway forwards it to public-ws.
+ */
+export function predictionGoActivityWsUrl(builderKey: string): string {
+  return `${gatewayWsBase()}/ws/activity?builder_api_key=${encodeURIComponent(builderKey)}`;
+}

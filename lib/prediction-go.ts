@@ -6,6 +6,7 @@ export {
   gatewayWsBase,
   predictionGoMarketWsUrl,
   predictionGoUserWsUrl,
+  predictionGoActivityWsUrl,
 } from "./prediction-gateway-url";
 
 /** @deprecated Use predictionGoMarketWsUrl — kept for layout.tsx during migration. */
