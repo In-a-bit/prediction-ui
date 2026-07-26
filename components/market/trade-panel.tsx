@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
 type OrderType = "market" | "limit";
-type TimeInForce = "GTC" | "ROK" | "FOK";
+type TimeInForce = "GTC" | "ROK" | "FOK" | "FAK";
 
 /**
  * Refresh every view affected by a trade: the user's open orders, the order
@@ -99,7 +99,9 @@ const EXPECTED_ORDER_ERROR_PATTERNS = [
   "crosses book",
   "crosses the book",
   "fok_order_not_filled_error",
+  "fak_order_not_filled_error",
   "fill-or-kill",
+  "fill-and-kill",
 ];
 
 function isExpectedOrderError(message: string): boolean {
@@ -153,6 +155,7 @@ const TIF_OPTIONS: { value: TimeInForce; label: string; description: string }[] 
   { value: "GTC", label: "GTC", description: "Good Till Cancelled — rests until filled or cancelled" },
   { value: "ROK", label: "Rest or Kill", description: "Post-only — rejected if it would cross the book" },
   { value: "FOK", label: "Fill or Kill", description: "Must fill entirely immediately or is cancelled" },
+  { value: "FAK", label: "Fill and Kill", description: "Fills as much as possible immediately, cancels the remainder" },
 ];
 
 function TifDropdown({
@@ -413,6 +416,7 @@ export function TradePanel({
         feeRateBps: feeRate.bps,
         ...(timeInForce === "ROK" ? { postOnly: true } : {}),
         ...(timeInForce === "FOK" ? { orderType: "FOK" } : {}),
+        ...(timeInForce === "FAK" ? { orderType: "FAK" } : {}),
       });
 
       setOrderResult({
