@@ -15,13 +15,15 @@ import {
   DpmWalletProvider,
   useDpmWallet,
 } from "@inabit-com/dpm-sdk/react";
-import { type AuthSession, type DpmSdk, type UserProfile } from "@inabit-com/dpm-sdk";
+import {
+  type AuthSession,
+  type DpmSdk,
+  type UserProfile,
+} from "@inabit-com/dpm-sdk";
 
 import { checkAllowanceAndSignIfNeeded } from "@/lib/allowance";
 import { useUserWs } from "@/lib/hooks/use-user-ws";
 import { predictionServiceBase } from "@/lib/prediction-proxy";
-
-const DPM_PROXY_BASE = predictionServiceBase("dpm");
 
 export type { UserProfile };
 
@@ -106,13 +108,13 @@ function WalletProviderWithPrivy({
         gammaUrl: predictionServiceBase("gamma"),
         clobUrl: predictionServiceBase("clob"),
         relayerUrl: predictionServiceBase("relayer"),
+        dpmUrl: predictionServiceBase("dpm"),
       }}
       chainId={chainIdFromEnv()}
       builderApiPublicKey={builderApiPublicKey}
-      privyAppId={resolvePrivyAppId}
       errorFallback={(error: any) => (
         <div className="p-4 text-sm text-red">
-          Failed to load Privy configuration: {error}
+          Failed to load wallet configuration: {error}
         </div>
       )}
     >
@@ -192,35 +194,6 @@ function chainIdFromEnv(): number {
 function builderApiPublicKeyFromEnv(): string | null {
   const raw = process.env.NEXT_PUBLIC_BUILDER_API_PUBLIC_KEY?.trim();
   return raw || null;
-}
-
-function fallbackPrivyAppId(): string {
-  return process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() ?? "";
-}
-
-async function resolvePrivyAppId(): Promise<string> {
-  const apiKey = builderApiPublicKeyFromEnv();
-  if (apiKey === null) {
-    const id = fallbackPrivyAppId();
-    if (!id) throw new Error("NEXT_PUBLIC_PRIVY_APP_ID is required");
-    return id;
-  }
-  const res = await fetch(
-    `${DPM_PROXY_BASE}/builders/by-api-key/${encodeURIComponent(apiKey)}`,
-  );
-  if (!res.ok) {
-    throw new Error(`Failed to fetch builder by api_public_key (${res.status})`);
-  }
-  const body = (await res.json()) as {
-    wallet_type?: string | null;
-    wallet_public_key?: string | null;
-  };
-  if (body.wallet_type && body.wallet_type !== "privy_proxy") {
-    throw new Error(`Builder wallet_type is ${body.wallet_type}, expected privy_proxy`);
-  }
-  const id = body.wallet_public_key?.trim() ?? "";
-  if (!id) throw new Error("DPM response missing wallet_public_key");
-  return id;
 }
 
 /** Returns true once CLOB credentials are available (derived or cached). */
