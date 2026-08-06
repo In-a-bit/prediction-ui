@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTrading } from "@/components/providers/trading-provider";
 import { copyToClipboard } from "@/lib/utils";
+import { useOnramp } from "@/lib/hooks/use-ramp";
 
 type DepositModalProps = {
   open: boolean;
@@ -14,6 +15,7 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
   const { userProfile, walletAddress } = useTrading();
   const proxyAddress = userProfile?.proxyWallet ?? walletAddress ?? "";
   const [copied, setCopied] = useState(false);
+  const onramp = useOnramp();
   const isClient = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -74,6 +76,41 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
               <path d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+
+        <div className="mb-5">
+          <button
+            type="button"
+            onClick={() => void onramp.start()}
+            disabled={!onramp.ready || onramp.busy || !proxyAddress}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-card-border bg-input px-4 py-3 text-left transition-colors hover:border-brand hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-foreground">
+                {onramp.busy ? "Opening…" : "Buy with card or bank transfer"}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Pay with fiat and receive USDC in your wallet
+              </span>
+            </span>
+            <svg className="h-4 w-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {onramp.error && (
+            <p className="mt-2 rounded-xl border border-red/30 bg-red-dim px-3 py-2 text-xs text-red">
+              {onramp.error}
+            </p>
+          )}
+        </div>
+
+        <div className="mb-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-card-border" />
+          <span className="text-xs font-medium text-muted">
+            or transfer crypto
+          </span>
+          <span className="h-px flex-1 bg-card-border" />
         </div>
 
         <p className="mb-4 text-sm leading-relaxed text-muted">

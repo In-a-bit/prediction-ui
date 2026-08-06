@@ -11,6 +11,16 @@ import {
   invalidateAllCollateralBalances,
   useCollateralBalance,
 } from "@/lib/hooks/use-collateral-balance";
+import { useOfframp, type OfframpStage } from "@/lib/hooks/use-ramp";
+
+/** Progress text for the multi-step cash-out handoff. */
+const OFFRAMP_STATUS: Partial<Record<OfframpStage, string>> = {
+  starting: "Opening Paybis…",
+  "awaiting-confirmation": "Confirm the cash-out in the Paybis window…",
+  "loading-details": "Fetching payout details…",
+  sending: "Sending funds to Paybis…",
+  reopened: "Funds sent. Finish up in the Paybis window.",
+};
 
 type WithdrawModalProps = {
   open: boolean;
@@ -32,6 +42,7 @@ export function WithdrawModal({
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const offramp = useOfframp();
   const isClient = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -43,8 +54,9 @@ export function WithdrawModal({
     setAmount("");
     setError(null);
     setSubmitting(false);
+    offramp.reset();
     onClose();
-  }, [onClose]);
+  }, [onClose, offramp]);
 
   useEffect(() => {
     if (open) setError(null);
@@ -139,6 +151,47 @@ export function WithdrawModal({
               <path d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+
+        <div className="mb-5">
+          <button
+            type="button"
+            onClick={() => void offramp.start()}
+            disabled={!offramp.ready || offramp.busy || !proxyWallet}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-card-border bg-input px-4 py-3 text-left transition-colors hover:border-brand hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-foreground">
+                Cash out to card or bank
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Sell USDC and get paid in your local currency
+              </span>
+            </span>
+            <svg className="h-4 w-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {OFFRAMP_STATUS[offramp.stage] && (
+            <p className="mt-2 rounded-xl border border-card-border bg-input px-3 py-2 text-xs text-muted">
+              {OFFRAMP_STATUS[offramp.stage]}
+            </p>
+          )}
+
+          {offramp.error && (
+            <p className="mt-2 rounded-xl border border-red/30 bg-red-dim px-3 py-2 text-xs text-red">
+              {offramp.error}
+            </p>
+          )}
+        </div>
+
+        <div className="mb-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-card-border" />
+          <span className="text-xs font-medium text-muted">
+            or withdraw crypto
+          </span>
+          <span className="h-px flex-1 bg-card-border" />
         </div>
 
         <div className="space-y-4">
