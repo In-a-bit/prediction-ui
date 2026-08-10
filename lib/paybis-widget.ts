@@ -59,11 +59,13 @@ export function paybisWidgetOrigin(): string {
 }
 
 /**
- * The real SDK object identifies itself by constructor name; the pre-load stub
- * does not. This is how the Paybis bootstrap snippet itself tells them apart.
+ * Distinguish the real SDK from our pre-load stub. The shipped script is
+ * minified (`window.PartnerExchangeWidget = new k(...)`), so constructor.name
+ * is not "PartnerExchangeWidget". The stub only implements open(); the real
+ * instance always exposes close().
  */
 function isRealWidget(widget: PartnerExchangeWidget | undefined): boolean {
-  return widget?.constructor?.name === "PartnerExchangeWidget";
+  return typeof widget?.close === "function";
 }
 
 let loadPromise: Promise<PartnerExchangeWidget> | null = null;
