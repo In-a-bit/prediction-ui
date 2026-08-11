@@ -24,8 +24,9 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
 
   const handleClose = useCallback(() => {
     setCopied(false);
+    onramp.reset();
     onClose();
-  }, [onClose]);
+  }, [onClose, onramp]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,24 +80,43 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
         </div>
 
         <div className="mb-5">
-          <button
-            type="button"
-            onClick={() => void onramp.start()}
-            disabled={!onramp.ready || onramp.busy || !proxyAddress}
-            className="flex w-full items-center justify-between gap-3 rounded-xl border border-card-border bg-input px-4 py-3 text-left transition-colors hover:border-brand hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span>
-              <span className="block text-sm font-semibold text-foreground">
-                {onramp.busy ? "Opening…" : "Buy with card or bank transfer"}
+          {onramp.stage === "completed" ? (
+            <div className="rounded-xl border border-green/30 bg-green/5 px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">
+                Thank you — deposit received
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                We’ll update your balance soon. This can take a few minutes.
+              </p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void onramp.start()}
+              disabled={!onramp.ready || onramp.busy || !proxyAddress}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-card-border bg-input px-4 py-3 text-left transition-colors hover:border-brand hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span>
+                <span className="block text-sm font-semibold text-foreground">
+                  {onramp.stage === "opening"
+                    ? "Opening…"
+                    : onramp.stage === "awaiting"
+                      ? "In progress…"
+                      : onramp.stage === "failed" || onramp.stage === "cancelled"
+                        ? "Try again"
+                        : "Buy with card or bank transfer"}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  {onramp.stage === "awaiting"
+                    ? "Complete the deposit in the Paybis window…"
+                    : "Pay with fiat and receive USDC in your wallet"}
+                </span>
               </span>
-              <span className="mt-0.5 block text-xs text-muted">
-                Pay with fiat and receive USDC in your wallet
-              </span>
-            </span>
-            <svg className="h-4 w-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+              <svg className="h-4 w-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
 
           {onramp.error && (
             <p className="mt-2 rounded-xl border border-red/30 bg-red-dim px-3 py-2 text-xs text-red">

@@ -16,7 +16,6 @@ import {
   closePaybisWidget,
   loadPaybisWidget,
   onPaybisEvent,
-  openPaybisWidget,
 } from "@/lib/paybis-widget";
 import {
   invalidateAllCollateralBalances,
@@ -37,36 +36,141 @@ function errorMessage(err: unknown): string {
   return typeof err === "string" ? err : "Something went wrong";
 }
 
+/** Client-facing deposit outcome from Paybis widget events. */
+export type OnrampStage =
+  | "idle"
+  | "opening"
+  | "awaiting"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+type OnrampOutcome = {
+  stage: Exclude<OnrampStage, "opening" | "awaiting">;
+  error?: string;
+};
+
+function subscribeOnrampOutcome(
+  widget: Awaited<ReturnType<typeof loadPaybisWidget>>,
+  requestId: string,
+  onOutcome: (outcome: OnrampOutcome) => void,
+): () => void {
+  let settled = false;
+  const finish = (outcome: OnrampOutcome) => {
+    if (settled) return;
+    settled = true;
+    console.log(
+      "[useOnramp.subscribeOnrampOutcome] requestId=%s stage=%s",
+      requestId,
+      outcome.stage,
+    );
+    onOutcome(outcome);
+  };
+  const unsubs = [
+    onPaybisEvent(widget, "oncompleted", () => finish({ stage: "completed" })),
+    onPaybisEvent(widget, "onrejected", () =>
+      finish({
+        stage: "failed",
+        error: "Deposit was rejected. Please try again.",
+      }),
+    ),
+    onPaybisEvent(widget, "onerror", () =>
+      finish({
+        stage: "failed",
+        error: "Deposit failed. Please try again.",
+      }),
+    ),
+    onPaybisEvent(widget, "oncancelled", () =>
+      finish({
+        stage: "cancelled",
+        error: "Deposit was cancelled. Please try again.",
+      }),
+    ),
+    // Closing the overlay often fires only onclosed (no oncancelled).
+    onPaybisEvent(widget, "onclosed", () => finish({ stage: "idle" })),
+  ];
+  return () => {
+    for (const unsub of unsubs) unsub();
+  };
+}
+
 /**
  * Buy-crypto flow: ask the backend for a request id, then hand the user to the
- * Paybis widget. Funds land in the proxy wallet on their own, so there is
- * nothing further for us to do — the webhook listener records the outcome.
+ * Paybis widget. Funds land in the proxy wallet on their own; the webhook
+ * listener records the outcome. Widget events drive thank-you / try-again UI.
  */
 export function useOnramp() {
   const { dpmSdk } = useTrading();
   const { serviceBase } = useMarketSurface();
-  const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
+  const [stage, setStage] = useState<OnrampStage>("idle");
   const [error, setError] = useState<string | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  const clearListeners = useCallback(() => {
+    unsubscribeRef.current?.();
+    unsubscribeRef.current = null;
+  }, []);
+
+  const applyOutcome = useCallback(
+    (outcome: OnrampOutcome) => {
+      clearListeners();
+      setStage(outcome.stage);
+      setError(outcome.error ?? null);
+      if (outcome.stage === "completed") {
+        void invalidateAllCollateralBalances(queryClient);
+      }
+    },
+    [clearListeners, queryClient],
+  );
 
   const start = useCallback(async () => {
-    if (!dpmSdk || busy) return;
+    if (!dpmSdk || stage === "opening") return;
     setError(null);
-    setBusy(true);
+    setStage("opening");
+    clearListeners();
     try {
       const requestId = await createRampRequest(
         dpmSdk,
         "onramp",
         serviceBase("gamma"),
       );
-      await openPaybisWidget({ requestId });
+      const widget = await loadPaybisWidget();
+      unsubscribeRef.current = subscribeOnrampOutcome(
+        widget,
+        requestId,
+        applyOutcome,
+      );
+      setStage("awaiting");
+      widget.open({ requestId });
     } catch (err) {
       setError(errorMessage(err));
-    } finally {
-      setBusy(false);
+      setStage("failed");
     }
-  }, [dpmSdk, busy, serviceBase]);
+  }, [dpmSdk, stage, serviceBase, clearListeners, applyOutcome]);
 
-  return { start, busy, error, clearError: () => setError(null), ready: Boolean(dpmSdk) };
+  const reset = useCallback(() => {
+    clearListeners();
+    setStage("idle");
+    setError(null);
+  }, [clearListeners]);
+
+  useEffect(
+    () => () => {
+      clearListeners();
+    },
+    [clearListeners],
+  );
+
+  return {
+    start,
+    reset,
+    stage,
+    busy: stage === "opening" || stage === "awaiting",
+    error,
+    clearError: () => setError(null),
+    ready: Boolean(dpmSdk),
+  };
 }
 
 /** Where the off-ramp handoff currently is, for user-facing status text. */
@@ -111,12 +215,22 @@ export function useOfframp() {
   const proxyRef = useRef<string | null>(walletAddress);
   proxyRef.current = walletAddress;
 
+  const stageRef = useRef<OfframpStage>("idle");
+  stageRef.current = stage;
+  // closePaybisWidget() during the handoff fires onclosed — ignore that close.
+  const ignoreWidgetCloseRef = useRef(false);
+
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const clearListeners = useCallback(() => {
+    unsubscribeRef.current?.();
+    unsubscribeRef.current = null;
+  }, []);
+
   useEffect(
     () => () => {
-      unsubscribeRef.current?.();
+      clearListeners();
     },
-    [],
+    [clearListeners],
   );
 
   const exceedsUsdcBalance = useCallback((amount: string): boolean => {
@@ -169,10 +283,28 @@ export function useOfframp() {
     [dpmSdk, personalSign, serviceBase, exceedsUsdcBalance, queryClient],
   );
 
+  const dismissIfUserClosed = useCallback(() => {
+    if (ignoreWidgetCloseRef.current) return;
+    const current = stageRef.current;
+    // Only the first widget open (and the optional re-open) should reset on
+    // dismiss. Programmatic close during the handoff is ignored above.
+    if (current !== "awaiting-confirmation" && current !== "reopened") return;
+    console.log(
+      "[useOfframp.dismissIfUserClosed] widget closed at stage=%s",
+      current,
+    );
+    clearListeners();
+    setStage("idle");
+    setError(null);
+    setDetails(null);
+  }, [clearListeners]);
+
   const handlePaymentInitiated = useCallback(
     async (requestId: string) => {
       if (!dpmSdk) return;
       try {
+        ignoreWidgetCloseRef.current = true;
+        clearListeners();
         closePaybisWidget();
 
         setStage("loading-details");
@@ -188,14 +320,22 @@ export function useOfframp() {
 
         // Only now may the widget be re-opened, so Paybis can watch for the
         // deposit and release the fiat payout.
+        const widget = await loadPaybisWidget();
+        ignoreWidgetCloseRef.current = false;
+        unsubscribeRef.current = onPaybisEvent(
+          widget,
+          "onclosed",
+          dismissIfUserClosed,
+        );
         setStage("reopened");
-        await openPaybisWidget({ requestId });
+        widget.open({ requestId });
       } catch (err) {
+        ignoreWidgetCloseRef.current = false;
         setError(errorMessage(err));
         setStage("failed");
       }
     },
-    [dpmSdk, serviceBase, sendCrypto],
+    [dpmSdk, serviceBase, sendCrypto, clearListeners, dismissIfUserClosed],
   );
 
   const start = useCallback(async () => {
@@ -203,6 +343,7 @@ export function useOfframp() {
     setError(null);
     setDetails(null);
     setStage("starting");
+    ignoreWidgetCloseRef.current = false;
     try {
       const requestId = await createRampRequest(
         dpmSdk,
@@ -211,10 +352,17 @@ export function useOfframp() {
       );
 
       const widget = await loadPaybisWidget();
-      unsubscribeRef.current?.();
-      unsubscribeRef.current = onPaybisEvent(widget, "onpaymentinitiated", () => {
-        void handlePaymentInitiated(requestId);
-      });
+      clearListeners();
+      const unsubs = [
+        onPaybisEvent(widget, "onpaymentinitiated", () => {
+          void handlePaymentInitiated(requestId);
+        }),
+        onPaybisEvent(widget, "onclosed", dismissIfUserClosed),
+        onPaybisEvent(widget, "oncancelled", dismissIfUserClosed),
+      ];
+      unsubscribeRef.current = () => {
+        for (const unsub of unsubs) unsub();
+      };
 
       setStage("awaiting-confirmation");
       widget.open({ requestId });
@@ -222,15 +370,15 @@ export function useOfframp() {
       setError(errorMessage(err));
       setStage("failed");
     }
-  }, [dpmSdk, stage, serviceBase, handlePaymentInitiated]);
+  }, [dpmSdk, stage, serviceBase, handlePaymentInitiated, clearListeners, dismissIfUserClosed]);
 
   const reset = useCallback(() => {
-    unsubscribeRef.current?.();
-    unsubscribeRef.current = null;
+    ignoreWidgetCloseRef.current = false;
+    clearListeners();
     setStage("idle");
     setError(null);
     setDetails(null);
-  }, []);
+  }, [clearListeners]);
 
   return {
     start,
