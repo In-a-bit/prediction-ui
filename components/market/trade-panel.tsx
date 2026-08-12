@@ -5,7 +5,10 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
+import { isAddress } from "viem";
+
 import { useTrading } from "@/components/providers/trading-provider";
+import { useSettings } from "@/components/providers/settings-provider";
 import {
   useCollateralBalance,
   COLLATERAL_BALANCE_QUERY_ROOT,
@@ -242,6 +245,7 @@ export function TradePanel({
   const [yesLabel, noLabel] = outcomeLabels;
   const queryClient = useQueryClient();
   const { dpmSdk, userProfile, mode } = useTrading();
+  const { settings } = useSettings();
   const [outcome, setOutcomeState] = useState<"yes" | "no">("yes");
   const [side, setSide] = useState<"buy" | "sell">("buy");
 
@@ -255,6 +259,9 @@ export function TradePanel({
   const [limitPrice, setLimitPrice] = useState("");
   const [limitShares, setLimitShares] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Address that receives this order's proceeds. Empty means the maker is paid,
+  // which is what the exchange does for the zero address.
+  const [recipient, setRecipient] = useState("");
   const [orderResult, setOrderResult] = useState<
     { kind: "success" | "error"; message: string } | null
   >(null);
@@ -341,7 +348,13 @@ export function TradePanel({
     [feeRateBpsInput],
   );
 
+  // Only meaningful when the input is shown; a stale value can otherwise never be
+  // submitted, since the field is cleared on success and never rendered.
+  const recipientTrimmed = recipient.trim();
+  const recipientValid = recipientTrimmed === "" || isAddress(recipientTrimmed);
+
   const canSubmit =
+    recipientValid &&
     !!currentTokenId &&
     !!dpmSdk &&
     order.dollarAmount > 0 &&
@@ -417,6 +430,7 @@ export function TradePanel({
         ...(timeInForce === "ROK" ? { postOnly: true } : {}),
         ...(timeInForce === "FOK" ? { orderType: "FOK" } : {}),
         ...(timeInForce === "FAK" ? { orderType: "FAK" } : {}),
+        ...(recipientTrimmed ? { recipient: recipientTrimmed } : {}),
       });
 
       setOrderResult({
@@ -425,6 +439,7 @@ export function TradePanel({
       });
       if (orderType === "market") setAmount("");
       else setLimitShares("");
+      setRecipient("");
 
       await refreshAfterTrade(queryClient);
 
@@ -454,6 +469,9 @@ export function TradePanel({
     priceValid,
     side,
     orderType,
+    // Without this the callback closes over a stale value and could route a
+    // trade's proceeds to a previously typed address.
+    recipientTrimmed,
     timeInForce,
     userProfile,
     feeRate.bps,
@@ -946,6 +964,50 @@ export function TradePanel({
 
       {/* Time-in-force */}
       <TifDropdown value={timeInForce} onChange={setTimeInForce} />
+
+      {/* Recipient — the order's proceeds go here instead of to the trader.
+          Off by default and enabled per browser from Settings, because the
+          capability is supported platform-wide but is not part of the standard
+          trading flow. */}
+      {settings.showOrderRecipientInput && (
+        <div className="mt-3">
+          <label
+            htmlFor="order-recipient"
+            className="mb-1 block text-xs font-medium text-muted"
+          >
+            Recipient <span className="font-normal">(optional)</span>
+          </label>
+          <input
+            id="order-recipient"
+            type="text"
+            inputMode="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder="0x… — leave empty to receive it yourself"
+            aria-invalid={!recipientValid}
+            aria-describedby="order-recipient-help"
+            className={cn(
+              "h-10 w-full min-w-0 rounded-lg border bg-input px-3 text-sm font-medium text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none",
+              recipientValid ? "border-card-border" : "border-red/50",
+            )}
+          />
+          <p id="order-recipient-help" className="mt-1 text-xs text-muted">
+            {recipientValid ? (
+              <>
+                Sends this order&apos;s proceeds to another address. You still pay for
+                the order and remain the only one who can cancel it.
+              </>
+            ) : (
+              <span className="text-red">
+                Not a valid address. Check for a missing character or altered
+                capitalisation — addresses carry a checksum.
+              </span>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Submit */}
       <button

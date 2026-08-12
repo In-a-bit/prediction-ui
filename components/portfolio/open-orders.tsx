@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useOpenOrders, useCancelOrder, type OpenOrder } from "@/lib/hooks/use-open-orders";
+import { useTrading } from "@/components/providers/trading-provider";
 import {
   useMarketLookup,
   isPrimaryOutcomeToken,
@@ -13,6 +14,35 @@ import { outcomeBadgeClass } from "@/lib/market/gamma-helpers";
 interface MarketGroup {
   market: string;
   orders: OpenOrder[];
+}
+
+/**
+ * An order is cancellable only by its maker — the wallet that funded it. Since
+ * "my orders" also returns orders that merely pay out to this wallet, a recipient
+ * would otherwise be shown a Cancel button that the API rejects.
+ *
+ * Treated as cancellable when the wallet is unknown, so a transient profile load
+ * does not hide the button on the user's own orders.
+ */
+function isCancellableBy(order: OpenOrder, proxyWallet: string | null | undefined): boolean {
+  if (!proxyWallet || !order.maker_address) return true;
+  return order.maker_address.toLowerCase() === proxyWallet.toLowerCase();
+}
+
+/**
+ * This wallet placed and funded the order, but named someone else to receive its
+ * proceeds. The mirror image of the recipient case above, and the one worth
+ * surfacing on the row: the trader should see where a filled order will pay out.
+ */
+function routedElsewhere(order: OpenOrder, proxyWallet: string | null | undefined): boolean {
+  if (!order.recipient || !proxyWallet) return false;
+  if (!isCancellableBy(order, proxyWallet)) return false;
+  return order.recipient.toLowerCase() !== proxyWallet.toLowerCase();
+}
+
+/** 0x1234…abcd — long enough to recognise, short enough for a table cell. */
+function shortAddress(address: string): string {
+  return address.length <= 12 ? address : `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
 function groupByMarket(orders: OpenOrder[]): MarketGroup[] {
@@ -63,6 +93,7 @@ function MarketGroupRow({
   cancellingIds,
   onCancelOrder,
   marketInfo,
+  proxyWallet,
 }: {
   group: MarketGroup;
   expanded: boolean;
@@ -70,6 +101,7 @@ function MarketGroupRow({
   cancellingIds: Set<string>;
   onCancelOrder: (order: OpenOrder) => void;
   marketInfo?: MarketDisplayInfo;
+  proxyWallet?: string | null;
 }) {
   return (
     <>
@@ -157,6 +189,14 @@ function MarketGroupRow({
                 >
                   {order.outcome} {formatPrice(order.price)}
                 </span>
+                {routedElsewhere(order, proxyWallet) && order.recipient && (
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted border border-card-border"
+                    title={`Proceeds of this order go to ${order.recipient}, not to your wallet.`}
+                  >
+                    → {shortAddress(order.recipient)}
+                  </span>
+                )}
               </div>
             </td>
             <td className="px-4 py-3 text-sm text-foreground">
@@ -169,16 +209,25 @@ function MarketGroupRow({
               {formatExpiration(order.expiration, order.order_type)}
             </td>
             <td className="px-4 py-3 text-right">
-              <button
-                onClick={() => onCancelOrder(order)}
-                disabled={cancellingIds.has(order.id)}
-                className={cn(
-                  "rounded-lg border border-red/30 px-3 py-1 text-xs font-medium text-red hover:bg-red/10 transition-colors",
-                  cancellingIds.has(order.id) && "opacity-50 cursor-not-allowed",
-                )}
-              >
-                {cancellingIds.has(order.id) ? "Cancelling…" : "Cancel"}
-              </button>
+              {isCancellableBy(order, proxyWallet) ? (
+                <button
+                  onClick={() => onCancelOrder(order)}
+                  disabled={cancellingIds.has(order.id)}
+                  className={cn(
+                    "rounded-lg border border-red/30 px-3 py-1 text-xs font-medium text-red hover:bg-red/10 transition-colors",
+                    cancellingIds.has(order.id) && "opacity-50 cursor-not-allowed",
+                  )}
+                >
+                  {cancellingIds.has(order.id) ? "Cancelling…" : "Cancel"}
+                </button>
+              ) : (
+                <span
+                  className="text-xs text-muted"
+                  title={`Placed by ${order.maker_address}, who receives the proceeds of it. Only they can cancel it.`}
+                >
+                  Paid to you
+                </span>
+              )}
             </td>
           </tr>
         ))}
@@ -188,6 +237,8 @@ function MarketGroupRow({
 
 export function OpenOrders() {
   const { data: orders, isPending, error } = useOpenOrders();
+  const { userProfile } = useTrading();
+  const proxyWallet = userProfile?.proxyWallet ?? null;
   const marketIds = useMemo(
     () => (orders ?? []).map((order) => order.market),
     [orders],
@@ -361,6 +412,7 @@ export function OpenOrders() {
                   cancellingIds={cancellingIds}
                   onCancelOrder={handleCancelOrder}
                   marketInfo={marketLookup?.get(group.market)}
+                  proxyWallet={proxyWallet}
                 />
               ))}
             </tbody>
