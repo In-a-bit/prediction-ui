@@ -6,7 +6,6 @@ import { parseUnits } from "viem";
 
 import { useTrading } from "@/components/providers/trading-provider";
 import { useMarketSurface } from "@/components/providers/market-surface-provider";
-import { usePrivyPersonalSign } from "@/components/providers/privy-sign-provider";
 import {
   createRampRequest,
   getOfframpDetails,
@@ -21,12 +20,6 @@ import {
   invalidateAllCollateralBalances,
   useCollateralBalance,
 } from "@/lib/hooks/use-collateral-balance";
-import {
-  exceedsNativeBalance,
-  getNativeBalanceNormalized,
-  isNativeRampAsset,
-  submitNativeProxyWithdraw,
-} from "@/lib/native-proxy-withdraw";
 
 /** USDC decimals; the collateral balance is quoted in whole USDC. */
 const COLLATERAL_DECIMALS = 6;
@@ -191,18 +184,14 @@ export type OfframpStage =
  *   create request -> open widget -> user confirms -> close widget ->
  *   read payment details -> send crypto -> re-open widget -> fiat payout
  *
- * Sandbox (POL-AMOY) uses a UI-local Privy-signed native withdraw so the public
- * SDK stays free of test-only paths. Production (USDC) uses submitFundWithdraw.
- *
  * Paybis explicitly forbids re-opening the widget when the transfer fails, so a
  * failure ends the flow and surfaces an error instead.
  */
 export function useOfframp() {
-  const { dpmSdk, walletAddress } = useTrading();
+  const { dpmSdk } = useTrading();
   const { serviceBase } = useMarketSurface();
   const { balanceNormalized } = useCollateralBalance();
   const queryClient = useQueryClient();
-  const personalSign = usePrivyPersonalSign();
 
   const [stage, setStage] = useState<OfframpStage>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -212,8 +201,6 @@ export function useOfframp() {
   // over a stale balance.
   const balanceRef = useRef<string | null>(balanceNormalized);
   balanceRef.current = balanceNormalized;
-  const proxyRef = useRef<string | null>(walletAddress);
-  proxyRef.current = walletAddress;
 
   const stageRef = useRef<OfframpStage>("idle");
   stageRef.current = stage;
@@ -249,29 +236,6 @@ export function useOfframp() {
   const sendCrypto = useCallback(
     async (payment: OfframpDetailsResponse) => {
       if (!dpmSdk) throw new Error("Sign in to continue");
-      const native = isNativeRampAsset(payment.asset, payment.currency_code);
-      if (native) {
-        if (!personalSign) {
-          throw new Error("Native cash-out requires a Privy session");
-        }
-        const proxy = dpmSdk.getProxyWallet() ?? proxyRef.current;
-        if (!proxy) throw new Error("No proxy wallet");
-        const nativeBal = await getNativeBalanceNormalized(proxy);
-        if (exceedsNativeBalance(payment.amount, nativeBal)) {
-          throw new Error(
-            `Not enough POL balance: the cash-out needs ${payment.amount} ${payment.currency_code}.`,
-          );
-        }
-        await submitNativeProxyWithdraw({
-          dpmSdk,
-          personalSign,
-          relayerBase: serviceBase("relayer"),
-          recipient: payment.destination_address,
-          amountDecimal: payment.amount,
-        });
-        return;
-      }
-
       if (exceedsUsdcBalance(payment.amount)) {
         throw new Error(
           `Not enough balance: the cash-out needs ${payment.amount} ${payment.currency_code}.`,
@@ -280,7 +244,7 @@ export function useOfframp() {
       await dpmSdk.submitFundWithdraw(payment.destination_address, payment.amount);
       await invalidateAllCollateralBalances(queryClient);
     },
-    [dpmSdk, personalSign, serviceBase, exceedsUsdcBalance, queryClient],
+    [dpmSdk, exceedsUsdcBalance, queryClient],
   );
 
   const dismissIfUserClosed = useCallback(() => {
