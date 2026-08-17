@@ -80,11 +80,11 @@ function createLpSdkProxy(): DpmSdk {
       if (!res.ok) throw new Error(json.error ?? "cancelOrder failed");
       return json.result;
     },
-    async submitRedeemPositions(conditionId: string) {
+    async submitRedeemPositions(conditionId: string, recipient?: string) {
       const res = await fetch("/api/lp/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conditionId }),
+        body: JSON.stringify({ conditionId, ...(recipient ? { recipient } : {}) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "submitRedeemPositions failed");

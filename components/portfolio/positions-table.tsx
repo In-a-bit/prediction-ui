@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { usePositions, type Position } from "@/lib/hooks/use-positions";
 import { useRedeemPosition } from "@/lib/hooks/use-redeem-position";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
+import { RedeemRecipientModal } from "@/components/portfolio/redeem-recipient-modal";
 
 function formatCents(price: number): string {
   const cents = Math.round(price * 100);
@@ -163,17 +165,31 @@ function PositionRow({ position: pos }: { position: Position }) {
   const pnlPositive = pos.cashPnl >= 0;
   const redeem = useRedeemPosition();
   const [redeemError, setRedeemError] = useState<string | null>(null);
+  // The LP surface is where we exercise redeem-to-another-recipient, so only
+  // there does the button ask for an address first.
+  const { id: surface } = useMarketSurface();
+  const [recipientPromptOpen, setRecipientPromptOpen] = useState(false);
 
-  function handleRedeem() {
+  function submitRedeem(recipient?: string) {
     setRedeemError(null);
     redeem.mutate(
-      { conditionId: pos.conditionId },
+      { conditionId: pos.conditionId, recipient },
       {
+        onSuccess: () => setRecipientPromptOpen(false),
         onError: (err) => {
           setRedeemError(err instanceof Error ? err.message : String(err));
         },
       },
     );
+  }
+
+  function handleRedeem() {
+    if (surface === "lp") {
+      setRedeemError(null);
+      setRecipientPromptOpen(true);
+      return;
+    }
+    submitRedeem();
   }
 
   return (
@@ -266,9 +282,17 @@ function PositionRow({ position: pos }: { position: Position }) {
             <DownloadIcon />
           </button>
         </div>
-        {redeemError && (
+        {redeemError && !recipientPromptOpen && (
           <p className="mt-1 text-right text-xs text-red">{redeemError}</p>
         )}
+        <RedeemRecipientModal
+          open={recipientPromptOpen}
+          onClose={() => setRecipientPromptOpen(false)}
+          marketLabel={`${pos.question || pos.title || pos.conditionId} · ${pos.outcome}`}
+          onConfirm={submitRedeem}
+          submitting={redeem.isPending}
+          error={redeemError}
+        />
       </td>
     </tr>
   );

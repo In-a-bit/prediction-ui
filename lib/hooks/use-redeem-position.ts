@@ -11,6 +11,8 @@ import {
 
 export interface RedeemPositionParams {
   conditionId: string;
+  /** Send the payout here instead of to the proxy wallet that holds the shares. */
+  recipient?: string;
 }
 
 export function useRedeemPosition() {
@@ -18,10 +20,13 @@ export function useRedeemPosition() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ conditionId }: RedeemPositionParams) => {
+    mutationFn: async ({ conditionId, recipient }: RedeemPositionParams) => {
       if (!dpmSdk) throw new Error("DPM SDK not ready");
-      console.log("[useRedeemPosition] submitRedeemPositions: begin", { conditionId });
-      return dpmSdk.submitRedeemPositions(conditionId);
+      console.log("[useRedeemPosition] submitRedeemPositions: begin", {
+        conditionId,
+        recipient,
+      });
+      return dpmSdk.submitRedeemPositions(conditionId, recipient);
     },
     onSuccess: (_data, { conditionId }) => {
       console.log("[useRedeemPosition] submitRedeemPositions: success", { conditionId });

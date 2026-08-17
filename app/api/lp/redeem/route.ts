@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { isAddress } from "viem";
 
 import { LP_SESSION_COOKIE } from "@/lib/lp/format";
 import { requireLpSession } from "@/lib/lp/sdk";
@@ -13,7 +14,11 @@ export async function POST(req: Request) {
     if (typeof conditionId !== "string" || !conditionId) {
       return NextResponse.json({ error: "conditionId is required" }, { status: 400 });
     }
-    const result = await record.sdk.submitRedeemPositions(conditionId);
+    const recipient = body?.recipient;
+    if (recipient !== undefined && (typeof recipient !== "string" || !isAddress(recipient))) {
+      return NextResponse.json({ error: "recipient must be an address" }, { status: 400 });
+    }
+    const result = await record.sdk.submitRedeemPositions(conditionId, recipient);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
