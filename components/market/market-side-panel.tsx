@@ -53,6 +53,7 @@ export function MarketSidePanel({
 
   return (
     <TradePanel
+      conditionId={market?.conditionId}
       yesTokenId={yesTokenId}
       noTokenId={noTokenId}
       initialYesPrice={initialYesPrice}

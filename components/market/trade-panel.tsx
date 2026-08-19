@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
+import { SplitMergeForm } from "@/components/market/split-merge-form";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
 import { isAddress } from "viem";
@@ -17,8 +18,12 @@ import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
-type OrderType = "market" | "limit";
+type OrderType = "market" | "limit" | "split" | "merge";
 type TimeInForce = "GTC" | "ROK" | "FOK" | "FAK";
+
+const TRADE_ORDER_TYPES = ["market", "limit"] as const;
+/** Split and merge go through the CTF rather than the book, so they are LP-only. */
+const LP_ORDER_TYPES = [...TRADE_ORDER_TYPES, "split", "merge"] as const;
 
 /**
  * Refresh every view affected by a trade: the user's open orders, the order
@@ -219,7 +224,77 @@ function TifDropdown({
   );
 }
 
+/**
+ * The order-type control. Split and Merge sit here rather than in their own
+ * button because they are the other two ways to acquire or unwind a position on
+ * this market, so the operator picks between all four in one place.
+ */
+function OrderTypeDropdown({
+  value,
+  onChange,
+  options,
+}: {
+  value: OrderType;
+  onChange: (v: OrderType) => void;
+  options: readonly OrderType[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+      >
+        <span className="capitalize">{value}</span>
+        <svg className="h-3.5 w-3.5" viewBox="0 0 12 12" fill="none">
+          <path
+            d="M3 5l3 3 3-3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-card-border bg-card py-1 shadow-lg">
+            {options.map((t) => {
+              const disabled = t === "market";
+              return (
+                <button
+                  key={t}
+                  disabled={disabled}
+                  title={disabled ? "Coming soon" : undefined}
+                  onClick={() => {
+                    if (disabled) return;
+                    onChange(t);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "block w-full px-4 py-1.5 text-left text-sm capitalize transition-colors",
+                    disabled
+                      ? "cursor-not-allowed text-muted/50"
+                      : value === t
+                        ? "text-foreground"
+                        : "text-muted hover:text-foreground",
+                  )}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function TradePanel({
+  conditionId,
   yesTokenId,
   noTokenId,
   initialYesPrice,
@@ -229,6 +304,8 @@ export function TradePanel({
   minOrderSize = 1,
   onOutcomeChange,
 }: {
+  /** Required for split and merge, which act on the condition rather than a token. */
+  conditionId?: string;
   yesTokenId: string | undefined;
   noTokenId: string | undefined;
   initialYesPrice: number;
@@ -254,6 +331,7 @@ export function TradePanel({
     onOutcomeChange?.(o);
   }, [onOutcomeChange]);
   const [orderType, setOrderType] = useState<OrderType>("limit");
+  const orderTypeOptions = mode === "lp" ? LP_ORDER_TYPES : TRADE_ORDER_TYPES;
   const [timeInForce, setTimeInForce] = useState<TimeInForce>("GTC");
   const [amount, setAmount] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
@@ -265,7 +343,6 @@ export function TradePanel({
   const [orderResult, setOrderResult] = useState<
     { kind: "success" | "error"; message: string } | null
   >(null);
-  const [showOrderTypeMenu, setShowOrderTypeMenu] = useState(false);
   const [feeRateBpsInput, setFeeRateBpsInput] = useState("");
   /** LP default: post-only (rest) orders. Ignored outside LP mode. */
   const [restOrder, setRestOrder] = useState(true);
@@ -491,6 +568,33 @@ export function TradePanel({
     );
   }
 
+  // Split and merge act on the whole condition, so the buy/sell tabs, outcome
+  // toggle, price and time-in-force controls below have nothing to say about
+  // them — only the order-type dropdown carries over.
+  if (orderType === "split" || orderType === "merge") {
+    return (
+      <div className="rounded-2xl border border-card-border bg-card p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-sm font-semibold capitalize text-foreground">
+            {orderType}
+          </h3>
+          <OrderTypeDropdown
+            value={orderType}
+            onChange={setOrderType}
+            options={orderTypeOptions}
+          />
+        </div>
+        <SplitMergeForm
+          action={orderType}
+          conditionId={conditionId}
+          yesTokenId={yesTokenId}
+          noTokenId={noTokenId}
+          outcomeLabels={outcomeLabels}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-card-border bg-card p-6">
       {/* Header: Buy/Sell tabs + Order type dropdown */}
@@ -515,59 +619,11 @@ export function TradePanel({
             </button>
           ))}
         </div>
-        {/* Order type dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setShowOrderTypeMenu((v) => !v)}
-            className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
-          >
-            <span className="capitalize">{orderType}</span>
-            <svg className="h-3.5 w-3.5" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M3 5l3 3 3-3"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          {showOrderTypeMenu && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setShowOrderTypeMenu(false)}
-              />
-              <div className="absolute right-0 top-full z-20 mt-1 rounded-lg border border-card-border bg-card py-1 shadow-lg">
-                {(["market", "limit"] as const).map((t) => {
-                  const disabled = t === "market";
-                  return (
-                    <button
-                      key={t}
-                      disabled={disabled}
-                      title={disabled ? "Coming soon" : undefined}
-                      onClick={() => {
-                        if (disabled) return;
-                        setOrderType(t);
-                        setShowOrderTypeMenu(false);
-                      }}
-                      className={cn(
-                        "block w-full px-4 py-1.5 text-left text-sm capitalize transition-colors",
-                        disabled
-                          ? "cursor-not-allowed text-muted/50"
-                          : orderType === t
-                            ? "text-foreground"
-                            : "text-muted hover:text-foreground",
-                      )}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
+        <OrderTypeDropdown
+          value={orderType}
+          onChange={setOrderType}
+          options={orderTypeOptions}
+        />
       </div>
 
       {/* Outcome toggle — shows best ask (buy) or best bid (sell) from orderbook */}

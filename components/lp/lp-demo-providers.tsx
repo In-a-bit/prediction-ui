@@ -52,6 +52,30 @@ export function useLpConnectApi() {
   return ctx;
 }
 
+/**
+ * Split and merge share a request shape, and the signing key only exists on the
+ * server, so both go out as the same POST to their own route.
+ */
+async function postCtfAction(
+  action: "split" | "merge",
+  conditionId: string,
+  amount: string,
+  recipient?: string,
+): Promise<{ transactionID: string; state: string }> {
+  const res = await fetch(`/api/lp/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      conditionId,
+      amount,
+      ...(recipient ? { recipient } : {}),
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? `${action} failed`);
+  return json as { transactionID: string; state: string };
+}
+
 function createLpSdkProxy(): DpmSdk {
   const proxy = {
     async submitOrder(orderParams: OrderParams): Promise<SubmitOrderResult> {
@@ -89,6 +113,20 @@ function createLpSdkProxy(): DpmSdk {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "submitRedeemPositions failed");
       return json as { transactionID: string; state: string };
+    },
+    async submitSplitPosition(
+      conditionId: string,
+      amount: string,
+      recipient?: string,
+    ) {
+      return postCtfAction("split", conditionId, amount, recipient);
+    },
+    async submitMergePositions(
+      conditionId: string,
+      amount: string,
+      recipient?: string,
+    ) {
+      return postCtfAction("merge", conditionId, amount, recipient);
     },
     async submitFundWithdraw(recipient: string, amount: string) {
       const res = await fetch("/api/lp/withdraw", {
