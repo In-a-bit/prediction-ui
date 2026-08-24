@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { OutcomeToggle } from "@/components/market/outcome-toggle";
 import { SplitMergeForm } from "@/components/market/split-merge-form";
+import { WithdrawSharesForm } from "@/components/market/withdraw-shares-form";
 import { useMidpoint } from "@/lib/hooks/use-prices";
 import { useOutcomePrices } from "@/lib/hooks/use-outcome-prices";
 import { isAddress } from "viem";
@@ -18,12 +19,12 @@ import { useTokenBalances } from "@/lib/hooks/use-token-balances";
 import { cn } from "@/lib/utils";
 import { BalanceBreakdown, TokenBalanceBreakdown } from "@/components/wallet/balance-breakdown";
 
-type OrderType = "market" | "limit" | "split" | "merge";
+type OrderType = "market" | "limit" | "split" | "merge" | "withdraw";
 type TimeInForce = "GTC" | "ROK" | "FOK" | "FAK";
 
 const TRADE_ORDER_TYPES = ["market", "limit"] as const;
-/** Split and merge go through the CTF rather than the book, so they are LP-only. */
-const LP_ORDER_TYPES = [...TRADE_ORDER_TYPES, "split", "merge"] as const;
+/** Split, merge, and share withdraw go through the CTF rather than the book, so they are LP-only. */
+const LP_ORDER_TYPES = [...TRADE_ORDER_TYPES, "split", "merge", "withdraw"] as const;
 
 /**
  * Refresh every view affected by a trade: the user's open orders, the order
@@ -225,9 +226,9 @@ function TifDropdown({
 }
 
 /**
- * The order-type control. Split and Merge sit here rather than in their own
- * button because they are the other two ways to acquire or unwind a position on
- * this market, so the operator picks between all four in one place.
+ * The order-type control. Split, merge, and share withdraw sit here rather
+ * than in their own button because they are the other ways to acquire or unwind
+ * a position on this market.
  */
 function OrderTypeDropdown({
   value,
@@ -564,6 +565,24 @@ export function TradePanel({
         <p className="text-sm text-muted">
           Connect an LP API key and EOA private key to trade.
         </p>
+      </div>
+    );
+  }
+
+  if (orderType === "withdraw") {
+    return (
+      <div className="rounded-2xl border border-card-border bg-card p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">
+            Withdraw tokens
+          </h3>
+          <OrderTypeDropdown
+            value={orderType}
+            onChange={setOrderType}
+            options={orderTypeOptions}
+          />
+        </div>
+        <WithdrawSharesForm />
       </div>
     );
   }
