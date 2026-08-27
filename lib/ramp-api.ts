@@ -18,8 +18,14 @@ function rampPath(path: string, gammaBase?: string): string {
 
 export type RampType = "onramp" | "offramp";
 
-export type RampRequestResponse = {
-  request_id: string;
+export type RampJSON = {
+  id: number;
+  user_id: number;
+  type: string;
+  provider_name: string;
+  external_id?: string;
+  status: string;
+  deposit_address?: string;
 };
 
 export type OfframpDetailsResponse = {
@@ -65,8 +71,8 @@ async function failure(res: Response, label: string): Promise<Error> {
 }
 
 /**
- * Creates a ramp request and returns the Paybis request id used to open the
- * widget. POST /ramp/onramp | /ramp/offramp
+ * Creates a ramp request and returns the provider request id (external_id)
+ * used to open the widget. POST /ramp/onramp | /ramp/offramp
  */
 export async function createRampRequest(
   dpmSdk: DpmSdk,
@@ -78,9 +84,9 @@ export async function createRampRequest(
     headers: await authHeaders(dpmSdk),
   });
   if (!res.ok) throw await failure(res, `POST /ramp/${type}`);
-  const body = (await res.json()) as RampRequestResponse;
-  if (!body.request_id) throw new Error("Ramp provider returned no request id");
-  return body.request_id;
+  const body = (await res.json()) as RampJSON;
+  if (!body.external_id) throw new Error("Ramp provider returned no request id");
+  return body.external_id;
 }
 
 /**
