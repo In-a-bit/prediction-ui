@@ -11,16 +11,38 @@ import { siteConfig } from "@/lib/site-config";
  * browser shows, never what the backend accepts. siteConfig supplies the shipped
  * defaults; anything stored here is an override on top of them.
  */
+export const WS_NOTIFICATION_CHANNELS = ["markets", "events", "activity"] as const;
+
+export type WsNotificationChannel = (typeof WS_NOTIFICATION_CHANNELS)[number];
+
 export interface Settings {
   /** Show the recipient address field in the trade panel. */
   showOrderRecipientInput: boolean;
+  /**
+   * Public WebSocket streams that feed the header notification popup.
+   * Empty means no connection and no icon.
+   */
+  wsPopupNotifications: WsNotificationChannel[];
 }
 
 const DEFAULT_SETTINGS: Settings = {
   showOrderRecipientInput: siteConfig.showOrderRecipientInput,
+  wsPopupNotifications: [],
 };
 
 const STORAGE_KEY = "dpm.settings.v1";
+
+function parseWsChannels(value: unknown): WsNotificationChannel[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const allowed = new Set<string>(WS_NOTIFICATION_CHANNELS);
+  const out: WsNotificationChannel[] = [];
+  for (const item of value) {
+    if (typeof item === "string" && allowed.has(item) && !out.includes(item as WsNotificationChannel)) {
+      out.push(item as WsNotificationChannel);
+    }
+  }
+  return out;
+}
 
 /** Ignores unknown or wrongly-typed keys so an old or hand-edited value cannot break the app. */
 function parseStored(raw: string | null): Partial<Settings> {
@@ -28,13 +50,13 @@ function parseStored(raw: string | null): Partial<Settings> {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return {};
+    const record = parsed as Record<string, unknown>;
     const out: Partial<Settings> = {};
-    for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]) {
-      const value = (parsed as Record<string, unknown>)[key];
-      if (typeof value === typeof DEFAULT_SETTINGS[key]) {
-        out[key] = value as Settings[typeof key];
-      }
+    if (typeof record.showOrderRecipientInput === "boolean") {
+      out.showOrderRecipientInput = record.showOrderRecipientInput;
     }
+    const channels = parseWsChannels(record.wsPopupNotifications);
+    if (channels) out.wsPopupNotifications = channels;
     return out;
   } catch {
     return {};

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { MainShell } from "@/components/layout/main-shell";
-import { ActivityWsProvider } from "@/components/providers/activity-ws-provider";
 import { SettingsProvider } from "@/components/providers/settings-provider";
+import { WsNotificationsProvider } from "@/components/providers/ws-notifications-provider";
 
 export default function MainLayout({
   children,
@@ -11,7 +11,7 @@ export default function MainLayout({
 }) {
   return (
     <SettingsProvider>
-      <ActivityWsProvider>
+      <WsNotificationsProvider>
         <div className="flex min-h-screen bg-background">
           <Suspense>
             <Sidebar />
@@ -22,7 +22,7 @@ export default function MainLayout({
             </Suspense>
           </main>
         </div>
-      </ActivityWsProvider>
+      </WsNotificationsProvider>
     </SettingsProvider>
   );
 }

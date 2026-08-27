@@ -1,13 +1,33 @@
 "use client";
 
-import { useSettings, type Settings } from "@/components/providers/settings-provider";
+import {
+  useSettings,
+  WS_NOTIFICATION_CHANNELS,
+  type Settings,
+  type WsNotificationChannel,
+} from "@/components/providers/settings-provider";
 import { cn } from "@/lib/utils";
 
 interface ToggleRow {
-  key: keyof Settings;
+  key: Extract<keyof Settings, "showOrderRecipientInput">;
   title: string;
   description: string;
 }
+
+const CHANNEL_COPY: Record<WsNotificationChannel, { title: string; description: string }> = {
+  markets: {
+    title: "Markets",
+    description: "New, updated and resolved markets from /ws/markets.",
+  },
+  events: {
+    title: "Events",
+    description: "New and updated events from /ws/events.",
+  },
+  activity: {
+    title: "Activity",
+    description: "Orders, trades, positions, ramps and balances from /ws/activity.",
+  },
+};
 
 const TRADING_TOGGLES: ToggleRow[] = [
   {
@@ -92,6 +112,65 @@ export function SettingsClientPage() {
               onChange={(next) => setSetting(row.key, next)}
             />
           ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="ws-notification-settings" className="mt-8">
+        <h2
+          id="ws-notification-settings"
+          className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted"
+        >
+          Pop-up WebSocket notifications
+        </h2>
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          Connect through the gateway (APP_API_KEY stays on the server) and collect
+          frames in the header bell. Opening the popup marks them read and clears
+          the cache.
+        </p>
+        <div className="flex flex-col gap-3">
+          {WS_NOTIFICATION_CHANNELS.map((channel) => {
+            const copy = CHANNEL_COPY[channel];
+            const checked = settings.wsPopupNotifications.includes(channel);
+            return (
+              <label
+                key={channel}
+                className={cn(
+                  "flex cursor-pointer items-start justify-between gap-4 rounded-xl border",
+                  "border-card-border px-4 py-4 transition-colors hover:border-foreground/20",
+                )}
+              >
+                <span className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-foreground">{copy.title}</span>
+                  <span className="text-xs leading-relaxed text-muted">{copy.description}</span>
+                </span>
+                <span className="relative mt-0.5 shrink-0">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={checked}
+                    onChange={() => {
+                      const next = checked
+                        ? settings.wsPopupNotifications.filter((c) => c !== channel)
+                        : [...settings.wsPopupNotifications, channel];
+                      setSetting("wsPopupNotifications", next);
+                    }}
+                  />
+                  <span
+                    className={cn(
+                      "block h-6 w-10 rounded-full transition-colors",
+                      checked ? "bg-brand" : "bg-card-border",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                      checked && "translate-x-4",
+                    )}
+                  />
+                </span>
+              </label>
+            );
+          })}
         </div>
       </section>
 

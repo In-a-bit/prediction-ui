@@ -8,6 +8,7 @@ import { WalletButton } from "@/components/wallet/wallet-button";
 import { CollateralBalance } from "@/components/wallet/collateral-balance";
 import { DepositModal } from "@/components/wallet/deposit-modal";
 import { LpConnectButton } from "@/components/lp/lp-connect-button";
+import { WsNotificationsBell } from "@/components/notifications/ws-notifications-bell";
 
 /** Predictions + Plaee surfaces where wallet, deposit, and portfolio balance belong. */
 function isTradingSurface(pathname: string) {
@@ -129,6 +130,7 @@ export function Header() {
           )}
         </div>
 
+        <WsNotificationsBell />
       </div>
 
       {/* Row 2 — Predictions & Plaee: Privy wallet strip */}

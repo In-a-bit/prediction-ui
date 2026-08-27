@@ -39,3 +39,13 @@ export function predictionGoPricesWsUrl(): string {
 export function predictionGoActivityWsUrl(builderKey: string): string {
   return `${gatewayWsBase()}/ws/activity?builder_api_key=${encodeURIComponent(builderKey)}`;
 }
+
+/** Push-only market row stream. Gateway injects APP_API_KEY on the upgrade. */
+export function predictionGoMarketsWsUrl(): string {
+  return `${gatewayWsBase()}/ws/markets`;
+}
+
+/** Push-only event row stream. Gateway injects APP_API_KEY on the upgrade. */
+export function predictionGoEventsWsUrl(): string {
+  return `${gatewayWsBase()}/ws/events`;
+}

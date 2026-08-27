@@ -7,6 +7,8 @@ export {
   predictionGoMarketWsUrl,
   predictionGoUserWsUrl,
   predictionGoActivityWsUrl,
+  predictionGoMarketsWsUrl,
+  predictionGoEventsWsUrl,
 } from "./prediction-gateway-url";
 
 /** @deprecated Use predictionGoMarketWsUrl — kept for layout.tsx during migration. */
