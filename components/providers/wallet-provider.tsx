@@ -55,8 +55,17 @@ function isLpPath(pathname: string) {
 }
 
 /**
- * LP demo does not use Privy / prediction-gateway. Skip wallet bootstrap there so
- * `/lp` still loads when the gateway is down.
+ * The Builder tab is a custody builder's console. Its users hold wallets in the builder's own
+ * dpm-wallet, not a browser wallet, so there is nothing here for Privy to do — and the end-user
+ * view deliberately delegates all of that to the embedded Plaee iframe.
+ */
+function isBuilderPath(pathname: string) {
+  return pathname === "/builder" || pathname.startsWith("/builder/");
+}
+
+/**
+ * The LP demo and the Builder tab do not use Privy / prediction-gateway. Skip wallet bootstrap on
+ * both so they still load when the gateway is down.
  */
 export function WalletProvider({ children }: { children: ReactNode }) {
   const builderApiPublicKey = builderApiPublicKeyFromEnv();
@@ -85,7 +94,7 @@ function WalletProviderGate({
   builderApiPublicKey: string;
 }) {
   const pathname = usePathname();
-  if (isLpPath(pathname)) {
+  if (isLpPath(pathname) || isBuilderPath(pathname)) {
     return <>{children}</>;
   }
   return (

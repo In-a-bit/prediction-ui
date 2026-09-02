@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 
 import { useSettings, type WsNotificationChannel } from "@/components/providers/settings-provider";
 import { useActivityWs } from "@/lib/hooks/use-activity-ws";
@@ -61,6 +62,19 @@ function builderApiPublicKeyFromEnv(): string | null {
   return raw || null;
 }
 
+/**
+ * The custody-builder demo has its own builders, its own users and its own event surface inside
+ * the Plaee iframe. The activity stream is scoped to *this* app's builder key and carries nothing
+ * about them, so on `/builder` it is not merely irrelevant — it reconnects against a gateway the
+ * tab does not otherwise need, filling the console of the one surface being demonstrated.
+ *
+ * Only the builder-scoped activity stream is suppressed here; markets and events are global
+ * public streams and stay available wherever the user has opted into them.
+ */
+function isBuilderPath(pathname: string): boolean {
+  return pathname === "/builder" || pathname.startsWith("/builder/");
+}
+
 function eventTypeOf(frame: Record<string, unknown>): string {
   return typeof frame.event_type === "string" ? frame.event_type : "unknown";
 }
@@ -73,6 +87,7 @@ export function WsNotificationsProvider({ children }: { children: React.ReactNod
   const { settings } = useSettings();
   const channels = settings.wsPopupNotifications;
   const builderKey = builderApiPublicKeyFromEnv();
+  const pathname = usePathname();
 
   const [unread, setUnread] = useState<WsNotification[]>([]);
   const [openItems, setOpenItems] = useState<WsNotification[] | null>(null);
@@ -120,7 +135,7 @@ export function WsNotificationsProvider({ children }: { children: React.ReactNod
 
   useActivityWs({
     builderKey,
-    enabled: channels.includes("activity"),
+    enabled: channels.includes("activity") && !isBuilderPath(pathname),
     onEvent: (event) => push("activity", event),
   });
 
