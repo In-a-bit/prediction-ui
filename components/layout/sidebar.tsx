@@ -29,6 +29,24 @@ export function Sidebar() {
   const isPlaeActive =
     pathname === "/plaee" || pathname.startsWith("/plaee/");
   const isLpActive = pathname === "/lp" || pathname.startsWith("/lp/");
+  const isBuilderActive =
+    pathname === "/builder" || pathname.startsWith("/builder/");
+
+  /**
+   * Data-driven rather than five copy-pasted links, so adding a sixth is one line.
+   *
+   * The grid is two columns because the sidebar is `w-56` — about 184px of usable width, which
+   * leaves ~90px per column. Three columns would be ~59px, and "Predictions" does not fit at
+   * `text-xs`. Builder therefore takes a full-width row of its own, which also reads correctly:
+   * it is a different kind of thing from the four market surfaces above it.
+   */
+  const tabs = [
+    { href: "/", label: "Casino", active: isCasinoActive },
+    { href: "/predictions", label: "Predictions", active: isPredictionsActive },
+    { href: "/plaee", label: "Plaee", active: isPlaeActive },
+    { href: "/lp", label: "LP", active: isLpActive },
+    { href: "/builder", label: "Builder", active: isBuilderActive, span: true },
+  ];
 
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 border-r border-card-border bg-sidebar p-4 lg:block">
@@ -56,52 +74,21 @@ export function Sidebar() {
         </span>
       </Link>
 
-      {/* Tab Switcher — 2×2 so four tabs fit the sidebar width */}
+      {/* Tab switcher — two columns; Builder spans both on its own row. */}
       <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-card-border/30 p-1">
-        <Link
-          href="/"
-          className={cn(
-            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
-            isCasinoActive
-              ? "bg-brand text-white"
-              : "text-muted hover:text-foreground",
-          )}
-        >
-          Casino
-        </Link>
-        <Link
-          href="/predictions"
-          className={cn(
-            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
-            isPredictionsActive
-              ? "bg-brand text-white"
-              : "text-muted hover:text-foreground",
-          )}
-        >
-          Predictions
-        </Link>
-        <Link
-          href="/plaee"
-          className={cn(
-            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
-            isPlaeActive
-              ? "bg-brand text-white"
-              : "text-muted hover:text-foreground",
-          )}
-        >
-          Plaee
-        </Link>
-        <Link
-          href="/lp"
-          className={cn(
-            "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
-            isLpActive
-              ? "bg-brand text-white"
-              : "text-muted hover:text-foreground",
-          )}
-        >
-          LP
-        </Link>
+        {tabs.map((tab) => (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            className={cn(
+              "rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-colors",
+              tab.span && "col-span-2",
+              tab.active ? "bg-brand text-white" : "text-muted hover:text-foreground",
+            )}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </div>
 
       {/* Category nav for Predictions tab */}

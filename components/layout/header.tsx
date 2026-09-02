@@ -20,6 +20,17 @@ function isTradingSurface(pathname: string) {
   );
 }
 
+/**
+ * The Builder tab is an operator's console, not a place to trade.
+ *
+ * It gets neither the wallet button nor the deposit modal nor the collateral balance: those are
+ * an end user's objects, and the person here is the builder. The end user's view lives inside the
+ * embedded Plaee iframe, which has its own header.
+ */
+function isBuilderSurface(pathname: string) {
+  return pathname === "/builder" || pathname.startsWith("/builder/");
+}
+
 function isLpSurface(pathname: string) {
   return pathname === "/lp" || pathname.startsWith("/lp/");
 }
@@ -41,6 +52,14 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const showTradingToolbar = isTradingSurface(pathname);
+  /**
+   * Hidden on the Builder tab, not merely inert.
+   *
+   * `navigateSearch` pushes to `/predictions` on the first keystroke, so leaving the box visible
+   * on a console that has nothing to search means one stray character throws the operator out of
+   * the tab mid-configuration.
+   */
+  const showSearch = !isBuilderSurface(pathname);
   const searchPlaceholder = isCasinoSurface(pathname)
     ? "Search casino"
     : showLpToolbar
@@ -98,6 +117,7 @@ export function Header() {
     <header className="sticky top-0 z-40 mb-6 border-b border-card-border bg-header backdrop-blur-xl">
       {/* Row 1 — search + auth (hidden on LP — independent of prediction-ui login) */}
       <div className="flex w-full items-center gap-4 py-3">
+        {showSearch ? (
         <div className="relative min-w-0 max-w-xl flex-1">
           <svg
             className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
@@ -129,6 +149,14 @@ export function Header() {
             </button>
           )}
         </div>
+        ) : (
+          <p className="py-2.5 text-sm font-semibold text-foreground">
+            Custody builder demo
+            <span className="ml-2 text-xs font-normal text-muted">
+              a builder&apos;s own site, with Plaee embedded inside it
+            </span>
+          </p>
+        )}
 
         <WsNotificationsBell />
       </div>
