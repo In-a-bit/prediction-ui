@@ -41,10 +41,35 @@ export type SiteBalances = {
  */
 export type Position = {
   tokenId: string;
+  /** The CTF condition — what a redemption is addressed to. Null when the row could not be valued. */
+  conditionId: string | null;
+  /** From the builder's own ledger — in shared custody that ledger is the money. */
   sizeMicro: string;
+  /** Shares put up against an open sell. Still theirs, just not sellable twice. */
   reservedMicro: string;
   question: string | null;
   outcome: string | null;
+
+  /** Cost per share, buy fee included. */
+  avgPrice: number | null;
+  /**
+   * Price per share now, or null when the book has no price — a market with no resting orders, or
+   * a closed one. Null rather than 0, because everything derived from a zero price reads as a
+   * total loss. When this is null, value and PnL are null too and the UI shows a dash.
+   */
+  curPrice: number | null;
+  initialValue: number | null;
+  currentValue: number | null;
+  cashPnl: number | null;
+  percentPnl: number | null;
+  /** Payout if this outcome wins: a dollar a share. */
+  toWin: number | null;
+  redeemable: boolean;
+  icon: string | null;
+  slug: string | null;
+  endDate: string | null;
+  /** Set only when the chain disagrees with the builder's ledger about size. */
+  chainSizeMismatch: number | null;
 };
 
 export type CustomerProfile = BuilderSiteConfig & {

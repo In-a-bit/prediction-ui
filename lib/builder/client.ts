@@ -125,6 +125,33 @@ export function fetchCustomerPositions(
   return call<ManagedPositions>(mode, `/manage/users/${userId}/positions`);
 }
 
+/**
+ * Sell shares, and redeem a resolved market.
+ *
+ * Two surfaces, one behaviour: a customer acting on their own position goes through `/site/…` with
+ * their session, an operator acting for them goes through `/manage/…` with the admin key. Both land
+ * on the same Plaee call, so the custody routing cannot differ by who asked.
+ */
+export function sellPosition(
+  mode: BuilderMode,
+  input: { tokenId: string; shares: number; price: number },
+  userId?: string,
+) {
+  const path = userId ? `/manage/users/${userId}/positions/sell` : "/site/positions/sell";
+  return call<{ id: string; submitState: string; clobStatus: string | null }>(mode, path, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function redeemPosition(mode: BuilderMode, conditionId: string, userId?: string) {
+  const path = userId ? `/manage/users/${userId}/positions/redeem` : "/site/positions/redeem";
+  return call<{ id: string; state: string; relayerTxId?: string }>(mode, path, {
+    method: "POST",
+    body: JSON.stringify({ conditionId }),
+  });
+}
+
 export function adjustCustomer(
   mode: BuilderMode,
   userId: string,

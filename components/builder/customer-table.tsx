@@ -113,7 +113,7 @@ export function CustomerTable({
         </div>
       )}
 
-      {showing && <CustomerPositions key={showing} mode={mode} userId={showing} />}
+      {showing && <CustomerPositions key={showing} mode={mode} userId={showing} onChanged={onChanged} />}
 
       {adjusting && (
         <AdjustForm
@@ -209,7 +209,15 @@ function AdjustForm({
  * Fetched here rather than with the table because naming a token costs an upstream call per market,
  * and the table would otherwise pay that for every customer to render figures nobody asked to see.
  */
-function CustomerPositions({ mode, userId }: { mode: BuilderMode; userId: string }) {
+function CustomerPositions({
+  mode,
+  userId,
+  onChanged,
+}: {
+  mode: BuilderMode;
+  userId: string;
+  onChanged: () => void;
+}) {
   const [result, setResult] = useState<ManagedPositions | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -245,7 +253,13 @@ function CustomerPositions({ mode, userId }: { mode: BuilderMode; userId: string
 
   return (
     <div className="border-t border-card-border p-4">
-      <PositionsPanel positions={result.data} title="Holdings" />
+      <PositionsPanel
+        mode={mode}
+        positions={result.data}
+        title="Holdings"
+        userId={userId}
+        onChanged={onChanged}
+      />
       <PositionsUnnamedNote named={result.named} />
     </div>
   );
