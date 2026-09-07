@@ -192,7 +192,15 @@ function SignedIn({
       <MoneyPanel mode={mode} balances={balances} onChanged={setBalances} />
 
       <PositionsPanel
+        mode={mode}
         positions={balances.positions}
+        onChanged={() => {
+          // A sell or redeem changes both the shares held and what is reserved against them, and
+          // neither is known until the builder's backend has been asked again.
+          void fetchProfile(mode).then((p) => {
+            if (p) setBalances(p.balances);
+          });
+        }}
         empty="Nothing held yet. Anything bought in prediction markets shows up here."
       />
 
