@@ -29,6 +29,22 @@ export type SiteBalances = {
   predictionsMicro: string;
   reservedMicro: string;
   source: "ledger" | "chain" | "mirror";
+  positions: Position[];
+};
+
+/**
+ * One outcome-token holding.
+ *
+ * `question` and `outcome` are null when the builder's backend could not reach Plaee — only Plaee
+ * can turn a token id into a question, because a custody builder holds no platform credential. The
+ * holding still renders: these are shares the customer owns, and hiding them would read as zero.
+ */
+export type Position = {
+  tokenId: string;
+  sizeMicro: string;
+  reservedMicro: string;
+  question: string | null;
+  outcome: string | null;
 };
 
 export type CustomerProfile = BuilderSiteConfig & {
@@ -37,6 +53,13 @@ export type CustomerProfile = BuilderSiteConfig & {
   displayName: string | null;
   /** Null until they first open prediction markets — a DPM wallet is provisioned lazily. */
   plaeeUserId: string | null;
+  /**
+   * Their own proxy wallet on chain, null until provisioning completes.
+   *
+   * Meaningful in both custody modes, for different reasons: in segregated custody it holds their
+   * USDC, and in shared custody the builder funds the buy but this proxy receives the shares.
+   */
+  proxyWallet: string | null;
   balances: SiteBalances;
 };
 
@@ -82,6 +105,16 @@ export type ManagedUser = {
   cashMicro: string | null;
   predictionsMicro: string;
   reservedMicro: string;
+  /** Cached by the operator from Plaee. Null until provisioning completes. */
+  proxyAddress: string | null;
+  /** From the operator's own ledger. Naming a token needs Plaee, so the table shows a count. */
+  positionCount: number;
+};
+
+/** What `GET /manage/users/:id/positions` answers. `named` is false when Plaee was unreachable. */
+export type ManagedPositions = {
+  data: Position[];
+  named: boolean;
 };
 
 /** A platform wallet with what the chain says it holds. */

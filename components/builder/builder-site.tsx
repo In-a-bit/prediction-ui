@@ -8,6 +8,8 @@ import { PlaeeEmbed } from "@/components/builder/plaee-embed";
 import { BuilderAuthPanel } from "@/components/builder/builder-auth-panel";
 import { ModeBadge } from "@/components/builder/mode-badge";
 import { MoneyPanel } from "@/components/builder/money-panel";
+import { PositionsPanel } from "@/components/builder/positions-panel";
+import { WalletAddress } from "@/components/builder/wallet-address";
 import { fetchProfile, fetchSiteConfig, openPredictionSession, signOut } from "@/lib/builder/client";
 import type {
   BuilderMode,
@@ -165,6 +167,10 @@ function SignedIn({
           </div>
           <h1 className="mt-1 text-lg font-semibold">{profile.displayName ?? profile.email}</h1>
           <p className="text-xs text-muted">{MODE_COPY[mode].funds}</p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+            <span>Your wallet</span>
+            <WalletAddress address={profile.proxyWallet} pending="set up on your first trade" />
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -184,6 +190,11 @@ function SignedIn({
       </section>
 
       <MoneyPanel mode={mode} balances={balances} onChanged={setBalances} />
+
+      <PositionsPanel
+        positions={balances.positions}
+        empty="Nothing held yet. Anything bought in prediction markets shows up here."
+      />
 
       {session?.state === "ready" ? (
         <PlaeeEmbed key={session.iframeUrl} src={session.iframeUrl} />
