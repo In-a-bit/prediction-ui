@@ -21,3 +21,27 @@ export function formatSignedUsd(micro: string): string {
 export function isValidAmount(value: string): boolean {
   return /^\d+(\.\d{1,6})?$/.test(value.trim()) && Number(value) > 0;
 }
+
+/**
+ * Shares, not money — so no currency symbol, and trailing zeros trimmed.
+ *
+ * Same 6-decimal micro-units as USDC, because that is the precision the CLOB reports fills in.
+ * Rendering these as dollars would be a category error a reader could not see: 12.5 shares of an
+ * outcome token is not $12.50, and at a price of 0.30 it is not even close.
+ */
+export function formatShares(micro: string | null | undefined): string {
+  if (micro === null || micro === undefined || micro === "") return "0";
+  const value = Number(BigInt(micro)) / 1_000_000;
+  return value.toLocaleString("en-US", { maximumFractionDigits: 6 });
+}
+
+/**
+ * An address, shortened for a table but still recognisable at both ends.
+ *
+ * Both ends matter: addresses in this system share long prefixes (they are CREATE2-derived from
+ * the same factory), so a leading fragment alone can look identical between two different wallets.
+ */
+export function shortAddress(address: string | null | undefined): string {
+  if (!address) return "";
+  return address.length <= 14 ? address : `${address.slice(0, 8)}…${address.slice(-6)}`;
+}

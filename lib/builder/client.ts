@@ -5,6 +5,7 @@ import type {
   BuilderSiteConfig,
   CashEntry,
   CustomerProfile,
+  ManagedPositions,
   ManagedUser,
   PredictionSession,
   TransferResult,
@@ -109,6 +110,19 @@ export async function fetchCashEntries(mode: BuilderMode): Promise<CashEntry[]> 
 export async function fetchManagedUsers(mode: BuilderMode): Promise<ManagedUser[]> {
   const { data } = await call<{ data: ManagedUser[]; total: number }>(mode, "/manage/users");
   return data;
+}
+
+/**
+ * One customer's holdings, fetched when their row is opened rather than with the table.
+ *
+ * Naming a token takes an upstream call per market, so doing it for every row would make the
+ * table's cost scale with the customer list to render figures nobody has asked to see yet.
+ */
+export function fetchCustomerPositions(
+  mode: BuilderMode,
+  userId: string,
+): Promise<ManagedPositions> {
+  return call<ManagedPositions>(mode, `/manage/users/${userId}/positions`);
 }
 
 export function adjustCustomer(

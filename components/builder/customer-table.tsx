@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { adjustCustomer } from "@/lib/builder/client";
+import { PositionsPanel, PositionsUnnamedNote } from "@/components/builder/positions-panel";
+import { WalletAddress } from "@/components/builder/wallet-address";
+import { adjustCustomer, fetchCustomerPositions } from "@/lib/builder/client";
 import { formatUsd } from "@/lib/builder/money";
-import type { BuilderMode, ManagedUser } from "@/lib/builder/types";
+import type { BuilderMode, ManagedPositions, ManagedUser } from "@/lib/builder/types";
 
 /**
  * The builder's customers and what they hold.
@@ -25,6 +27,7 @@ export function CustomerTable({
   onChanged: () => void;
 }) {
   const [adjusting, setAdjusting] = useState<string | null>(null);
+  const [showing, setShowing] = useState<string | null>(null);
   const segregated = mode === "segregated";
 
   return (
@@ -56,6 +59,7 @@ export function CustomerTable({
                 </th>
                 <th className="px-3 py-2 text-right font-normal">Held</th>
                 <th className="px-3 py-2 font-normal">Wallet</th>
+                <th className="px-3 py-2 text-right font-normal">Positions</th>
                 <th className="px-5 py-2 text-right font-normal"></th>
               </tr>
             </thead>
@@ -78,15 +82,19 @@ export function CustomerTable({
                     {formatUsd(user.reservedMicro)}
                   </td>
                   <td className="px-3 py-2.5">
-                    {user.plaeeUserId ? (
-                      <span className="text-green">provisioned</span>
-                    ) : (
-                      <span
-                        className="text-muted"
-                        title="A DPM wallet costs two on-chain transactions, so it is minted on their first visit to prediction markets rather than at sign-up."
+                    <WalletAddress address={user.proxyAddress} pending="not yet" />
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    {user.positionCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowing(showing === user.id ? null : user.id)}
+                        className="rounded-md border border-card-border px-2.5 py-1 hover:border-brand hover:bg-card-hover"
                       >
-                        not yet
-                      </span>
+                        {showing === user.id ? "Hide" : `${user.positionCount} held`}
+                      </button>
+                    ) : (
+                      <span className="text-muted">—</span>
                     )}
                   </td>
                   <td className="px-5 py-2.5 text-right">
@@ -104,6 +112,8 @@ export function CustomerTable({
           </table>
         </div>
       )}
+
+      {showing && <CustomerPositions key={showing} mode={mode} userId={showing} />}
 
       {adjusting && (
         <AdjustForm
@@ -190,5 +200,53 @@ function AdjustForm({
       </button>
       {error && <p className="w-full text-xs text-red">{error}</p>}
     </form>
+  );
+}
+
+/**
+ * One customer's holdings, loaded when their row is opened.
+ *
+ * Fetched here rather than with the table because naming a token costs an upstream call per market,
+ * and the table would otherwise pay that for every customer to render figures nobody asked to see.
+ */
+function CustomerPositions({ mode, userId }: { mode: BuilderMode; userId: string }) {
+  const [result, setResult] = useState<ManagedPositions | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetchCustomerPositions(mode, userId)
+      .then((r) => {
+        if (live) setResult(r);
+      })
+      .catch((err: unknown) => {
+        if (live) setError(err instanceof Error ? err.message : "Could not load positions");
+      });
+    // Cancelled on unmount, so a slow response for a row that has since been closed cannot land.
+    // The caller keys this component by customer, so opening a different row remounts it rather
+    // than reusing the previous customer's state.
+    return () => {
+      live = false;
+    };
+  }, [mode, userId]);
+
+  if (error) {
+    return (
+      <div className="border-t border-card-border px-5 py-3 text-xs text-red">{error}</div>
+    );
+  }
+  if (!result) {
+    return (
+      <div className="border-t border-card-border px-5 py-3 text-xs text-muted">
+        Loading positions…
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-card-border p-4">
+      <PositionsPanel positions={result.data} title="Holdings" />
+      <PositionsUnnamedNote named={result.named} />
+    </div>
   );
 }
