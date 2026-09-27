@@ -9,14 +9,9 @@ import { buildSoccerGameView, groupGamesByDate } from "@/lib/sports-soccer";
 import type { GammaEvent } from "@/lib/types/event";
 import { PlaeSoccerGameCard } from "./plae-soccer-game-card";
 
-const RECENT_KICKOFF_MS = 24 * 60 * 60 * 1000;
-
-function recentKickoffCutoff(): Date {
-  return new Date(Date.now() - RECENT_KICKOFF_MS);
-}
-
 function gamesFromSeriesEvents(events: GammaEvent[] | undefined) {
   return (events ?? [])
+    .filter((event) => event.active)
     .map(buildSoccerGameView)
     .filter((game): game is NonNullable<typeof game> => game != null);
 }
@@ -29,7 +24,10 @@ export function PlaeSoccerSeriesPage({ slug }: { slug: string }) {
     queryFn: () =>
       fetchSeriesBySlug(slug, {
         gammaBase,
-        slotEndAfter: recentKickoffCutoff(),
+        // Empty slot_end_after means now, which drops an active game whose
+        // kickoff is already past. Epoch removes that window; inactive
+        // events are skipped below.
+        slotEndAfter: new Date(0),
       }),
   });
 
