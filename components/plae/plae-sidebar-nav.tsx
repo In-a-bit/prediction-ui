@@ -3,12 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  getPlaeSoccerTopics,
-  plaeCryptoTopic,
-  plaeSoccerGroup,
-} from "@/lib/data/plae-topics";
-import { useMarketSurface } from "@/components/providers/market-surface-provider";
+import { plaeCryptoTopic, plaeSoccerGroup } from "@/lib/data/plae-topics";
+import { usePlaeEvents } from "@/lib/hooks/use-plae-events";
+import type { GammaEvent } from "@/lib/types/event";
 import { cn } from "@/lib/utils";
 
 function NavIcon({ path }: { path: string }) {
@@ -27,16 +24,33 @@ function NavIcon({ path }: { path: string }) {
   );
 }
 
+const SOCCER_LEAGUE_LIMIT = 100;
+
+interface SoccerLeagueLink {
+  slug: string;
+  title: string;
+}
+
+function seriesHref(basePath: string, slug: string) {
+  return `${basePath}/series/${slug}`;
+}
+
+function leaguesFromEvents(events: GammaEvent[]): SoccerLeagueLink[] {
+  const seen = new Set<string>();
+  const leagues: SoccerLeagueLink[] = [];
+  for (const event of events) {
+    const series = event.series?.[0];
+    if (!series?.slug || seen.has(series.slug)) continue;
+    seen.add(series.slug);
+    leagues.push({ slug: series.slug, title: series.title || series.slug });
+  }
+  return leagues.sort((a, b) => a.title.localeCompare(b.title));
+}
+
 /** Shared topic nav for Plaee and LP surfaces. */
 export function PlaeSidebarNav() {
   const pathname = usePathname();
-  const surface = useMarketSurface();
-  const basePath = pathname.startsWith("/lp")
-    ? "/lp"
-    : pathname.startsWith("/plaee")
-      ? "/plaee"
-      : surface.basePath;
-  const soccerTopics = getPlaeSoccerTopics();
+  const basePath = pathname.startsWith("/lp") ? "/lp" : "/plaee";
 
   function topicHref(slug: string) {
     return `${basePath}/t/${slug}`;
@@ -46,9 +60,7 @@ export function PlaeSidebarNav() {
     return pathname === topicHref(slug);
   }
 
-  const soccerChildActive = soccerTopics.some((topic) =>
-    topicIsActive(topic.slug),
-  );
+  const soccerChildActive = pathname.startsWith(`${basePath}/series/`);
   const [soccerOpen, setSoccerOpen] = useState(soccerChildActive);
 
   useEffect(() => {
@@ -102,29 +114,70 @@ export function PlaeSidebarNav() {
         </button>
 
         {soccerOpen ? (
-          <div className="ml-3 mt-1 space-y-1 border-l border-card-border pl-3">
-            {soccerTopics.map((topic) => {
-              const isActive = topicIsActive(topic.slug);
-
-              return (
-                <Link
-                  key={topic.slug}
-                  href={topicHref(topic.slug)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-brand/10 text-brand"
-                      : "text-muted hover:bg-card-hover hover:text-foreground",
-                  )}
-                >
-                  <NavIcon path={plaeSoccerGroup.icon} />
-                  {topic.label}
-                </Link>
-              );
-            })}
-          </div>
+          <SoccerLeagueLinks basePath={basePath} pathname={pathname} />
         ) : null}
       </div>
     </nav>
+  );
+}
+
+function SoccerLeagueLinks({
+  basePath,
+  pathname,
+}: {
+  basePath: string;
+  pathname: string;
+}) {
+  const { data, isLoading } = usePlaeEvents({
+    active: true,
+    group_by_series: true,
+    tag_slug: "soccer",
+    limit: SOCCER_LEAGUE_LIMIT,
+  });
+  const leagues = leaguesFromEvents(data?.events ?? []);
+
+  if (isLoading) {
+    return <p className="px-3 py-2 text-xs text-muted">Loading leagues…</p>;
+  }
+  if (leagues.length === 0) {
+    return <p className="px-3 py-2 text-xs text-muted">No leagues</p>;
+  }
+
+  return (
+    <div className="ml-3 mt-1 space-y-1 border-l border-card-border pl-3">
+      {leagues.map((league) => (
+        <LeagueLink
+          key={league.slug}
+          league={league}
+          href={seriesHref(basePath, league.slug)}
+          active={pathname === seriesHref(basePath, league.slug)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function LeagueLink({
+  league,
+  href,
+  active,
+}: {
+  league: SoccerLeagueLink;
+  href: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "bg-brand/10 text-brand"
+          : "text-muted hover:bg-card-hover hover:text-foreground",
+      )}
+    >
+      <NavIcon path={plaeSoccerGroup.icon} />
+      {league.title}
+    </Link>
   );
 }
