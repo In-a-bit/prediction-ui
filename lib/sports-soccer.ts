@@ -316,10 +316,13 @@ export function formatGameVolume(volume: number): string {
   return `${formatVolume(volume)} Vol.`;
 }
 
-export function sortGamesByKickoff(
-  games: SoccerGameView[],
+// Generic over any game view shape with a `kickoff`, so non-soccer sports
+// (which build their own game view in lib/sports-games.ts) can reuse the
+// same sort/group-by-date helpers instead of duplicating them.
+export function sortGamesByKickoff<T extends { kickoff: Date | null }>(
+  games: T[],
   ascending = true,
-): SoccerGameView[] {
+): T[] {
   return [...games].sort((a, b) => {
     const aTime = a.kickoff?.getTime();
     const bTime = b.kickoff?.getTime();
@@ -332,10 +335,10 @@ export function sortGamesByKickoff(
   });
 }
 
-export function groupGamesByDate(
-  games: SoccerGameView[],
-): { label: string; games: SoccerGameView[] }[] {
-  const groups = new Map<string, SoccerGameView[]>();
+export function groupGamesByDate<T extends { kickoff: Date | null }>(
+  games: T[],
+): { label: string; games: T[] }[] {
+  const groups = new Map<string, T[]>();
 
   for (const game of sortGamesByKickoff(games)) {
     const label = formatFixtureDateHeader(game.kickoff);

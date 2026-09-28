@@ -5,14 +5,20 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import { fetchSeriesBySlug } from "@/lib/api/plae-gamma-series";
-import { buildSoccerGameView, groupGamesByDate } from "@/lib/sports-soccer";
+import { groupGamesByDate } from "@/lib/sports-soccer";
+import { buildSportsGameView, type SportsGameView } from "@/lib/sports-games";
 import type { GammaEvent } from "@/lib/types/event";
-import { PlaeSoccerGameCard } from "./plae-soccer-game-card";
+import { PlaeSportsGameCard } from "./plae-sports-game-card";
 
+type GroupedGames = { label: string; games: SportsGameView[] }[];
+
+// Series pages are shared by every sport in the sidebar (soccer, baseball,
+// hockey, football/NFL, basketball) — buildSportsGameView knows how to read
+// each sport's event/market metadata shape, see lib/sports-games.ts.
 function gamesFromSeriesEvents(events: GammaEvent[] | undefined) {
   return (events ?? [])
     .filter((event) => event.active)
-    .map(buildSoccerGameView)
+    .map(buildSportsGameView)
     .filter((game): game is NonNullable<typeof game> => game != null);
 }
 
@@ -75,7 +81,7 @@ function SeriesHeader({
       <p className="text-sm text-muted">
         {missing
           ? "This league was not found."
-          : "Soccer prediction markets — moneyline prices for each match."}
+          : "Prediction markets — moneyline prices for each game."}
       </p>
     </section>
   );
@@ -86,7 +92,7 @@ function SeriesGames({
   groupedGames,
 }: {
   isLoading: boolean;
-  groupedGames: ReturnType<typeof groupGamesByDate>;
+  groupedGames: GroupedGames;
 }) {
   if (isLoading) {
     return (
@@ -113,7 +119,7 @@ function SeriesGames({
 function SeriesGameGroups({
   groupedGames,
 }: {
-  groupedGames: ReturnType<typeof groupGamesByDate>;
+  groupedGames: GroupedGames;
 }) {
   return (
     <div className="space-y-8">
@@ -122,7 +128,7 @@ function SeriesGameGroups({
           <h2 className="mb-4 text-lg font-bold text-foreground">{group.label}</h2>
           <div className="space-y-3">
             {group.games.map((game) => (
-              <PlaeSoccerGameCard key={game.event.id} game={game} />
+              <PlaeSportsGameCard key={game.event.id} game={game} />
             ))}
           </div>
         </section>

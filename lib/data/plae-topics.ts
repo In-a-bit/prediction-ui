@@ -35,6 +35,33 @@ export const plaeSoccerGroup: PlaeTopicGroup = {
   topics: plaeSoccerStaticTopics,
 };
 
+/** Sidebar group backed by leagues (series): one collapsible menu per sport,
+ * listing that sport's series as links, filtered by `tagSlug`. */
+export interface PlaeLeagueSportGroup {
+  key: string;
+  label: string;
+  icon: string;
+  tagSlug: string;
+}
+
+const BASEBALL_ICON =
+  "M12,3A9,9 0 1,0 12,21A9,9 0 1,0 12,3M6 7C9 9.5 9 14.5 6 17M18 7C15 9.5 15 14.5 18 17";
+const HOCKEY_ICON = "M16 3L9 18L5 19.5M3 19.5H7V21H3Z";
+const FOOTBALL_ICON =
+  "M12,4C17,4 20,8 20,12C20,16 17,20 12,20C7,20 4,16 4,12C4,8 7,4 12,4Z M12 8V16M10 10H14M10 12.5H14M10 15H14";
+const BASKETBALL_ICON =
+  "M12,3A9,9 0 1,0 12,21A9,9 0 1,0 12,3M12 3V21M3 12H21M5.64 5.64C8.09 8.09 8.09 15.91 5.64 18.36M18.36 5.64C15.91 8.09 15.91 15.91 18.36 18.36";
+
+/** League-listing sidebar groups, in sidebar order. Each `tagSlug` is the
+ * gamma-api tag that marks an event as belonging to that sport. */
+export const plaeLeagueSportGroups: PlaeLeagueSportGroup[] = [
+  { key: "soccer", label: "Soccer", icon: plaeSoccerGroup.icon, tagSlug: "soccer" },
+  { key: "baseball", label: "Baseball", icon: BASEBALL_ICON, tagSlug: "baseball" },
+  { key: "hockey", label: "Hockey", icon: HOCKEY_ICON, tagSlug: "hockey" },
+  { key: "nfl", label: "Football", icon: FOOTBALL_ICON, tagSlug: "nfl" },
+  { key: "basketball", label: "Basketball", icon: BASKETBALL_ICON, tagSlug: "basketball" },
+];
+
 function readDynamicSportTopic(): PlaeTopic | undefined {
   const slug =
     process.env.NEXT_PUBLIC_DYNAMIC_SPORT_TAG?.trim() ||

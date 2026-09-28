@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { plaeCryptoTopic, plaeSoccerGroup } from "@/lib/data/plae-topics";
+import {
+  plaeCryptoTopic,
+  plaeLeagueSportGroups,
+  type PlaeLeagueSportGroup,
+} from "@/lib/data/plae-topics";
 import { usePlaeEvents } from "@/lib/hooks/use-plae-events";
 import type { GammaEvent } from "@/lib/types/event";
 import { cn } from "@/lib/utils";
@@ -24,9 +28,23 @@ function NavIcon({ path }: { path: string }) {
   );
 }
 
-const SOCCER_LEAGUE_LIMIT = 100;
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
 
-interface SoccerLeagueLink {
+const SPORT_LEAGUE_LIMIT = 100;
+
+interface LeagueLinkData {
   slug: string;
   title: string;
 }
@@ -35,9 +53,9 @@ function seriesHref(basePath: string, slug: string) {
   return `${basePath}/series/${slug}`;
 }
 
-function leaguesFromEvents(events: GammaEvent[]): SoccerLeagueLink[] {
+function leaguesFromEvents(events: GammaEvent[]): LeagueLinkData[] {
   const seen = new Set<string>();
-  const leagues: SoccerLeagueLink[] = [];
+  const leagues: LeagueLinkData[] = [];
   for (const event of events) {
     const series = event.series?.[0];
     if (!series?.slug || seen.has(series.slug)) continue;
@@ -60,15 +78,6 @@ export function PlaeSidebarNav() {
     return pathname === topicHref(slug);
   }
 
-  const soccerChildActive = pathname.startsWith(`${basePath}/series/`);
-  const [soccerOpen, setSoccerOpen] = useState(soccerChildActive);
-
-  useEffect(() => {
-    if (soccerChildActive) {
-      setSoccerOpen(true);
-    }
-  }, [soccerChildActive]);
-
   const cryptoActive = topicIsActive(plaeCryptoTopic.slug);
 
   return (
@@ -86,69 +95,121 @@ export function PlaeSidebarNav() {
         {plaeCryptoTopic.label}
       </Link>
 
-      <div>
-        <button
-          type="button"
-          onClick={() => setSoccerOpen((open) => !open)}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-            soccerChildActive
-              ? "text-brand"
-              : "text-muted hover:bg-card-hover hover:text-foreground",
-          )}
-        >
-          <NavIcon path={plaeSoccerGroup.icon} />
-          <span className="flex-1 text-left">{plaeSoccerGroup.label}</span>
-          <svg
-            className={cn(
-              "h-4 w-4 shrink-0 transition-transform",
-              soccerOpen && "rotate-180",
-            )}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {soccerOpen ? (
-          <SoccerLeagueLinks basePath={basePath} pathname={pathname} />
-        ) : null}
-      </div>
+      {plaeLeagueSportGroups.map((group) => (
+        <SportLeagueGroup
+          key={group.key}
+          group={group}
+          basePath={basePath}
+          pathname={pathname}
+        />
+      ))}
     </nav>
   );
 }
 
-function SoccerLeagueLinks({
-  basePath,
-  pathname,
-}: {
-  basePath: string;
-  pathname: string;
-}) {
+/** Leagues (series) tagged with `tagSlug` that currently have an active event. */
+function useSportLeagues(tagSlug: string) {
   const { data, isLoading } = usePlaeEvents({
     active: true,
     group_by_series: true,
-    tag_slug: "soccer",
-    limit: SOCCER_LEAGUE_LIMIT,
+    tag_slug: tagSlug,
+    limit: SPORT_LEAGUE_LIMIT,
   });
-  const leagues = leaguesFromEvents(data?.events ?? []);
+  return { leagues: leaguesFromEvents(data?.events ?? []), isLoading };
+}
 
-  if (isLoading) {
-    return <p className="px-3 py-2 text-xs text-muted">Loading leagues…</p>;
-  }
-  if (leagues.length === 0) {
-    return <p className="px-3 py-2 text-xs text-muted">No leagues</p>;
+/** One collapsible sidebar group for a sport. Hidden entirely once loaded
+ * with no leagues, so an empty sport never shows its title. */
+function SportLeagueGroup({
+  group,
+  basePath,
+  pathname,
+}: {
+  group: PlaeLeagueSportGroup;
+  basePath: string;
+  pathname: string;
+}) {
+  const { leagues, isLoading } = useSportLeagues(group.tagSlug);
+  const childActive = leagues.some(
+    (league) => pathname === seriesHref(basePath, league.slug),
+  );
+  const [open, setOpen] = useState(childActive);
+
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+
+  if (isLoading || leagues.length === 0) {
+    return null;
   }
 
+  return (
+    <div>
+      <SportGroupToggle
+        group={group}
+        active={childActive}
+        open={open}
+        onToggle={() => setOpen((prev) => !prev)}
+      />
+      {open ? (
+        <LeagueList
+          leagues={leagues}
+          icon={group.icon}
+          basePath={basePath}
+          pathname={pathname}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SportGroupToggle({
+  group,
+  active,
+  open,
+  onToggle,
+}: {
+  group: PlaeLeagueSportGroup;
+  active: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+        active
+          ? "text-brand"
+          : "text-muted hover:bg-card-hover hover:text-foreground",
+      )}
+    >
+      <NavIcon path={group.icon} />
+      <span className="flex-1 text-left">{group.label}</span>
+      <ChevronIcon open={open} />
+    </button>
+  );
+}
+
+function LeagueList({
+  leagues,
+  icon,
+  basePath,
+  pathname,
+}: {
+  leagues: LeagueLinkData[];
+  icon: string;
+  basePath: string;
+  pathname: string;
+}) {
   return (
     <div className="ml-3 mt-1 space-y-1 border-l border-card-border pl-3">
       {leagues.map((league) => (
         <LeagueLink
           key={league.slug}
           league={league}
+          icon={icon}
           href={seriesHref(basePath, league.slug)}
           active={pathname === seriesHref(basePath, league.slug)}
         />
@@ -159,10 +220,12 @@ function SoccerLeagueLinks({
 
 function LeagueLink({
   league,
+  icon,
   href,
   active,
 }: {
-  league: SoccerLeagueLink;
+  league: LeagueLinkData;
+  icon: string;
   href: string;
   active: boolean;
 }) {
@@ -176,7 +239,7 @@ function LeagueLink({
           : "text-muted hover:bg-card-hover hover:text-foreground",
       )}
     >
-      <NavIcon path={plaeSoccerGroup.icon} />
+      <NavIcon path={icon} />
       {league.title}
     </Link>
   );
