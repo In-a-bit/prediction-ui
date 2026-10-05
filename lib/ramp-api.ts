@@ -10,7 +10,7 @@ import { predictionServiceBase } from "@/lib/prediction-proxy";
  * than a silent null.
  */
 
-function rampPath(path: string, gammaBase?: string): string {
+export function rampPath(path: string, gammaBase?: string): string {
   const base = (gammaBase ?? predictionServiceBase("gamma")).replace(/\/$/, "");
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${base}${suffix}`;
@@ -47,7 +47,7 @@ export type OfframpDetailsResponse = {
  * `X-API-Key` is deliberately absent: prediction-gateway injects it, and strips
  * any value the browser sends.
  */
-async function authHeaders(dpmSdk: DpmSdk): Promise<Record<string, string>> {
+export async function authHeaders(dpmSdk: DpmSdk): Promise<Record<string, string>> {
   const auth = await dpmSdk.auth.resolveRequestAuth();
   if (auth.mode === "jwt") {
     return { Authorization: `Bearer ${auth.accessToken}` };
@@ -58,7 +58,7 @@ async function authHeaders(dpmSdk: DpmSdk): Promise<Record<string, string>> {
   throw new Error("Sign in to continue");
 }
 
-async function failure(res: Response, label: string): Promise<Error> {
+export async function failure(res: Response, label: string): Promise<Error> {
   const body = await res.text().catch(() => "");
   let message = "";
   try {

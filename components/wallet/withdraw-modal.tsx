@@ -1,12 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAddress, parseUnits } from "viem";
 import { useTrading } from "@/components/providers/trading-provider";
+import { useMarketSurface } from "@/components/providers/market-surface-provider";
+import {
+  createBridgeWithdrawal,
+  listWithdrawalRoutes,
+  routeNetworkName,
+  type BridgeAsset,
+} from "@/lib/bridge-api";
 import { formatTradeBalanceUsd } from "@/lib/utils";
 import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
+import { DestinationSelect } from "@/components/wallet/destination-select";
 import {
   invalidateAllCollateralBalances,
   useCollateralBalance,
@@ -21,6 +29,32 @@ const OFFRAMP_STATUS: Partial<Record<OfframpStage, string>> = {
   sending: "Sending funds to Paybis…",
   reopened: "Funds sent. Finish up in the Paybis window.",
 };
+
+/** Our own network: USDC here is sent directly, without Mesh. */
+const DIRECT_NETWORK = "eip155:137";
+const DIRECT_KEY = "direct";
+
+type Destination = {
+  key: string;
+  label: string;
+  networkName: string;
+  /** Absent for the direct USDC transfer. */
+  mesh?: BridgeAsset;
+  /** Smallest USDC amount Mesh accepts for this route. */
+  minAmount?: string;
+};
+
+function destinationKey(a: BridgeAsset): string {
+  return `${a.network}|${a.asset}`;
+}
+
+/** EVM chains take a 0x address; anything else is left to Mesh to validate. */
+function recipientValid(dest: Destination | undefined, value: string): boolean {
+  const v = value.trim();
+  if (!v) return false;
+  if (!dest?.mesh || dest.mesh.network.startsWith("eip155:")) return isAddress(v);
+  return true;
+}
 
 type WithdrawModalProps = {
   open: boolean;
@@ -37,11 +71,15 @@ export function WithdrawModal({
   const queryClient = useQueryClient();
   const { balanceNormalized } = useCollateralBalance();
   const { dpmSdk, userProfile, walletAddress } = useTrading();
+  const { serviceBase } = useMarketSurface();
   const proxyWallet = userProfile?.proxyWallet ?? walletAddress ?? "";
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
+  const [destKey, setDestKey] = useState(DIRECT_KEY);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // TEMP(mesh-test): remove after Mesh testing.
+  const [testPayIn, setTestPayIn] = useState<{ address: string; amount: string } | null>(null);
   const offramp = useOfframp();
   const isClient = useSyncExternalStore(
     () => () => {},
@@ -49,10 +87,55 @@ export function WithdrawModal({
     () => false,
   );
 
+  const routesQuery = useQuery({
+    queryKey: ["bridge-withdrawal-routes"],
+    queryFn: () => listWithdrawalRoutes(dpmSdk!, serviceBase("gamma")),
+    enabled: open && Boolean(dpmSdk),
+    staleTime: 5 * 60_000,
+  });
+
+  const destinations = useMemo<Destination[]>(() => {
+    const out: Destination[] = [
+      { key: DIRECT_KEY, label: "USDC · Polygon (direct)", networkName: "Polygon" },
+    ];
+    const seen = new Set<string>();
+    for (const r of routesQuery.data ?? []) {
+      const d = r.destination;
+      const key = destinationKey(d);
+      // Our own asset is already offered directly, without Mesh fees.
+      if (d.network.toLowerCase() === DIRECT_NETWORK && d.asset.toUpperCase() === "USDC") continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const network = routeNetworkName(r);
+      out.push({
+        key,
+        label: `${d.asset} · ${network}`,
+        networkName: network,
+        mesh: d,
+        minAmount: r.min_amount,
+      });
+    }
+    return out;
+  }, [routesQuery.data]);
+
+  const dest = destinations.find((d) => d.key === destKey) ?? destinations[0];
+
+  const destinationOptions = useMemo(
+    () =>
+      destinations.map((d) => ({
+        key: d.key,
+        label: d.label,
+        keywords: `${d.mesh?.asset ?? "USDC"} ${d.networkName} ${d.mesh?.network ?? DIRECT_NETWORK}`,
+      })),
+    [destinations],
+  );
+
   const handleClose = useCallback(() => {
     setRecipient("");
     setAmount("");
+    setDestKey(DIRECT_KEY);
     setError(null);
+    setTestPayIn(null);
     setSubmitting(false);
     offramp.reset();
     onClose();
@@ -71,9 +154,10 @@ export function WithdrawModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, handleClose]);
 
-  const recipientOk = isAddress(recipient.trim());
+  const recipientOk = recipientValid(dest, recipient);
   let amountWei: bigint | null = null;
   let amountExceedsBalance = false;
+  let amountUnderMinimum = false;
   try {
     const t = amount.trim();
     if (t) {
@@ -82,6 +166,9 @@ export function WithdrawModal({
       if (balanceNormalized != null && balanceNormalized !== "" && amountWei != null) {
         const bal = parseUnits(balanceNormalized.trim(), 6);
         if (amountWei > bal) amountExceedsBalance = true;
+      }
+      if (amountWei != null && dest?.minAmount) {
+        amountUnderMinimum = amountWei < parseUnits(dest.minAmount, 6);
       }
     }
   } catch {
@@ -94,6 +181,7 @@ export function WithdrawModal({
     recipientOk &&
     amountWei != null &&
     !amountExceedsBalance &&
+    !amountUnderMinimum &&
     !submitting;
 
   function handleMax() {
@@ -106,8 +194,26 @@ export function WithdrawModal({
     setError(null);
     setSubmitting(true);
     try {
-      console.log("[WithdrawModal] submitFundWithdraw: begin");
-      await dpmSdk.submitFundWithdraw(recipient.trim(), amount.trim());
+      if (dest?.mesh) {
+        const bridge = await createBridgeWithdrawal(
+          dpmSdk,
+          {
+            amount: amount.trim(),
+            recipientAddress: recipient.trim(),
+            destination: dest.mesh,
+          },
+          serviceBase("gamma"),
+        );
+        // TEMP(mesh-test): send the USDC from MetaMask instead of the proxy.
+        if (process.env.NEXT_PUBLIC_MESH_TEST_SKIP_SEND === "1") {
+          setTestPayIn({ address: bridge.deposit_address, amount: bridge.amount });
+          return;
+        }
+        await dpmSdk.submitFundWithdraw(bridge.deposit_address, bridge.amount);
+      } else {
+        console.log("[WithdrawModal] submitFundWithdraw: begin");
+        await dpmSdk.submitFundWithdraw(recipient.trim(), amount.trim());
+      }
       await invalidateAllCollateralBalances(queryClient);
       onSuccess?.();
       handleClose();
@@ -197,6 +303,35 @@ export function WithdrawModal({
         <div className="space-y-4">
           <div>
             <label
+              htmlFor="withdraw-destination"
+              className="mb-1.5 block text-xs font-medium text-muted"
+            >
+              Receive
+            </label>
+            <DestinationSelect
+              id="withdraw-destination"
+              options={destinationOptions}
+              value={dest?.key ?? DIRECT_KEY}
+              onChange={setDestKey}
+              disabled={submitting}
+            />
+            {routesQuery.isLoading && (
+              <p className="mt-1.5 text-xs text-muted">Loading destinations…</p>
+            )}
+            {routesQuery.isError && (
+              <p className="mt-1.5 text-xs text-muted">
+                Other destinations are unavailable right now.
+              </p>
+            )}
+            {dest?.minAmount && (
+              <p className="mt-1.5 text-xs text-muted">
+                Minimum {dest.minAmount} USDC. Converted and sent by Mesh.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
               htmlFor="withdraw-recipient"
               className="mb-1.5 block text-xs font-medium text-muted"
             >
@@ -207,8 +342,9 @@ export function WithdrawModal({
               type="text"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              placeholder="0x…"
+              placeholder={dest?.mesh && !dest.mesh.network.startsWith("eip155:") ? `${dest.networkName} address` : "0x…"}
               autoComplete="off"
+              disabled={submitting}
               className="w-full rounded-xl border border-card-border bg-input px-3 py-2.5 font-mono text-sm text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
             />
           </div>
@@ -251,33 +387,22 @@ export function WithdrawModal({
             </div>
           </div>
 
-          <div>
-            <span className="mb-1.5 block text-xs font-medium text-muted">
-              Receive token
-            </span>
-            <div className="pointer-events-none flex w-full cursor-not-allowed items-center justify-between rounded-xl border border-card-border bg-input/80 px-3 py-2.5 text-sm text-foreground opacity-90">
-              <span>USDC</span>
-              <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-
-          <div>
-            <span className="mb-1.5 block text-xs font-medium text-muted">
-              Receive chain
-            </span>
-            <div className="pointer-events-none flex w-full cursor-not-allowed items-center justify-between rounded-xl border border-card-border bg-input/80 px-3 py-2.5 text-sm text-foreground opacity-90">
-              <span>Polygon</span>
-              <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-
           {amountExceedsBalance && (
             <p className="text-xs text-red">
               Amount exceeds available balance.
+            </p>
+          )}
+
+          {amountUnderMinimum && dest?.minAmount && (
+            <p className="text-xs text-red">
+              Minimum withdrawal to {dest.label} is {dest.minAmount} USDC.
+            </p>
+          )}
+
+          {testPayIn && (
+            <p className="break-all rounded-xl border border-brand/30 px-3 py-2 text-xs">
+              TEMP(mesh-test): send {testPayIn.amount} USDC on Polygon from MetaMask to{" "}
+              <span className="font-mono">{testPayIn.address}</span>
             </p>
           )}
 
@@ -293,7 +418,14 @@ export function WithdrawModal({
             onClick={() => void handleWithdraw()}
             className="w-full rounded-xl bg-brand py-3 text-sm font-bold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {submitting ? "Submitting…" : "Withdraw"}
+            {submitting ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                Submitting…
+              </span>
+            ) : (
+              "Withdraw"
+            )}
           </button>
         </div>
       </div>

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@inabit-com/dpm-sdk": "^0.2.0-beta.11",
+    "@meshconnect/web-link-sdk": "^3.13.0",
     "@polymarket/clob-client": "^5.2.4",
     "@polymarket/real-time-data-client": "^1.4.0",
     "@prisma/client": "^6.19.2",

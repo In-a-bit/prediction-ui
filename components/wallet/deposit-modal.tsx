@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useTrading } from "@/components/providers/trading-provider";
 import { copyToClipboard } from "@/lib/utils";
 import { useOnramp } from "@/lib/hooks/use-ramp";
+import { useMeshDeposit } from "@/lib/hooks/use-mesh-deposit";
 
 type DepositModalProps = {
   open: boolean;
@@ -16,6 +17,7 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
   const proxyAddress = userProfile?.proxyWallet ?? walletAddress ?? "";
   const [copied, setCopied] = useState(false);
   const onramp = useOnramp();
+  const mesh = useMeshDeposit();
   const isClient = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -25,8 +27,9 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
   const handleClose = useCallback(() => {
     setCopied(false);
     onramp.reset();
+    mesh.reset();
     onClose();
-  }, [onClose, onramp]);
+  }, [onClose, onramp, mesh]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,8 +82,8 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
           </button>
         </div>
 
-        <div className="mb-5">
-          {onramp.stage === "completed" ? (
+        <div className="mb-5 space-y-2">
+          {onramp.stage === "completed" || mesh.stage === "completed" ? (
             <div className="rounded-xl border border-green/30 bg-green/5 px-4 py-3">
               <p className="text-sm font-semibold text-foreground">
                 Thank you — deposit received
@@ -90,37 +93,71 @@ export function DepositModal({ open, onClose }: DepositModalProps) {
               </p>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => void onramp.start()}
-              disabled={!onramp.ready || onramp.busy || !proxyAddress}
-              className="flex w-full items-center justify-between gap-3 rounded-xl border border-card-border bg-input px-4 py-3 text-left transition-colors hover:border-brand hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <span>
-                <span className="block text-sm font-semibold text-foreground">
-                  {onramp.stage === "opening"
-                    ? "Opening…"
-                    : onramp.stage === "awaiting"
-                      ? "In progress…"
-                      : onramp.stage === "failed" || onramp.stage === "cancelled"
-                        ? "Try again"
-                        : "Buy with card or bank transfer"}
+            <>
+              <button
+                type="button"
+                onClick={() => void onramp.start()}
+                disabled={!onramp.ready || onramp.busy || mesh.busy || !proxyAddress}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-card-border bg-input px-4 py-3 text-left transition-colors hover:border-brand hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-foreground">
+                    {onramp.stage === "opening"
+                      ? "Opening…"
+                      : onramp.stage === "awaiting"
+                        ? "In progress…"
+                        : onramp.stage === "failed" || onramp.stage === "cancelled"
+                          ? "Try again"
+                          : "Buy with card or bank transfer"}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    {onramp.stage === "awaiting"
+                      ? "Complete the deposit in the Paybis window…"
+                      : "Pay with fiat and receive USDC in your wallet"}
+                  </span>
                 </span>
-                <span className="mt-0.5 block text-xs text-muted">
-                  {onramp.stage === "awaiting"
-                    ? "Complete the deposit in the Paybis window…"
-                    : "Pay with fiat and receive USDC in your wallet"}
+                <svg className="h-4 w-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void mesh.start()}
+                disabled={!mesh.ready || mesh.busy || onramp.busy || !proxyAddress}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-card-border bg-input px-4 py-3 text-left transition-colors hover:border-brand hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-foreground">
+                    {mesh.stage === "opening"
+                      ? "Opening…"
+                      : mesh.stage === "awaiting"
+                        ? "In progress…"
+                        : mesh.stage === "failed"
+                          ? "Try again"
+                          : "Deposit from exchange or wallet"}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    {mesh.stage === "awaiting"
+                      ? "Complete the deposit in the Mesh window…"
+                      : "Send any supported crypto and receive USDC"}
+                  </span>
                 </span>
-              </span>
-              <svg className="h-4 w-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+                <svg className="h-4 w-4 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
           )}
 
           {onramp.error && (
-            <p className="mt-2 rounded-xl border border-red/30 bg-red-dim px-3 py-2 text-xs text-red">
+            <p className="rounded-xl border border-red/30 bg-red-dim px-3 py-2 text-xs text-red">
               {onramp.error}
+            </p>
+          )}
+          {mesh.error && (
+            <p className="rounded-xl border border-red/30 bg-red-dim px-3 py-2 text-xs text-red">
+              {mesh.error}
             </p>
           )}
         </div>
