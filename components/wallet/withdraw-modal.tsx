@@ -9,9 +9,12 @@ import { useMarketSurface } from "@/components/providers/market-surface-provider
 import {
   createBridgeWithdrawal,
   listWithdrawalRoutes,
+  quoteBridgeWithdrawal,
+  QuoteRejectedError,
   routeNetworkName,
   type BridgeAsset,
 } from "@/lib/bridge-api";
+import { useDebouncedValue } from "@/lib/hooks/use-debounce";
 import { formatTradeBalanceUsd } from "@/lib/utils";
 import { BalanceBreakdown } from "@/components/wallet/balance-breakdown";
 import { DestinationSelect } from "@/components/wallet/destination-select";
@@ -33,6 +36,26 @@ const OFFRAMP_STATUS: Partial<Record<OfframpStage, string>> = {
 /** Our own network: USDC here is sent directly, without Mesh. */
 const DIRECT_NETWORK = "eip155:137";
 const DIRECT_KEY = "direct";
+
+const QUOTE_DEBOUNCE_MS = 500;
+const QUOTE_REFRESH_MS = (() => {
+  const seconds = Number(process.env.NEXT_PUBLIC_MESH_QUOTE_REFRESH_SECONDS);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 30_000;
+})();
+
+/** Mesh returns up to 18 decimals for some assets; show at most 8. */
+function formatEstimatedAmount(raw: string): string {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return raw;
+  return n.toLocaleString("en-US", { maximumFractionDigits: 8, useGrouping: false });
+}
+
+function formatFeeUsd(raw: string): string {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return `$${raw}`;
+  if (n > 0 && n < 0.01) return "< $0.01";
+  return `$${n.toFixed(2)}`;
+}
 
 type Destination = {
   key: string;
@@ -175,6 +198,36 @@ export function WithdrawModal({
     amountWei = null;
   }
 
+  // Only bridged destinations are quoted; direct USDC on Polygon has no Mesh fee.
+  const quoteKey =
+    dest?.mesh && recipientOk && amountWei != null && !amountExceedsBalance && !amountUnderMinimum
+      ? JSON.stringify([dest.mesh.network, dest.mesh.asset, recipient.trim(), amount.trim()])
+      : null;
+  const debouncedQuoteKey = useDebouncedValue(quoteKey, QUOTE_DEBOUNCE_MS);
+  const quotePending = quoteKey !== debouncedQuoteKey;
+
+  const quoteQuery = useQuery({
+    queryKey: ["bridge-withdrawal-quote", debouncedQuoteKey],
+    queryFn: ({ signal }) => {
+      const [network, asset, recipientAddress, quoteAmount] = JSON.parse(debouncedQuoteKey!) as string[];
+      return quoteBridgeWithdrawal(
+        dpmSdk!,
+        { amount: quoteAmount, recipientAddress, destination: { network, asset } },
+        serviceBase("gamma"),
+        signal,
+      );
+    },
+    enabled: open && Boolean(dpmSdk) && debouncedQuoteKey != null && !submitting,
+    refetchInterval: (query) =>
+      query.state.error instanceof QuoteRejectedError ? false : QUOTE_REFRESH_MS,
+    retry: (count, err) => !(err instanceof QuoteRejectedError) && count < 1,
+  });
+
+  const quoteRejectedError =
+    quoteKey != null && !quotePending && quoteQuery.error instanceof QuoteRejectedError
+      ? quoteQuery.error
+      : null;
+
   const canSubmit =
     Boolean(dpmSdk) &&
     Boolean(proxyWallet) &&
@@ -182,6 +235,7 @@ export function WithdrawModal({
     amountWei != null &&
     !amountExceedsBalance &&
     !amountUnderMinimum &&
+    !quoteRejectedError &&
     !submitting;
 
   function handleMax() {
@@ -206,10 +260,10 @@ export function WithdrawModal({
         );
         // TEMP(mesh-test): send the USDC from MetaMask instead of the proxy.
         if (process.env.NEXT_PUBLIC_MESH_TEST_SKIP_SEND === "1") {
-          setTestPayIn({ address: bridge.deposit_address, amount: bridge.amount });
+          setTestPayIn({ address: bridge.bridging_address, amount: bridge.amount });
           return;
         }
-        await dpmSdk.submitFundWithdraw(bridge.deposit_address, bridge.amount);
+        await dpmSdk.submitFundWithdraw(bridge.bridging_address, bridge.amount);
       } else {
         console.log("[WithdrawModal] submitFundWithdraw: begin");
         await dpmSdk.submitFundWithdraw(recipient.trim(), amount.trim());
@@ -347,6 +401,11 @@ export function WithdrawModal({
               disabled={submitting}
               className="w-full rounded-xl border border-card-border bg-input px-3 py-2.5 font-mono text-sm text-foreground placeholder:text-muted/50 focus:border-brand focus:outline-none"
             />
+            {recipient.trim() !== "" && !recipientOk && (
+              <p className="mt-1.5 text-xs text-red">
+                Not a valid {dest?.networkName ?? "Polygon"} address.
+              </p>
+            )}
           </div>
 
           <div>
@@ -397,6 +456,36 @@ export function WithdrawModal({
             <p className="text-xs text-red">
               Minimum withdrawal to {dest.label} is {dest.minAmount} USDC.
             </p>
+          )}
+
+          {quoteRejectedError && (
+            <p className="text-xs text-red">{quoteRejectedError.message}.</p>
+          )}
+
+          {quoteKey != null && !quoteRejectedError && (
+            <div className="space-y-1 rounded-xl border border-card-border bg-input px-3 py-2 text-xs">
+              {quotePending || (quoteQuery.isPending && quoteQuery.fetchStatus === "fetching") ? (
+                <p className="text-muted">Getting quote…</p>
+              ) : quoteQuery.data ? (
+                <>
+                  {quoteQuery.data.fee_usd && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted">Estimated fees</span>
+                      <span className="text-foreground">{formatFeeUsd(quoteQuery.data.fee_usd)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted">You receive (estimated)</span>
+                    <span className="font-medium text-foreground">
+                      ≈ {formatEstimatedAmount(quoteQuery.data.estimated_amount)}{" "}
+                      {quoteQuery.data.destination_asset}
+                    </span>
+                  </div>
+                </>
+              ) : quoteQuery.isError ? (
+                <p className="text-muted">Quote unavailable right now.</p>
+              ) : null}
+            </div>
           )}
 
           {testPayIn && (

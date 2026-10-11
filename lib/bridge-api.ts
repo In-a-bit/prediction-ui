@@ -26,7 +26,9 @@ export type BridgeWithdrawalResponse = {
   id: number;
   status: string;
   /** Single-use Mesh pay-in address; send exactly `amount` USDC here. */
-  deposit_address: string;
+  bridging_address: string;
+  /** RFC3339; the address does not accept funds after this. */
+  address_expires_at?: string;
   amount: string;
   symbol: string;
 };
@@ -88,6 +90,82 @@ export async function createBridgeWithdrawal(
   });
   if (!res.ok) throw await failure(res, "POST /bridge-requests/withdrawal");
   return res.json() as Promise<BridgeWithdrawalResponse>;
+}
+
+export type BridgeWithdrawalQuote = {
+  /** USDC sent. */
+  amount: string;
+  symbol: string;
+  /** Estimated amount received, in `destination_asset`, after fees. */
+  estimated_amount: string;
+  destination_asset: string;
+  /** Bridge fees in USD, already taken off `estimated_amount`. */
+  fee_usd?: string;
+  quoted_at: number;
+};
+
+/**
+ * The quote was refused because of what the user entered: the amount is
+ * outside the route's limits or the recipient does not fit the network.
+ * "invalid_request" is gamma-api's own check, which sends no code.
+ */
+export class QuoteRejectedError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      | "amount_below_minimum"
+      | "amount_above_maximum"
+      | "invalid_recipient_address"
+      | "invalid_request",
+  ) {
+    super(message);
+    this.name = "QuoteRejectedError";
+  }
+}
+
+/**
+ * Estimates what a withdrawal delivers after Mesh fees. Nothing is created.
+ * Throws QuoteRejectedError when Mesh refuses the amount or the recipient.
+ * POST /bridge-requests/withdrawal/quote
+ */
+export async function quoteBridgeWithdrawal(
+  dpmSdk: DpmSdk,
+  input: {
+    amount: string;
+    recipientAddress: string;
+    destination: BridgeAsset;
+  },
+  gammaBase?: string,
+  signal?: AbortSignal,
+): Promise<BridgeWithdrawalQuote> {
+  const res = await fetch(rampPath("/bridge-requests/withdrawal/quote", gammaBase), {
+    method: "POST",
+    headers: {
+      ...(await authHeaders(dpmSdk)),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: input.amount,
+      recipient_address: input.recipientAddress,
+      destination_network: input.destination.network,
+      destination_asset: input.destination.asset,
+    }),
+    signal,
+  });
+  // 400 is gamma-api rejecting the input (e.g. a recipient that does not fit
+  // the network); 422 is Mesh rejecting it. Both carry a user-facing message.
+  if (res.status === 400 || res.status === 422) {
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      code?: QuoteRejectedError["code"];
+    };
+    throw new QuoteRejectedError(
+      body.error || "Withdrawal details were rejected",
+      body.code ?? "invalid_request",
+    );
+  }
+  if (!res.ok) throw await failure(res, "POST /bridge-requests/withdrawal/quote");
+  return res.json() as Promise<BridgeWithdrawalQuote>;
 }
 
 /**

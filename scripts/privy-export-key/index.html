@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Privy key export</title>
+    <style>
+      body { font: 14px/1.4 ui-sans-serif, system-ui, sans-serif; max-width: 36rem; margin: 2rem auto; padding: 0 1rem; }
+      label { display: block; margin-top: 0.75rem; }
+      input, textarea, button { font: inherit; }
+      input, textarea { width: 100%; box-sizing: border-box; }
+      textarea { min-height: 5rem; }
+      button { margin-top: 0.75rem; margin-right: 0.5rem; }
+      .err { color: #9b1c1c; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>window.__PRIVY_APP_ID__ = "{{APP_ID}}";</script>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
