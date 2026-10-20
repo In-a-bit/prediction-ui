@@ -19,4 +19,9 @@ export const siteConfig = {
    * off does not disable the capability for API clients.
    */
   showOrderRecipientInput: false,
+  /**
+   * Show the expiration input in the trade panel. The exchange rejects an order
+   * after this unix timestamp; leaving it unset signs 0, which never expires.
+   */
+  showOrderExpirationInput: false,
 } as const;

@@ -41,6 +41,29 @@ async function refreshAfterTrade(queryClient: QueryClient) {
   ]);
 }
 
+const EXPIRATION_OPTIONS = [
+  { value: "none", label: "No expiration" },
+  { value: "60", label: "1 minute" },
+  { value: "300", label: "5 minutes" },
+  { value: "600", label: "10 minutes" },
+  { value: "86400", label: "1 day" },
+  { value: "custom", label: "Custom" },
+] as const;
+
+type ExpirationChoice = (typeof EXPIRATION_OPTIONS)[number]["value"];
+
+/** Unix seconds for the chosen expiration; 0 means none. Presets count from `nowSec`. */
+function resolveExpiration(
+  choice: ExpirationChoice,
+  customInput: string,
+  nowSec: number,
+): number {
+  if (choice === "none") return 0;
+  if (choice !== "custom") return nowSec + Number(choice);
+  if (!customInput) return 0;
+  return Math.floor(new Date(customInput).getTime() / 1000);
+}
+
 const DEFAULT_FEE_RATE_BPS = 200;
 const MIN_FEE_RATE_BPS = 200;
 const MAX_FEE_RATE_BPS = 1200;
@@ -341,6 +364,9 @@ export function TradePanel({
   // Address that receives this order's proceeds. Empty means the maker is paid,
   // which is what the exchange does for the zero address.
   const [recipient, setRecipient] = useState("");
+  const [expirationChoice, setExpirationChoice] = useState<ExpirationChoice>("none");
+  // datetime-local value, read only when the choice is "custom".
+  const [expirationInput, setExpirationInput] = useState("");
   const [orderResult, setOrderResult] = useState<
     { kind: "success" | "error"; message: string } | null
   >(null);
@@ -431,8 +457,19 @@ export function TradePanel({
   const recipientTrimmed = recipient.trim();
   const recipientValid = recipientTrimmed === "" || isAddress(recipientTrimmed);
 
+  const effectiveExpirationChoice: ExpirationChoice = settings.showOrderExpirationInput
+    ? expirationChoice
+    : "none";
+  const customExpiration =
+    effectiveExpirationChoice === "custom"
+      ? resolveExpiration("custom", expirationInput, 0)
+      : 0;
+  const expirationValid =
+    customExpiration === 0 || customExpiration > Math.floor(Date.now() / 1000);
+
   const canSubmit =
     recipientValid &&
+    expirationValid &&
     !!currentTokenId &&
     !!dpmSdk &&
     order.dollarAmount > 0 &&
@@ -496,8 +533,14 @@ export function TradePanel({
     setOrderResult(null);
 
     try {
+      const expiration = resolveExpiration(
+        effectiveExpirationChoice,
+        expirationInput,
+        Math.floor(Date.now() / 1000),
+      );
       console.log("[TradePanel] submitOrder: begin", {
         tokenId: currentTokenId,
+        expiration,
       });
       const result = await dpmSdk.submitOrder({
         side: side === "buy" ? 0 : 1,
@@ -509,6 +552,7 @@ export function TradePanel({
         ...(timeInForce === "FOK" ? { orderType: "FOK" } : {}),
         ...(timeInForce === "FAK" ? { orderType: "FAK" } : {}),
         ...(recipientTrimmed ? { recipient: recipientTrimmed } : {}),
+        ...(expiration > 0 ? { expiration } : {}),
       });
 
       setOrderResult({
@@ -550,6 +594,8 @@ export function TradePanel({
     // Without this the callback closes over a stale value and could route a
     // trade's proceeds to a previously typed address.
     recipientTrimmed,
+    effectiveExpirationChoice,
+    expirationInput,
     timeInForce,
     userProfile,
     feeRate.bps,
@@ -1039,6 +1085,45 @@ export function TradePanel({
 
       {/* Time-in-force */}
       <TifDropdown value={timeInForce} onChange={setTimeInForce} />
+
+      {settings.showOrderExpirationInput && (
+        <div className="mt-3">
+          <label
+            htmlFor="order-expiration"
+            className="mb-1 block text-xs font-medium text-muted"
+          >
+            Expiration <span className="font-normal">(optional)</span>
+          </label>
+          <select
+            id="order-expiration"
+            value={expirationChoice}
+            onChange={(e) => setExpirationChoice(e.target.value as ExpirationChoice)}
+            className="h-10 w-full min-w-0 rounded-lg border border-card-border bg-input px-3 text-sm font-medium text-foreground focus:border-brand focus:outline-none"
+          >
+            {EXPIRATION_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {expirationChoice === "custom" && (
+            <input
+              type="datetime-local"
+              aria-label="Custom expiration"
+              value={expirationInput}
+              onChange={(e) => setExpirationInput(e.target.value)}
+              aria-invalid={!expirationValid}
+              className={cn(
+                "mt-2 h-10 w-full min-w-0 rounded-lg border bg-input px-3 text-sm font-medium text-foreground focus:border-brand focus:outline-none",
+                expirationValid ? "border-card-border" : "border-red/50",
+              )}
+            />
+          )}
+          {!expirationValid && (
+            <p className="mt-1 text-xs text-red">Expiration must be in the future</p>
+          )}
+        </div>
+      )}
 
       {/* Recipient — the order's proceeds go here instead of to the trader.
           Off by default and enabled per browser from Settings, because the

@@ -18,6 +18,8 @@ export type WsNotificationChannel = (typeof WS_NOTIFICATION_CHANNELS)[number];
 export interface Settings {
   /** Show the recipient address field in the trade panel. */
   showOrderRecipientInput: boolean;
+  /** Show the order expiration field in the trade panel. */
+  showOrderExpirationInput: boolean;
   /**
    * Public WebSocket streams that feed the header notification popup.
    * Empty means no connection and no icon.
@@ -27,6 +29,7 @@ export interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   showOrderRecipientInput: siteConfig.showOrderRecipientInput,
+  showOrderExpirationInput: siteConfig.showOrderExpirationInput,
   wsPopupNotifications: [],
 };
 
@@ -54,6 +57,9 @@ function parseStored(raw: string | null): Partial<Settings> {
     const out: Partial<Settings> = {};
     if (typeof record.showOrderRecipientInput === "boolean") {
       out.showOrderRecipientInput = record.showOrderRecipientInput;
+    }
+    if (typeof record.showOrderExpirationInput === "boolean") {
+      out.showOrderExpirationInput = record.showOrderExpirationInput;
     }
     const channels = parseWsChannels(record.wsPopupNotifications);
     if (channels) out.wsPopupNotifications = channels;

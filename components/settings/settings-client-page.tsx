@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface ToggleRow {
-  key: Extract<keyof Settings, "showOrderRecipientInput">;
+  key: Extract<keyof Settings, "showOrderRecipientInput" | "showOrderExpirationInput">;
   title: string;
   description: string;
 }
@@ -35,6 +35,12 @@ const TRADING_TOGGLES: ToggleRow[] = [
     title: "Recipient address field",
     description:
       "Adds an optional field to the trade panel for sending an order's proceeds to another address — the outcome shares on a buy, the collateral on a sell. You still fund the order, pay the fee, and remain the only one who can cancel it.",
+  },
+  {
+    key: "showOrderExpirationInput",
+    title: "Order expiration field",
+    description:
+      "Adds an optional date and time to the trade panel after which the exchange rejects the order. Leave it empty for an order that never expires.",
   },
 ];
 
