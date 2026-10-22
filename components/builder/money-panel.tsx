@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { RefreshButton } from "@/components/builder/refresh-button";
 import { deposit, transfer } from "@/lib/builder/client";
 import { formatUsd, isValidAmount } from "@/lib/builder/money";
 import type { BuilderMode, SiteBalances } from "@/lib/builder/types";
@@ -20,10 +21,12 @@ export function MoneyPanel({
   mode,
   balances,
   onChanged,
+  onRefresh,
 }: {
   mode: BuilderMode;
   balances: SiteBalances;
   onChanged: (balances: SiteBalances) => void;
+  onRefresh: () => Promise<unknown>;
 }) {
   const segregated = balances.cashMicro !== null;
 
@@ -35,6 +38,7 @@ export function MoneyPanel({
             label="Cash with the builder"
             value={formatUsd(balances.cashMicro)}
             note="Held in the builder's own books. Not tradeable until you move it."
+            onRefresh={onRefresh}
           />
         )}
         <Figure
@@ -47,6 +51,7 @@ export function MoneyPanel({
           }
           reserved={balances.reservedMicro}
           source={balances.source}
+          onRefresh={onRefresh}
         />
       </div>
 
@@ -91,18 +96,23 @@ function Figure({
   note,
   reserved,
   source,
+  onRefresh,
 }: {
   label: string;
   value: string;
   note: string;
   reserved?: string;
   source?: SiteBalances["source"];
+  onRefresh: () => Promise<unknown>;
 }) {
   const held = reserved && BigInt(reserved) > 0n ? reserved : null;
   return (
     <div className="bg-card p-4">
       <p className="text-[11px] uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-1 font-mono text-2xl">{value}</p>
+      <div className="mt-1 flex items-center gap-1.5">
+        <p className="font-mono text-2xl">{value}</p>
+        <RefreshButton onRefresh={onRefresh} label={`Refresh ${label.toLowerCase()}`} />
+      </div>
       {held && (
         <p className="text-xs text-muted">{formatUsd(held)} held against open orders</p>
       )}

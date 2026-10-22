@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { PositionsPanel, PositionsUnnamedNote } from "@/components/builder/positions-panel";
+import { RefreshButton } from "@/components/builder/refresh-button";
 import { WalletAddress } from "@/components/builder/wallet-address";
 import { adjustCustomer, fetchCustomerPositions } from "@/lib/builder/client";
 import { formatUsd } from "@/lib/builder/money";
@@ -20,11 +21,13 @@ export function CustomerTable({
   users,
   error,
   onChanged,
+  onRefresh,
 }: {
   mode: BuilderMode;
   users: ManagedUser[] | null;
   error: string | null;
   onChanged: () => void;
+  onRefresh: () => Promise<unknown>;
 }) {
   const [adjusting, setAdjusting] = useState<string | null>(null);
   const [showing, setShowing] = useState<string | null>(null);
@@ -33,7 +36,10 @@ export function CustomerTable({
   return (
     <section className="rounded-lg border border-card-border bg-card">
       <div className="border-b border-card-border px-5 py-3">
-        <h2 className="text-sm font-semibold">Customers</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold">Customers</h2>
+          <RefreshButton onRefresh={onRefresh} label="Refresh customers' balances" />
+        </div>
         <p className="text-xs text-muted">
           {segregated
             ? "Cash is held in the builder's books; predictions is USDC in the customer's own wallet."

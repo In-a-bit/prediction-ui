@@ -74,6 +74,7 @@ export function BuilderBackOffice({ mode }: { mode: BuilderMode }) {
         treasury={treasury}
         error={treasuryError}
         onChanged={loadTreasury}
+        onRefresh={loadTreasury}
       />
 
       <CustomerTable
@@ -83,6 +84,7 @@ export function BuilderBackOffice({ mode }: { mode: BuilderMode }) {
         onChanged={() => {
           void loadUsers();
         }}
+        onRefresh={loadUsers}
       />
     </div>
   );

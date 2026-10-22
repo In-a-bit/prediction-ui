@@ -127,6 +127,11 @@ function SignedIn({
   // returned.
   const [balances, setBalances] = useState<SiteBalances>(profile.balances);
 
+  const refreshBalances = useCallback(async () => {
+    const fresh = await fetchProfile(mode);
+    if (fresh) setBalances(fresh.balances);
+  }, [mode]);
+
   /**
    * Provisioning is not instant — the first request mints a wallet and submits two transactions —
    * so this polls rather than failing. The effect only runs while the answer is `provisioning`,
@@ -189,7 +194,12 @@ function SignedIn({
         </div>
       </section>
 
-      <MoneyPanel mode={mode} balances={balances} onChanged={setBalances} />
+      <MoneyPanel
+        mode={mode}
+        balances={balances}
+        onChanged={setBalances}
+        onRefresh={refreshBalances}
+      />
 
       <PositionsPanel
         mode={mode}
@@ -197,9 +207,7 @@ function SignedIn({
         onChanged={() => {
           // A sell or redeem changes both the shares held and what is reserved against them, and
           // neither is known until the builder's backend has been asked again.
-          void fetchProfile(mode).then((p) => {
-            if (p) setBalances(p.balances);
-          });
+          void refreshBalances();
         }}
         empty="Nothing held yet. Anything bought in prediction markets shows up here."
       />

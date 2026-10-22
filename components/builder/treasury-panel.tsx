@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { RefreshButton } from "@/components/builder/refresh-button";
 import { transferTreasury } from "@/lib/builder/client";
 import { formatUsd, isValidAmount } from "@/lib/builder/money";
 import type { BuilderMode, Treasury, TreasuryWallet } from "@/lib/builder/types";
@@ -19,11 +20,13 @@ export function TreasuryPanel({
   treasury,
   error,
   onChanged,
+  onRefresh,
 }: {
   mode: BuilderMode;
   treasury: Treasury | null;
   error: string | null;
   onChanged: () => void;
+  onRefresh: () => Promise<unknown>;
 }) {
   if (error && !treasury) {
     return (
@@ -62,6 +65,7 @@ export function TreasuryPanel({
           wallet={treasury.masterWallet}
           title="Master"
           note="Cold. Never trades, never holds an allowance. The only exit from the platform."
+          onRefresh={onRefresh}
         />
         <WalletCard
           wallet={treasury.operationsWallet}
@@ -71,6 +75,7 @@ export function TreasuryPanel({
               ? "Funds customers' wallets, and receives what they move back."
               : "Holds every customer's USDC and signs every trade."
           }
+          onRefresh={onRefresh}
         />
       </div>
 
@@ -87,10 +92,12 @@ function WalletCard({
   wallet,
   title,
   note,
+  onRefresh,
 }: {
   wallet: TreasuryWallet | null;
   title: string;
   note: string;
+  onRefresh: () => Promise<unknown>;
 }) {
   if (!wallet) {
     return (
@@ -117,9 +124,12 @@ function WalletCard({
           {wallet.dpmRegistered ? "registered" : "not registered"}
         </span>
       </div>
-      <p className="mt-1 font-mono text-xl">
-        {wallet.balanceMicro === null ? "—" : formatUsd(wallet.balanceMicro)}
-      </p>
+      <div className="mt-1 flex items-center gap-1.5">
+        <p className="font-mono text-xl">
+          {wallet.balanceMicro === null ? "—" : formatUsd(wallet.balanceMicro)}
+        </p>
+        <RefreshButton onRefresh={onRefresh} label={`Refresh the ${title.toLowerCase()} balance`} />
+      </div>
       {wallet.balanceError && <p className="text-xs text-red">{wallet.balanceError}</p>}
       <p className="mt-1 text-xs text-muted">{note}</p>
       <dl className="mt-3 space-y-1 text-[11px]">
