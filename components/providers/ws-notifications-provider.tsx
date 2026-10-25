@@ -13,7 +13,12 @@ import {
 import { useSettings, type WsNotificationChannel } from "@/components/providers/settings-provider";
 import { useActivityWs } from "@/lib/hooks/use-activity-ws";
 import { usePushWs } from "@/lib/hooks/use-push-ws";
-import { predictionGoEventsWsUrl, predictionGoMarketsWsUrl } from "@/lib/prediction-go";
+import { LP_SESSION_CHANGED_EVENT } from "@/lib/lp/direct-urls";
+import {
+  predictionGoActivityWsUrl,
+  predictionGoEventsWsUrl,
+  predictionGoMarketsWsUrl,
+} from "@/lib/prediction-go";
 
 const MAX_CACHED = 200;
 
@@ -69,6 +74,39 @@ function payloadOf(frame: Record<string, unknown>): unknown {
   return "data" in frame ? frame.data : frame;
 }
 
+/**
+ * Resolves the LP activity WebSocket URL from /api/lp/ws-urls while the activity
+ * channel is on. Returns null when there is no LP session (401). Refetches when
+ * the LP session connects or disconnects (LpDemoProviders fires the event),
+ * since this provider sits above the LP providers and cannot read their context.
+ */
+function useLpActivityUrl(enabled: boolean): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) {
+      setUrl(null);
+      return;
+    }
+    let active = true;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/lp/ws-urls");
+        const activity = res.ok ? ((await res.json()) as { activity?: string }).activity : null;
+        if (active) setUrl(activity ?? null);
+      } catch {
+        if (active) setUrl(null);
+      }
+    };
+    void load();
+    window.addEventListener(LP_SESSION_CHANGED_EVENT, load);
+    return () => {
+      active = false;
+      window.removeEventListener(LP_SESSION_CHANGED_EVENT, load);
+    };
+  }, [enabled]);
+  return url;
+}
+
 export function WsNotificationsProvider({ children }: { children: React.ReactNode }) {
   const { settings } = useSettings();
   const channels = settings.wsPopupNotifications;
@@ -118,9 +156,20 @@ export function WsNotificationsProvider({ children }: { children: React.ReactNod
     },
   });
 
+  const activityEnabled = channels.includes("activity");
+  const builderActivityUrl = builderKey ? predictionGoActivityWsUrl(builderKey) : null;
+  const lpActivityUrl = useLpActivityUrl(activityEnabled);
+
+  // Builder and LP streams share the "activity" channel; each frame carries its
+  // own owner (builder key or LP id), so a user wearing both hats sees both.
   useActivityWs({
-    builderKey,
-    enabled: channels.includes("activity"),
+    url: builderActivityUrl,
+    enabled: activityEnabled,
+    onEvent: (event) => push("activity", event),
+  });
+  useActivityWs({
+    url: lpActivityUrl,
+    enabled: activityEnabled,
     onEvent: (event) => push("activity", event),
   });
 

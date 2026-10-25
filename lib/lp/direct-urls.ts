@@ -18,6 +18,14 @@ export const LP_ADDRESS_HEADER = "X-LP-Address";
 export const LP_API_KEY_QUERY = "lp_api_key";
 export const LP_ADDRESS_QUERY = "lp_address";
 
+/**
+ * Window event LpDemoProviders fires when the LP session connects or
+ * disconnects. The global notification provider (which sits above the LP
+ * providers and cannot read their context) listens for it to (re)load the LP
+ * activity WebSocket URL.
+ */
+export const LP_SESSION_CHANGED_EVENT = "lp:session-changed";
+
 function trimSlash(s: string): string {
   return s.replace(/\/$/, "");
 }
@@ -81,8 +89,10 @@ export function lpWsUrlsWithLpAuth(apiKey: string, address: string): {
   market: string;
   prices: string;
   user: string;
+  activity: string;
 } {
-  // public-ws access gate only needs the LP API key (no address).
+  // public-ws access gate only needs the LP API key (no address). The same key
+  // scopes the activity stream to this LP on public-ws.
   const publicQ = new URLSearchParams({
     [LP_API_KEY_QUERY]: apiKey,
   }).toString();
@@ -96,5 +106,6 @@ export function lpWsUrlsWithLpAuth(apiKey: string, address: string): {
     market: `${pub}/ws/market?${publicQ}`,
     prices: `${pub}/ws/prices?${publicQ}`,
     user: `${user}/ws/user?${userQ}`,
+    activity: `${pub}/ws/activity?${publicQ}`,
   };
 }

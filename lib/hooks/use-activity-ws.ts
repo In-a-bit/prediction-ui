@@ -1,4 +1,3 @@
-import { predictionGoActivityWsUrl } from "@/lib/prediction-go";
 import { usePushWs } from "@/lib/hooks/use-push-ws";
 
 /** A single order-activity frame as delivered over /ws/activity. */
@@ -8,8 +7,11 @@ export type ActivityEvent = {
 };
 
 type UseActivityWsArgs = {
-  /** Builder publishable key; the stream is scoped to this builder. */
-  builderKey: string | null;
+  /**
+   * Full /ws/activity URL, already carrying the owner key (builder_api_key or
+   * lp_api_key). When null, no connection is opened.
+   */
+  url: string | null;
   /** When false, no connection is opened. */
   enabled: boolean;
   /** Called for each parsed activity frame (PONG/keepalive frames are filtered). */
@@ -17,15 +19,14 @@ type UseActivityWsArgs = {
 };
 
 /**
- * Subscribes to the builder-scoped activity WebSocket (/ws/activity via the
- * gateway). The gateway injects APP_API_KEY; this hook only sends the builder
- * publishable key as a query parameter.
+ * Subscribes to an owner-scoped activity WebSocket (/ws/activity). The caller
+ * supplies the full URL, so the same hook serves the builder stream (via the
+ * gateway) and the LP stream (direct to public-ws).
  */
-export function useActivityWs({ builderKey, enabled, onEvent }: UseActivityWsArgs): void {
-  const url = builderKey ? predictionGoActivityWsUrl(builderKey) : null;
+export function useActivityWs({ url, enabled, onEvent }: UseActivityWsArgs): void {
   usePushWs({
     url,
-    enabled: enabled && Boolean(builderKey),
+    enabled: enabled && Boolean(url),
     label: "[Activity WS]",
     onEvent: (event) => {
       if (typeof event.event_type !== "string") return;
