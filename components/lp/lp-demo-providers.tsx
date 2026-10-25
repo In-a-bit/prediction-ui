@@ -28,10 +28,10 @@ import {
   TradingOverrideProvider,
   type TradingContextValue,
 } from "@/components/providers/trading-provider";
-import { lpBrowserServiceBase } from "@/lib/lp/direct-urls";
+import { LP_SESSION_CHANGED_EVENT, lpBrowserServiceBase } from "@/lib/lp/direct-urls";
 import type { LpPublicSession } from "@/lib/lp/types";
 
-type WsUrls = { market: string; prices: string; user: string };
+type WsUrls = { market: string; prices: string; user: string; activity: string };
 
 type LpConnectApi = {
   connect: (
@@ -179,16 +179,22 @@ export function LpDemoProviders({ children }: { children: ReactNode }) {
   const sdkProxy = useMemo(() => createLpSdkProxy(), []);
 
   const refreshWs = useCallback(async (connected: boolean) => {
+    // Let the global notification provider (re)load the LP activity socket on
+    // every session transition — it lives above these providers and cannot read
+    // this context directly.
+    const notifySessionChanged = () => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(LP_SESSION_CHANGED_EVENT));
+      }
+    };
     if (!connected) {
       setWs(null);
+      notifySessionChanged();
       return;
     }
     const wsRes = await fetch("/api/lp/ws-urls");
-    if (wsRes.ok) {
-      setWs((await wsRes.json()) as WsUrls);
-    } else {
-      setWs(null);
-    }
+    setWs(wsRes.ok ? ((await wsRes.json()) as WsUrls) : null);
+    notifySessionChanged();
   }, []);
 
   const refresh = useCallback(async () => {
