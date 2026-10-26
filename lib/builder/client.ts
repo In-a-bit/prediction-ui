@@ -127,26 +127,6 @@ export async function fetchCashEntries(mode: BuilderMode): Promise<CashEntry[]> 
   return data;
 }
 
-/** Sell shares in a position the signed-in customer holds. */
-export function sellPosition(
-  mode: BuilderMode,
-  input: { tokenId: string; shares: number; price: number },
-) {
-  return call<{ id: string; submitState: string; clobStatus: string | null }>(
-    mode,
-    "/positions/sell",
-    { method: "POST", body: JSON.stringify(input) },
-  );
-}
-
-/** Redeem a resolved market. */
-export function redeemPosition(mode: BuilderMode, conditionId: string) {
-  return call<{ id: string; state: string; relayerTxId?: string }>(mode, "/positions/redeem", {
-    method: "POST",
-    body: JSON.stringify({ conditionId }),
-  });
-}
-
 export function openPredictionSession(mode: BuilderMode): Promise<PredictionSession> {
   return call<PredictionSession>(mode, "/prediction-session", { method: "POST" });
 }

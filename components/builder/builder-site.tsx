@@ -6,7 +6,6 @@ import { PlaeeEmbed } from "@/components/builder/plaee-embed";
 import { BuilderAuthPanel } from "@/components/builder/builder-auth-panel";
 import { ModeBadge } from "@/components/builder/mode-badge";
 import { MoneyPanel } from "@/components/builder/money-panel";
-import { PositionsPanel } from "@/components/builder/positions-panel";
 import { WalletAddress } from "@/components/builder/wallet-address";
 import { fetchProfile, fetchSiteConfig, openPredictionSession, signOut } from "@/lib/builder/client";
 import type {
@@ -196,17 +195,8 @@ function SignedIn({
         onRefresh={refreshBalances}
       />
 
-      <PositionsPanel
-        mode={mode}
-        positions={balances.positions}
-        onChanged={() => {
-          // A sell or redeem changes both the shares held and what is reserved against them, and
-          // neither is known until the builder's backend has been asked again.
-          void refreshBalances();
-        }}
-        empty="Nothing held yet. Anything bought in prediction markets shows up here."
-      />
-
+      {/* Positions live inside the Plaee frame, where they update as fills, cancels and redeems
+          land — a copy out here only went stale. */}
       {session?.state === "ready" ? (
         <PlaeeEmbed key={session.iframeUrl} src={session.iframeUrl} />
       ) : (
