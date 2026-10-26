@@ -11,7 +11,9 @@ export default function BuilderLayout({ children }: { children: React.ReactNode 
   const plaee = process.env.PLAEE_BASE_URL ?? "http://localhost:3100";
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    // Wide on purpose: the Plaee frame below carries charts and fixture lists, and a builder's own
+    // site would give it the page width, not a reading column.
+    <div className="mx-auto w-full max-w-[1600px] space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-card-border bg-card px-4 py-3">
         <div>
           <Link href="/builder" className="text-sm font-semibold hover:text-brand">
