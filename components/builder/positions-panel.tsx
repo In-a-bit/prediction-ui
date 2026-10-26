@@ -24,15 +24,12 @@ export function PositionsPanel({
   positions,
   title = "Positions",
   empty = "No open positions.",
-  userId,
   onChanged,
 }: {
   mode: BuilderMode;
   positions: Position[];
   title?: string;
   empty?: string;
-  /** Set in the back office, where an operator acts for a named customer. Omitted on the site. */
-  userId?: string;
   onChanged?: () => void;
 }) {
   // A settled or fully-sold holding stays in the ledger at zero. It is not a position any more.
@@ -84,7 +81,6 @@ export function PositionsPanel({
                   key={p.tokenId}
                   mode={mode}
                   position={p}
-                  userId={userId}
                   onChanged={onChanged}
                 />
               ))}
@@ -99,12 +95,10 @@ export function PositionsPanel({
 function PositionRow({
   mode,
   position: p,
-  userId,
   onChanged,
 }: {
   mode: BuilderMode;
   position: Position;
-  userId?: string;
   onChanged?: () => void;
 }) {
   const reserved = BigInt(p.reservedMicro || "0");
@@ -183,7 +177,7 @@ function PositionRow({
       </td>
 
       <td className="px-5 py-3 text-right">
-        <PositionActions mode={mode} position={p} userId={userId} onChanged={onChanged} />
+        <PositionActions mode={mode} position={p} onChanged={onChanged} />
       </td>
     </tr>
   );
@@ -243,12 +237,10 @@ export function PositionsUnnamedNote({ named }: { named: boolean }) {
 function PositionActions({
   mode,
   position: p,
-  userId,
   onChanged,
 }: {
   mode: BuilderMode;
   position: Position;
-  userId?: string;
   onChanged?: () => void;
 }) {
   const [selling, setSelling] = useState(false);
@@ -261,7 +253,7 @@ function PositionActions({
     setBusy(true);
     setError(null);
     try {
-      const r = await redeemPosition(mode, p.conditionId, userId);
+      const r = await redeemPosition(mode, p.conditionId);
       // Submitted, not settled. The ledger moves when the transaction mines, so saying "redeemed"
       // here would be claiming something that has not happened yet.
       setDone(r.relayerTxId ? "submitted" : "queued");
@@ -308,7 +300,6 @@ function PositionActions({
         <SellForm
           mode={mode}
           position={p}
-          userId={userId}
           onCancel={() => setSelling(false)}
           onDone={() => {
             setSelling(false);
@@ -326,13 +317,11 @@ function PositionActions({
 function SellForm({
   mode,
   position: p,
-  userId,
   onCancel,
   onDone,
 }: {
   mode: BuilderMode;
   position: Position;
-  userId?: string;
   onCancel: () => void;
   onDone: () => void;
 }) {
@@ -349,7 +338,7 @@ function SellForm({
     setBusy(true);
     setError(null);
     try {
-      await sellPosition(mode, { tokenId: p.tokenId, shares: Number(shares), price: Number(price) }, userId);
+      await sellPosition(mode, { tokenId: p.tokenId, shares: Number(shares), price: Number(price) });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sell failed");

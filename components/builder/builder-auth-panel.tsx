@@ -10,7 +10,8 @@ import type { BuilderMode } from "@/lib/builder/types";
  *
  * Nothing here touches Plaee. A customer of the builder is a customer of the builder; the DPM
  * account behind them is minted later, on their first prediction-markets visit, and they never see
- * it. Submitting sets an httpOnly cookie on this app, so no token passes through this component.
+ * it. The form posts straight to the builder's backend from the browser, which answers by setting
+ * an HttpOnly session cookie — no token passes through this component.
  */
 export function BuilderAuthPanel({
   mode,

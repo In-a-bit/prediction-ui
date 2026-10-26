@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import Link from "next/link";
-
 import { PlaeeEmbed } from "@/components/builder/plaee-embed";
 import { BuilderAuthPanel } from "@/components/builder/builder-auth-panel";
 import { ModeBadge } from "@/components/builder/mode-badge";
@@ -158,7 +156,12 @@ function SignedIn({
   };
 
   const logout = async () => {
-    await signOut(mode);
+    try {
+      await signOut(mode);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign you out");
+      return;
+    }
     onSignedOut();
   };
 
@@ -177,21 +180,13 @@ function SignedIn({
             <WalletAddress address={profile.proxyWallet} pending="set up on your first trade" />
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/builder/${mode}/manage`}
-            className="rounded-md border border-card-border px-3 py-1.5 text-xs hover:bg-card-hover"
-          >
-            Back office
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-md border border-card-border px-3 py-1.5 text-xs hover:bg-card-hover"
-          >
-            Sign out
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={logout}
+          className="rounded-md border border-card-border px-3 py-1.5 text-xs hover:bg-card-hover"
+        >
+          Sign out
+        </button>
       </section>
 
       <MoneyPanel
