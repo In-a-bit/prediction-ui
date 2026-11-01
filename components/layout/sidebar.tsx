@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { PlaeSidebarNav } from "@/components/plae/plae-sidebar-nav";
+import { isBuilderEnabled } from "@/lib/builder/config";
 import { cn } from "@/lib/utils";
 
 const categories = [
@@ -43,7 +44,9 @@ export function Sidebar() {
   const tabs = [
     { href: "/plaee", label: "Plaee", active: isPlaeActive },
     { href: "/lp", label: "LP", active: isLpActive },
-    { href: "/builder", label: "Builder", active: isBuilderActive, span: true },
+    ...(isBuilderEnabled()
+      ? [{ href: "/builder", label: "Builder", active: isBuilderActive, span: true }]
+      : []),
   ];
 
   return (

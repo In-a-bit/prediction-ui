@@ -1,6 +1,20 @@
 import type { BuilderMode } from "./types";
 
 /**
+ * Whether the custody-builder demo exists in this deployment: its tab and its `/builder` routes.
+ *
+ * Off unless explicitly "true". The sidebar checks it for the tab and `proxy.ts` for the routes.
+ * `NEXT_PUBLIC_BUILDER_*_URL` and `PLAEE_BASE_URL` are only read by the demo, so a deployment
+ * without it does not configure them.
+ *
+ * Public because the sidebar is a client component; Next inlines it at build time, so changing it
+ * takes a rebuild.
+ */
+export function isBuilderEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_BUILDER_ENABLED?.trim() === "true";
+}
+
+/**
  * Where each builder's backend lives, as the browser reaches it.
  *
  * Public environment, not a form: the demo has exactly two builders and the whole point is to
