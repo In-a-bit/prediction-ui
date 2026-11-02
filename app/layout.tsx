@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "DPM | Casino & Predictions",
-  description: "Casino games and prediction markets",
+  title: "DPM | Predictions",
+  description: "Prediction markets",
 };
 
 export default function RootLayout({

@@ -18,7 +18,7 @@ export default function OAuthCallbackPage() {
 
     const timeout = setTimeout(() => {
       setError("Timed out waiting for OAuth result");
-      setTimeout(() => router.replace("/"), 2000);
+      setTimeout(() => router.replace("/plaee"), 2000);
     }, 30_000);
 
     dpmSdk.auth
@@ -28,13 +28,13 @@ export default function OAuthCallbackPage() {
         if (isPrivyOAuthReturn()) {
           stripPrivyOAuthParams();
         }
-        router.replace(returnTo ?? "/");
+        router.replace(returnTo ?? "/plaee");
       })
       .catch((err: unknown) => {
         clearTimeout(timeout);
         console.error("[oauth-callback] completeRedirect failed:", err);
         setError(err instanceof Error ? err.message : String(err));
-        setTimeout(() => router.replace("/"), 2000);
+        setTimeout(() => router.replace("/plaee"), 2000);
       });
   }, [dpmSdk, router]);
 

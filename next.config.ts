@@ -13,6 +13,10 @@ const PRIVY_OPTIONAL_PEERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  // Plaee is the home page. Temporary, so browsers don't cache the choice forever.
+  async redirects() {
+    return [{ source: "/", destination: "/plaee", permanent: false }];
+  },
   // Privy is now used exclusively inside @inabit-com/dpm-sdk (<DpmWalletProvider>),
   // so there is a single Privy instance and no duplicate-context aliasing is
   // needed — the app never imports @privy-io/react-auth directly.
@@ -34,10 +38,6 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "*.polymarket.com",
-      },
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
       },
     ],
   },

@@ -39,8 +39,8 @@ export function Sidebar() {
    * `text-xs`. Builder therefore takes a full-width row of its own, which also reads correctly:
    * it is a different kind of thing from the four market surfaces above it.
    */
-  // Casino and Predictions are hidden from the nav, not removed: their routes still answer by
-  // URL, and restoring a tab is putting its line back here.
+  // Predictions is hidden from the nav, not removed: its routes still answer by URL, and restoring
+  // the tab is putting its line back here.
   const tabs = [
     { href: "/plaee", label: "Plaee", active: isPlaeActive },
     { href: "/lp", label: "LP", active: isLpActive },
@@ -52,7 +52,6 @@ export function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 border-r border-card-border bg-sidebar p-4 lg:block">
       {/* Logo */}
-      {/* Plaee, not "/": the root is the Casino surface, which is hidden from the nav. */}
       <Link href="/plaee" className="mb-6 flex items-center gap-2.5 px-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand">
           <svg
@@ -164,7 +163,7 @@ export function Sidebar() {
         </Link>
         <div className="rounded-xl border border-card-border bg-card p-3">
           <p className="text-xs font-medium text-muted">
-            Casino games & prediction markets
+            Prediction markets
           </p>
         </div>
       </div>

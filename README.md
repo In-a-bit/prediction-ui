@@ -1,6 +1,6 @@
 # prediction-ui
 
-Next.js frontend for the DPM prediction market & casino platform.
+Next.js frontend for the DPM prediction market platform.
 
 ## Stack
 

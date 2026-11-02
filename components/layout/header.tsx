@@ -35,10 +35,6 @@ function isLpSurface(pathname: string) {
   return pathname === "/lp" || pathname.startsWith("/lp/");
 }
 
-function isCasinoSurface(pathname: string) {
-  return pathname === "/" || pathname.startsWith("/games/");
-}
-
 export function Header() {
   const pathname = usePathname();
   const showLpToolbar = isLpSurface(pathname);
@@ -60,11 +56,7 @@ export function Header() {
    * the tab mid-configuration.
    */
   const showSearch = !isBuilderSurface(pathname);
-  const searchPlaceholder = isCasinoSurface(pathname)
-    ? "Search casino"
-    : showLpToolbar
-      ? "Search LP markets"
-      : "Search prediction markets";
+  const searchPlaceholder = showLpToolbar ? "Search LP markets" : "Search prediction markets";
 
   // Sync input from URL on external navigation (back/forward, sidebar clicks)
   useEffect(() => {
