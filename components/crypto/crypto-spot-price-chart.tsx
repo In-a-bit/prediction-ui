@@ -12,9 +12,12 @@ import {
 } from "recharts";
 
 import type { SpotChartPoint } from "@/lib/hooks/use-crypto-spot-chart";
-import { formatCryptoPriceToBeat } from "@/lib/crypto-updown";
+import { formatUpdownPrice, type UpdownPriceFeed } from "@/lib/crypto-updown";
 
 const CHART_RESAMPLE_MS = 250;
+
+/** A drawn point; price null breaks the line (closed hours). */
+type ChartPoint = { time: number; price: number | null };
 
 interface CryptoSpotPriceChartProps {
   points: SpotChartPoint[];
@@ -25,7 +28,12 @@ interface CryptoSpotPriceChartProps {
   intervalMinutes?: number;
   loading: boolean;
   error: string | null;
-  target?: string;
+  feed?: UpdownPriceFeed;
+  /**
+   * Feeds with closed hours: a step between points longer than this is a
+   * closure, drawn as a gap. Null/undefined draws one continuous line (crypto).
+   */
+  gapThresholdMs?: number | null;
 }
 
 function liveXDomain(
@@ -42,13 +50,18 @@ function liveXDomain(
   return [now - windowMs, now];
 }
 
-/** Build a line that always spans the full X window; only grows forward. */
+/**
+ * Build a line that always spans the full X window; only grows forward.
+ * With gapMs (feeds with closed hours) nothing is carried across a closure:
+ * the line starts at the last price before the window only when it is recent.
+ */
 function buildLiveChartData(
   points: SpotChartPoint[],
   now: number,
   slotStartSec: number,
   intervalMinutes: number,
-): SpotChartPoint[] {
+  gapMs: number | null,
+): ChartPoint[] {
   if (points.length === 0 || now === 0) return [];
 
   const sorted = [...points].sort((a, b) => a.time - b.time);
@@ -58,6 +71,12 @@ function buildLiveChartData(
     (p) => p.time >= windowStart && p.time <= windowEnd,
   );
   const beforeWindow = sorted.filter((p) => p.time < windowStart);
+
+  if (gapMs != null) {
+    const lastBefore = beforeWindow[beforeWindow.length - 1];
+    const data = lastBefore ? [lastBefore, ...inWindow] : inWindow;
+    return resampleForDisplay(data, windowStart, windowEnd, gapMs);
+  }
 
   const carryPrice =
     beforeWindow.length > 0
@@ -74,7 +93,24 @@ function buildLiveChartData(
     }
   }
 
-  return resampleForDisplay(data, windowStart, windowEnd);
+  return resampleForDisplay(data, windowStart, windowEnd, null);
+}
+
+/** Past chart: a null point inside every step longer than gapMs breaks the line. */
+function breakLineAtGaps(
+  sorted: SpotChartPoint[],
+  gapMs: number | null,
+): ChartPoint[] {
+  if (gapMs == null) return sorted;
+  const out: ChartPoint[] = [];
+  for (const p of sorted) {
+    const prev = out[out.length - 1];
+    if (prev && p.time - prev.time > gapMs) {
+      out.push({ time: (prev.time + p.time) / 2, price: null });
+    }
+    out.push(p);
+  }
+  return out;
 }
 
 function easeInOutSmooth(t: number): number {
@@ -82,13 +118,20 @@ function easeInOutSmooth(t: number): number {
   return x * x * (3 - 2 * x);
 }
 
+/** Price at timeMs; null inside a closure (a step longer than gapMs). */
 function interpolatePriceAt(
   points: SpotChartPoint[],
   timeMs: number,
-): number {
+  gapMs: number | null,
+): number | null {
+  const first = points[0];
   const last = points[points.length - 1];
-  if (timeMs <= points[0].time) return points[0].price;
-  if (timeMs >= last.time) return last.price;
+  if (timeMs <= first.time) {
+    return gapMs != null && timeMs < first.time ? null : first.price;
+  }
+  if (timeMs >= last.time) {
+    return gapMs != null && timeMs - last.time > gapMs ? null : last.price;
+  }
 
   for (let i = 1; i < points.length; i++) {
     const left = points[i - 1];
@@ -96,6 +139,7 @@ function interpolatePriceAt(
     if (timeMs >= left.time && timeMs <= right.time) {
       const span = right.time - left.time;
       if (span <= 0) return right.price;
+      if (gapMs != null && span > gapMs) return null;
       const ratio = easeInOutSmooth((timeMs - left.time) / span);
       return left.price + ratio * (right.price - left.price);
     }
@@ -109,17 +153,19 @@ function resampleForDisplay(
   points: SpotChartPoint[],
   fromMs: number,
   toMs: number,
-): SpotChartPoint[] {
+  gapMs: number | null,
+): ChartPoint[] {
   if (points.length === 0 || toMs <= fromMs) return [];
 
   const start = Math.ceil(fromMs / CHART_RESAMPLE_MS) * CHART_RESAMPLE_MS;
-  const out: SpotChartPoint[] = [];
+  const out: ChartPoint[] = [];
 
   for (let t = start; t <= toMs; t += CHART_RESAMPLE_MS) {
-    out.push({ time: t, price: interpolatePriceAt(points, t) });
+    out.push({ time: t, price: interpolatePriceAt(points, t, gapMs) });
   }
 
-  return out.length > 0 ? out : [{ time: fromMs, price: points[0].price }];
+  if (out.length === 0) return [{ time: fromMs, price: points[0].price }];
+  return out.some((p) => p.price != null) ? out : [];
 }
 
 export function CryptoSpotPriceChart({
@@ -131,7 +177,8 @@ export function CryptoSpotPriceChart({
   intervalMinutes = 5,
   loading,
   error,
-  target,
+  feed,
+  gapThresholdMs = null,
 }: CryptoSpotPriceChartProps) {
   const [now, setNow] = useState(0);
   const isFrozen = frozenAtMs != null;
@@ -147,7 +194,7 @@ export function CryptoSpotPriceChart({
 
   const { chartData, xDomain } = useMemo(() => {
     if (points.length === 0) {
-      return { chartData: [] as SpotChartPoint[], xDomain: undefined as [number, number] | undefined };
+      return { chartData: [] as ChartPoint[], xDomain: undefined as [number, number] | undefined };
     }
 
     if (liveMode && displayNow > 0 && slotStartSec != null) {
@@ -157,16 +204,20 @@ export function CryptoSpotPriceChart({
           displayNow,
           slotStartSec,
           intervalMinutes,
+          gapThresholdMs,
         ),
         xDomain: liveXDomain(displayNow, slotStartSec, intervalMinutes),
       };
     }
 
     return {
-      chartData: [...points].sort((a, b) => a.time - b.time),
+      chartData: breakLineAtGaps(
+        [...points].sort((a, b) => a.time - b.time),
+        gapThresholdMs,
+      ),
       xDomain: undefined,
     };
-  }, [points, liveMode, displayNow, slotStartSec, intervalMinutes]);
+  }, [points, liveMode, displayNow, slotStartSec, intervalMinutes, gapThresholdMs]);
 
   const yDomain = useMemo<[number, number]>(() => {
     if (chartData.length === 0) return [0, 1];
@@ -174,6 +225,7 @@ export function CryptoSpotPriceChart({
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
     for (const p of chartData) {
+      if (p.price == null) continue;
       if (p.price < min) min = p.price;
       if (p.price > max) max = p.price;
     }
@@ -191,8 +243,7 @@ export function CryptoSpotPriceChart({
     return [min - pad, max + pad];
   }, [chartData, priceToBeat]);
 
-  const formatUsd = (value: number) =>
-    formatCryptoPriceToBeat(String(value), target);
+  const formatUsd = (value: number) => formatUpdownPrice(String(value), feed);
 
   if (loading) {
     return (
@@ -267,7 +318,7 @@ export function CryptoSpotPriceChart({
             })
           }
           formatter={(value: number | undefined) => [
-            formatUsd(value ?? 0),
+            value == null ? "—" : formatUsd(value),
             "Price",
           ]}
         />
@@ -290,7 +341,7 @@ export function CryptoSpotPriceChart({
           stroke="#f97316"
           strokeWidth={2}
           isAnimationActive={false}
-          connectNulls
+          connectNulls={gapThresholdMs == null}
           strokeLinecap="round"
           strokeLinejoin="round"
           dot={false}

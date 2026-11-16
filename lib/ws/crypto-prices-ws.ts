@@ -13,10 +13,15 @@ export type CryptoPriceTick = {
 
 export type CryptoPriceTickCallback = (tick: CryptoPriceTick) => void;
 
+/** /ws/prices topics: crypto ticks ("btc/usdt") and finance ticks ("metal.xau/usd"). */
+export type PricesTopic = "crypto_prices" | "finance_prices";
+
+/** Live spot ticks of one symbol on /ws/prices, for crypto or finance feeds. */
 export class CryptoPricesWS {
   private wsUrl: string;
   private ws: WebSocket | null = null;
   private symbol: string | null = null;
+  private topic: PricesTopic = "crypto_prices";
   private listeners = new Set<CryptoPriceTickCallback>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
@@ -26,13 +31,18 @@ export class CryptoPricesWS {
     this.wsUrl = wsUrl?.trim() || predictionGoPricesWsUrl();
   }
 
-  connect(symbol: string) {
+  connect(symbol: string, topic: PricesTopic = "crypto_prices") {
     if (this.destroyed) return;
     const normalized = symbol.toLowerCase();
-    if (this.symbol === normalized && this.ws?.readyState === WebSocket.OPEN) {
+    if (
+      this.symbol === normalized &&
+      this.topic === topic &&
+      this.ws?.readyState === WebSocket.OPEN
+    ) {
       return;
     }
     this.symbol = normalized;
+    this.topic = topic;
     this.openConnection();
   }
 
@@ -122,6 +132,7 @@ export class CryptoPricesWS {
     }
 
     if (msg.type === "error") return;
+    if (msg.topic != null && msg.topic !== this.topic) return;
 
     const payload = msg.payload as Record<string, unknown> | undefined;
     if (!payload) return;
@@ -145,7 +156,7 @@ export class CryptoPricesWS {
         action: "subscribe",
         subscriptions: [
           {
-            topic: "crypto_prices",
+            topic: this.topic,
             type: "update",
             filters: JSON.stringify({ symbol }),
           },

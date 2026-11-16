@@ -16,6 +16,24 @@ export const plaeCryptoTopic: PlaeTopic = {
   groupBySeries: true,
 };
 
+/** Finance Up/Down markets: the "finance" tag, then one tag per category
+ * (the category values of finance_updown events). */
+export const plaeFinanceTopic: PlaeTopic = {
+  slug: "finance",
+  label: "Finance",
+  groupBySeries: true,
+};
+
+export const plaeFinanceCategoryTopics: PlaeTopic[] = [
+  { slug: "fx", label: "FX", groupBySeries: true },
+  { slug: "metals", label: "Metals", groupBySeries: true },
+  { slug: "stocks", label: "Stocks", groupBySeries: true },
+  { slug: "commodities", label: "Commodities", groupBySeries: true },
+  { slug: "indices", label: "Indices", groupBySeries: true },
+];
+
+export const PLAE_FINANCE_ICON = "M3 17l6-6 4 4 8-8M15 7h6v6";
+
 const plaeSoccerStaticTopics: PlaeTopic[] = [
   {
     slug: "world-cup",
@@ -93,6 +111,12 @@ export function getPlaeSoccerTopics(): PlaeTopic[] {
 export function getPlaeTopic(slug: string): PlaeTopic | undefined {
   if (slug === plaeCryptoTopic.slug) {
     return plaeCryptoTopic;
+  }
+  const finance = [plaeFinanceTopic, ...plaeFinanceCategoryTopics].find(
+    (topic) => topic.slug === slug,
+  );
+  if (finance) {
+    return finance;
   }
   return getPlaeSoccerTopics().find((topic) => topic.slug === slug);
 }

@@ -14,7 +14,7 @@ import type { GammaEvent } from "@/lib/types/event";
 import {
   formatVolume,
   getDeployedMarkets,
-  isCryptoUpdownEvent,
+  isUpdownEvent,
   parseOutcomes,
   parsePrices,
   parseTokenIds,
@@ -94,7 +94,7 @@ export function SharedEventPage() {
   }
 
   const seriesSlug = event.series?.[0]?.slug;
-  if (isCryptoUpdownEvent(event) && seriesSlug) {
+  if (isUpdownEvent(event) && seriesSlug) {
     return (
       <CryptoUpdownEventPage
         key={seriesSlug}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { cryptoUpdownDisplayTitle } from "@/lib/crypto-updown";
 import {
-  isCryptoUpdownEvent,
+  isUpdownEvent,
   parseOutcomePrices,
 } from "@/lib/market/gamma-helpers";
 import type { GammaEvent } from "@/lib/types/event";
@@ -13,7 +13,7 @@ import { useMarketSurface } from "@/components/providers/market-surface-provider
 export function PlaeEventCard({ event }: { event: GammaEvent }) {
   const { basePath } = useMarketSurface();
   const displayTitle =
-    (isCryptoUpdownEvent(event) && cryptoUpdownDisplayTitle(event)) ||
+    (isUpdownEvent(event) && cryptoUpdownDisplayTitle(event)) ||
     event.title;
   const { yes: yesPercent, no: noPercent, labels } = parseOutcomePrices(event);
   const [yesLabel, noLabel] = labels;

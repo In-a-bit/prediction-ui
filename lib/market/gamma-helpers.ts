@@ -1,3 +1,7 @@
+import {
+  CRYPTO_UPDOWN_METADATA_TYPE,
+  FINANCE_UPDOWN_METADATA_TYPE,
+} from "@/lib/crypto-updown";
 import type { GammaEvent, GammaMarket } from "@/lib/types/event";
 
 export function formatVolume(v: number): string {
@@ -120,7 +124,16 @@ export function getDeployedMarkets(event: GammaEvent): GammaMarket[] {
 }
 
 export function isCryptoUpdownEvent(event: GammaEvent): boolean {
-  return event.metadataType === "crypto_updown";
+  return event.metadataType === CRYPTO_UPDOWN_METADATA_TYPE;
+}
+
+export function isFinanceUpdownEvent(event: GammaEvent): boolean {
+  return event.metadataType === FINANCE_UPDOWN_METADATA_TYPE;
+}
+
+/** Recurring Up/Down slot (crypto or finance): served by the Up/Down event page. */
+export function isUpdownEvent(event: GammaEvent): boolean {
+  return isCryptoUpdownEvent(event) || isFinanceUpdownEvent(event);
 }
 
 const UMA_RESOLVED_STATUSES = new Set(["RESOLVED", "MANUALLY_RESOLVED"]);
@@ -130,11 +143,35 @@ export function isUmaResolved(market: GammaMarket | undefined): boolean {
   return status != null && UMA_RESOLVED_STATUSES.has(status);
 }
 
+export const SPLIT_RESOLUTION_LABEL = "50-50";
+
+/**
+ * Resolved 50-50 (e.g. a voided Up/Down slot, payouts [1, 1]): every outcome
+ * pays the same. gamma-api marks each paying token a winner, so a closed
+ * market shows equal non-zero outcomePrices (["1","1"], or ["0.5","0.5"]).
+ * Only closed markets carry settled prices: an open one shows ["0.5","0.5"]
+ * when its book has no quotes.
+ */
+export function isSplitResolution(market: GammaMarket | undefined): boolean {
+  if (!market?.outcomePrices || !market.closed) return false;
+  try {
+    const prices = (JSON.parse(market.outcomePrices) as string[]).map((p) =>
+      parseFloat(p),
+    );
+    return (
+      prices.length >= 2 &&
+      prices.every((p) => Number.isFinite(p) && p > 0 && p === prices[0])
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Index of the winning outcome from settled outcomePrices (e.g. ["1","0"]). */
 export function getWinningOutcomeIndex(
   market: GammaMarket | undefined,
 ): number | null {
-  if (!market?.outcomePrices) return null;
+  if (!market?.outcomePrices || isSplitResolution(market)) return null;
   try {
     const prices = JSON.parse(market.outcomePrices) as string[];
     for (let i = 0; i < prices.length; i++) {
@@ -146,9 +183,11 @@ export function getWinningOutcomeIndex(
   return null;
 }
 
+/** Winning outcome label, or "50-50" when every outcome pays the same. */
 export function getWinningOutcomeLabel(
   market: GammaMarket | undefined,
 ): string | null {
+  if (isSplitResolution(market)) return SPLIT_RESOLUTION_LABEL;
   const idx = getWinningOutcomeIndex(market);
   if (idx == null) return null;
   const labels = parseOutcomes(market);

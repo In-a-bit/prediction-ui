@@ -3,9 +3,10 @@
 import { CryptoPriceMetrics } from "@/components/crypto/crypto-price-metrics";
 import { CryptoSpotPriceChart } from "@/components/crypto/crypto-spot-price-chart";
 import {
+  chartGapThresholdMs,
   cryptoChartMode,
   getCryptoPriceToBeat,
-  parseCryptoMetadata,
+  parseUpdownMetadata,
 } from "@/lib/crypto-updown";
 import { useCryptoSpotChart } from "@/lib/hooks/use-crypto-spot-chart";
 import type { GammaEvent } from "@/lib/types/event";
@@ -25,8 +26,8 @@ export function CryptoSpotChartSection({
   market,
   chartMarket,
 }: CryptoSpotChartSectionProps) {
-  const displayMeta = parseCryptoMetadata(tradeEvent);
-  const chartMeta = parseCryptoMetadata(chartEvent);
+  const displayMeta = parseUpdownMetadata(tradeEvent);
+  const chartMeta = parseUpdownMetadata(chartEvent);
   const spotChart = useCryptoSpotChart(chartEvent, chartMarket ?? market);
 
   if (!displayMeta || !chartMeta) return null;
@@ -43,7 +44,7 @@ export function CryptoSpotChartSection({
         priceToBeatRaw={priceToBeatRaw}
         priceToBeat={priceToBeatNum}
         currentPrice={spotChart.currentPrice}
-        target={displayMeta.target}
+        feed={displayMeta.feed}
       />
       <CryptoSpotPriceChart
         points={spotChart.points}
@@ -56,7 +57,8 @@ export function CryptoSpotChartSection({
         intervalMinutes={chartMeta.interval_minutes}
         loading={spotChart.loading}
         error={spotChart.error}
-        target={chartMeta.target}
+        feed={chartMeta.feed}
+        gapThresholdMs={chartGapThresholdMs(chartMeta, spotChart.liveMode)}
       />
     </div>
   );

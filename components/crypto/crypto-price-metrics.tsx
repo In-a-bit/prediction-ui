@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 
 import {
   countdownTargetSec,
-  formatCryptoPriceToBeat,
+  formatUpdownPrice,
+  formatUpdownPriceDelta,
   type CryptoChartMode,
-  type CryptoUpdownMetadata,
+  type UpdownMetadata,
+  type UpdownPriceFeed,
 } from "@/lib/crypto-updown";
 import { cn } from "@/lib/utils";
 
@@ -18,12 +20,12 @@ function formatCountdown(secondsLeft: number): string {
 }
 
 interface CryptoPriceMetricsProps {
-  meta: CryptoUpdownMetadata;
+  meta: UpdownMetadata;
   chartMode: CryptoChartMode;
   priceToBeatRaw: string | null;
   priceToBeat: number | null;
   currentPrice: number | null;
-  target?: string;
+  feed?: UpdownPriceFeed;
 }
 
 export function CryptoPriceMetrics({
@@ -32,7 +34,7 @@ export function CryptoPriceMetrics({
   priceToBeatRaw,
   priceToBeat,
   currentPrice,
-  target,
+  feed,
 }: CryptoPriceMetricsProps) {
   const [nowMs, setNowMs] = useState<number | null>(null);
   const [countdownVisible, setCountdownVisible] = useState(false);
@@ -55,12 +57,12 @@ export function CryptoPriceMetrics({
 
   const beatLabel =
     priceToBeatRaw != null
-      ? formatCryptoPriceToBeat(priceToBeatRaw, target)
+      ? formatUpdownPrice(priceToBeatRaw, feed)
       : "—";
 
   const currentLabel =
     currentPrice != null
-      ? formatCryptoPriceToBeat(String(currentPrice), target)
+      ? formatUpdownPrice(String(currentPrice), feed)
       : "—";
 
   const delta =
@@ -107,11 +109,8 @@ export function CryptoPriceMetrics({
                 deltaPositive ? "text-green" : "text-red",
               )}
             >
-              {deltaPositive ? "▲" : "▼"} $
-              {Math.abs(delta).toLocaleString("en-US", {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              })}
+              {deltaPositive ? "▲" : "▼"}{" "}
+              {formatUpdownPriceDelta(Math.abs(delta), feed)}
             </span>
           )}
         </div>

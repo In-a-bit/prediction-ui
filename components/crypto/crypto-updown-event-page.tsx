@@ -26,7 +26,7 @@ import {
   adjustBarAfterSelect,
   buildDefaultBarSlugs,
   findLiveEvent,
-  parseCryptoMetadata,
+  parseUpdownMetadata,
   cryptoUpdownDisplayImage,
   cryptoUpdownDisplayTitle,
   cryptoUpdownSlotHeader,
@@ -66,7 +66,7 @@ export function CryptoUpdownEventPage({
 
   const seriesInitKey = useRef<string | null>(null);
   const intervalMinutes =
-    parseCryptoMetadata(initialEvent)?.interval_minutes ?? 5;
+    parseUpdownMetadata(initialEvent)?.interval_minutes ?? 5;
 
   useEffect(() => {
     let cancelled = false;

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  PLAE_FINANCE_ICON,
   plaeCryptoTopic,
+  plaeFinanceCategoryTopics,
+  plaeFinanceTopic,
   plaeLeagueSportGroups,
   type PlaeLeagueSportGroup,
 } from "@/lib/data/plae-topics";
@@ -39,6 +42,36 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path d="M19 9l-7 7-7-7" />
     </svg>
+  );
+}
+
+const CRYPTO_ICON =
+  "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
+
+function TopicLink({
+  href,
+  active,
+  icon,
+  label,
+}: {
+  href: string;
+  active: boolean;
+  icon: string;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+        active
+          ? "bg-brand/10 text-brand"
+          : "text-muted hover:bg-card-hover hover:text-foreground",
+      )}
+    >
+      <NavIcon path={icon} />
+      {label}
+    </Link>
   );
 }
 
@@ -78,22 +111,30 @@ export function PlaeSidebarNav() {
     return pathname === topicHref(slug);
   }
 
-  const cryptoActive = topicIsActive(plaeCryptoTopic.slug);
-
   return (
     <nav className="space-y-1">
-      <Link
+      <TopicLink
         href={topicHref(plaeCryptoTopic.slug)}
-        className={cn(
-          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-          cryptoActive
-            ? "bg-brand/10 text-brand"
-            : "text-muted hover:bg-card-hover hover:text-foreground",
-        )}
-      >
-        <NavIcon path="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        {plaeCryptoTopic.label}
-      </Link>
+        active={topicIsActive(plaeCryptoTopic.slug)}
+        icon={CRYPTO_ICON}
+        label={plaeCryptoTopic.label}
+      />
+
+      <TopicLink
+        href={topicHref(plaeFinanceTopic.slug)}
+        active={topicIsActive(plaeFinanceTopic.slug)}
+        icon={PLAE_FINANCE_ICON}
+        label={plaeFinanceTopic.label}
+      />
+      <LeagueList
+        leagues={plaeFinanceCategoryTopics.map((topic) => ({
+          slug: topic.slug,
+          title: topic.label,
+        }))}
+        icon={PLAE_FINANCE_ICON}
+        hrefFor={topicHref}
+        pathname={pathname}
+      />
 
       {plaeLeagueSportGroups.map((group) => (
         <SportLeagueGroup
@@ -155,7 +196,7 @@ function SportLeagueGroup({
         <LeagueList
           leagues={leagues}
           icon={group.icon}
-          basePath={basePath}
+          hrefFor={(slug) => seriesHref(basePath, slug)}
           pathname={pathname}
         />
       ) : null}
@@ -192,15 +233,16 @@ function SportGroupToggle({
   );
 }
 
+/** Indented sub-links: a sport's leagues, or the finance categories. */
 function LeagueList({
   leagues,
   icon,
-  basePath,
+  hrefFor,
   pathname,
 }: {
   leagues: LeagueLinkData[];
   icon: string;
-  basePath: string;
+  hrefFor: (slug: string) => string;
   pathname: string;
 }) {
   return (
@@ -210,8 +252,8 @@ function LeagueList({
           key={league.slug}
           league={league}
           icon={icon}
-          href={seriesHref(basePath, league.slug)}
-          active={pathname === seriesHref(basePath, league.slug)}
+          href={hrefFor(league.slug)}
+          active={pathname === hrefFor(league.slug)}
         />
       ))}
     </div>

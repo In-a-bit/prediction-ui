@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   eventsToBarSlugs,
+  formatNextMarketTime,
   getActiveLiveEventSlug,
+  getClosedHoursState,
   getMoreEvents,
   getPastEvents,
   slotLabelForEvent,
@@ -149,6 +151,7 @@ export function SeriesSlotPicker({
   const visible = eventsToBarSlugs(events, barSlugs);
   const selectedPast = pastEvents.find((e) => e.slug === selectedSlug);
   const selectedMore = moreEvents.find((e) => e.slug === selectedSlug);
+  const closedHours = getClosedHoursState(events, nowMs || undefined);
 
   function renderCapsule(event: GammaEvent) {
     const isSelected = event.slug === selectedSlug;
@@ -176,7 +179,7 @@ export function SeriesSlotPicker({
     );
   }
 
-  return (
+  const picker = (
     <div className="inline-flex max-w-full flex-wrap items-center gap-2">
       <SlotDropdown
         label={selectedPast ? slotLabelForEvent(selectedPast) : "Past"}
@@ -205,5 +208,30 @@ export function SeriesSlotPicker({
         disabled={moreEvents.length === 0}
       />
     </div>
+  );
+
+  if (!closedHours) return picker;
+
+  return (
+    <div className="space-y-3">
+      <ClosedHoursNotice nextSlotStartSec={closedHours.nextSlotStartSec} />
+      {picker}
+    </div>
+  );
+}
+
+/** Between trading sessions (finance) no slot is live. */
+function ClosedHoursNotice({
+  nextSlotStartSec,
+}: {
+  nextSlotStartSec: number | null;
+}) {
+  return (
+    <p className="flex items-center gap-2 text-sm font-medium text-muted">
+      <span className="h-2 w-2 shrink-0 rounded-full bg-neutral-500" aria-hidden />
+      {nextSlotStartSec != null
+        ? `Market closed, next market at ${formatNextMarketTime(nextSlotStartSec)}`
+        : "Market closed"}
+    </p>
   );
 }

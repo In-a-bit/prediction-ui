@@ -12,12 +12,13 @@ import {
   CryptoPricesWS,
   type CryptoPriceTick,
   type CryptoPriceTickCallback,
+  type PricesTopic,
 } from "@/lib/ws/crypto-prices-ws";
 
 const DISCONNECT_GRACE_MS = 100;
 
 interface CryptoPricesWSContextValue {
-  connect: (symbol: string) => void;
+  connect: (symbol: string, topic?: PricesTopic) => void;
   onTick: (callback: CryptoPriceTickCallback) => () => void;
 }
 
@@ -56,8 +57,8 @@ export function CryptoPricesWSProvider({
     };
   }, [wsUrl]);
 
-  const connect = useCallback((symbol: string) => {
-    wsRef.current?.connect(symbol);
+  const connect = useCallback((symbol: string, topic?: PricesTopic) => {
+    wsRef.current?.connect(symbol, topic);
   }, []);
 
   const onTick = useCallback((callback: CryptoPriceTickCallback) => {

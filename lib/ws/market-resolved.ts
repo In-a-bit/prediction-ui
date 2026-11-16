@@ -7,6 +7,8 @@ export interface MarketResolvedWsEvent {
   condition_id?: string;
   winning_outcome?: string;
   winning_asset_id?: string;
+  /** True when more than one outcome pays (a 50-50); winning_* are then null. */
+  split?: boolean;
   assets_ids?: string[];
   outcomes?: string[];
   timestamp?: string;
@@ -32,6 +34,7 @@ export function parseMarketResolvedEvent(
     condition_id: optionalString(data.condition_id),
     winning_outcome: optionalString(data.winning_outcome),
     winning_asset_id: optionalString(data.winning_asset_id),
+    split: data.split === true,
     assets_ids: optionalStringArray(data.assets_ids),
     outcomes: optionalStringArray(data.outcomes),
     timestamp: optionalString(data.timestamp),

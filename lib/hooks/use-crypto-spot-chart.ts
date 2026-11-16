@@ -9,15 +9,15 @@ import {
 } from "@/lib/api/crypto-prices";
 import {
   cryptoChartMode,
-  cryptoWsSymbol,
   getCryptoPriceToBeat,
   isChartLiveMode,
-  parseCryptoMetadata,
+  parseUpdownMetadata,
   type CryptoChartMode,
 } from "@/lib/crypto-updown";
 import { useCryptoPricesWS } from "@/components/providers/crypto-prices-ws-provider";
 import { useMarketSurface } from "@/components/providers/market-surface-provider";
 import type { GammaEvent } from "@/lib/types/event";
+import { priceFeedAdapter, priceFeedKey } from "@/lib/updown-price-feed";
 
 export type SpotChartPoint = { time: number; price: number };
 
@@ -25,6 +25,11 @@ const MAX_POINTS = 600;
 const LIVE_SAMPLE_INTERVAL_MS = 250;
 /** Ease display price toward WS target over ~800ms. */
 const PRICE_SMOOTH_HALF_LIFE_MS = 800;
+/**
+ * Feeds with closed hours stop sampling once ticks stop for this long, so a
+ * closure becomes a gap in the chart instead of a flat line.
+ */
+const CLOSED_FEED_STALE_TICK_MS = 10_000;
 
 /** Append only forward in time — never rewrite earlier points. */
 function appendForward(
@@ -53,9 +58,9 @@ function historyToPoints(
 
 /** Stable key for a slot — only changes when the market window or asset changes. */
 export function cryptoSpotHistoryKey(event: GammaEvent): string {
-  const meta = parseCryptoMetadata(event);
+  const meta = parseUpdownMetadata(event);
   if (!meta) return "";
-  return `${event.slug}:${meta.slot_start}:${meta.slot_end}:${meta.base}:${meta.target}`;
+  return `${event.slug}:${meta.slot_start}:${meta.slot_end}:${priceFeedKey(meta.feed)}`;
 }
 
 export function useCryptoSpotChart(
@@ -64,7 +69,8 @@ export function useCryptoSpotChart(
 ) {
   const { serviceBase } = useMarketSurface();
   const priceBase = serviceBase("price");
-  const meta = parseCryptoMetadata(event);
+  const meta = parseUpdownMetadata(event);
+  const feed = meta ? priceFeedAdapter(meta.feed) : null;
 
   const chartMode: CryptoChartMode = meta
     ? cryptoChartMode(meta)
@@ -77,8 +83,9 @@ export function useCryptoSpotChart(
   }
 
   const liveDisplayMode = chartMode === "live" || frozenAtMs != null;
-  const wsSymbol =
-    meta && chartMode === "live" ? cryptoWsSymbol(meta) : null;
+  const wsSymbol = feed && chartMode === "live" ? feed.wsSymbol : null;
+  const wsTopic = feed?.wsTopic;
+  const hasClosedHours = feed?.hasClosedHours ?? false;
 
   const priceToBeatRaw = meta
     ? getCryptoPriceToBeat(event, market)
@@ -92,15 +99,18 @@ export function useCryptoSpotChart(
   const cryptoPricesWs = useCryptoPricesWS();
   const targetPriceRef = useRef<number | null>(null);
   const smoothedPriceRef = useRef<number | null>(null);
+  /** When the live target price was last set (seed or tick), ms. */
+  const lastPriceAtRef = useRef<number | null>(null);
 
-  const seedLivePrice = (price: number) => {
+  const seedLivePrice = (price: number, atMs: number) => {
     targetPriceRef.current = price;
     smoothedPriceRef.current = price;
+    lastPriceAtRef.current = atMs;
     setCurrentPrice(price);
   };
 
   useEffect(() => {
-    const slotMeta = parseCryptoMetadata(event);
+    const slotMeta = parseUpdownMetadata(event);
     if (!slotMeta) return;
 
     let cancelled = false;
@@ -111,7 +121,7 @@ export function useCryptoSpotChart(
       const latest = await fetchCryptoLatest(slotMeta, loadTimeMs, priceBase);
       if (cancelled || !latest) return;
       setPoints([{ time: latest.timestamp, price: latest.price }]);
-      seedLivePrice(latest.price);
+      seedLivePrice(latest.price, latest.timestamp);
     };
 
     const loadPromise = live
@@ -123,7 +133,7 @@ export function useCryptoSpotChart(
           }
           setPoints(historyToPoints(history));
           const last = history[history.length - 1];
-          if (last) seedLivePrice(last.price);
+          if (last) seedLivePrice(last.price, last.timestamp);
         })
       : fetchCryptoPriceHistory(slotMeta, loadTimeMs, priceBase).then((history) => {
           if (cancelled) return;
@@ -165,15 +175,16 @@ export function useCryptoSpotChart(
   useEffect(() => {
     if (!wsSymbol) return;
 
-    cryptoPricesWs.connect(wsSymbol);
+    cryptoPricesWs.connect(wsSymbol, wsTopic);
 
     const unsub = cryptoPricesWs.onTick((tick) => {
       targetPriceRef.current = tick.value;
+      lastPriceAtRef.current = Date.now();
       setCurrentPrice(tick.value);
     });
 
     return unsub;
-  }, [cryptoPricesWs, wsSymbol]);
+  }, [cryptoPricesWs, wsSymbol, wsTopic]);
 
   useEffect(() => {
     if (!wsSymbol) return;
@@ -181,6 +192,14 @@ export function useCryptoSpotChart(
     const sampleSmoothedPrice = () => {
       const target = targetPriceRef.current;
       if (target == null) return;
+      const lastPriceAt = lastPriceAtRef.current;
+      if (
+        hasClosedHours &&
+        (lastPriceAt == null ||
+          Date.now() - lastPriceAt > CLOSED_FEED_STALE_TICK_MS)
+      ) {
+        return;
+      }
 
       const prev = smoothedPriceRef.current ?? target;
       const alpha =
@@ -196,7 +215,7 @@ export function useCryptoSpotChart(
     sampleSmoothedPrice();
     const id = setInterval(sampleSmoothedPrice, LIVE_SAMPLE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [wsSymbol]);
+  }, [wsSymbol, hasClosedHours]);
 
   return {
     meta,

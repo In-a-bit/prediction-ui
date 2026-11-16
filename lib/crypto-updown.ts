@@ -1,6 +1,21 @@
-import type { CryptoUpdownMetadata, GammaEvent } from "@/lib/types/event";
+/**
+ * Up/Down series helpers. Named after crypto, the first kind, they serve both
+ * crypto_updown and finance_updown events: the slot fields are the same, only
+ * the price feed (see UpdownPriceFeed) differs.
+ */
+import {
+  FINANCE_CATEGORIES,
+  type FinanceCategory,
+  type GammaEvent,
+  type UpdownMetadata,
+  type UpdownPriceFeed,
+} from "@/lib/types/event";
+import { priceFeedAdapter } from "@/lib/updown-price-feed";
 
-export type { CryptoUpdownMetadata } from "@/lib/types/event";
+export type { UpdownMetadata, UpdownPriceFeed } from "@/lib/types/event";
+
+export const CRYPTO_UPDOWN_METADATA_TYPE = "crypto_updown";
+export const FINANCE_UPDOWN_METADATA_TYPE = "finance_updown";
 
 function embeddedSeries(event: GammaEvent | null | undefined) {
   return event?.series?.[0];
@@ -28,20 +43,9 @@ export function cryptoUpdownDisplayImage(
   return undefined;
 }
 
-export function parseCryptoMetadata(
-  event: GammaEvent,
-): CryptoUpdownMetadata | null {
-  let raw = event.metadata;
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try {
-      raw = JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw !== "object") return null;
-  const m = raw as Record<string, unknown>;
+export function parseUpdownMetadata(event: GammaEvent): UpdownMetadata | null {
+  const m = parseMetadataRecord(event.metadata);
+  if (!m) return null;
   const slotStart = Number(m.slot_start);
   const slotEnd = Number(m.slot_end);
   const intervalMinutes = Number(m.interval_minutes);
@@ -52,15 +56,44 @@ export function parseCryptoMetadata(
   ) {
     return null;
   }
+  const feed = parsePriceFeed(event, m);
+  if (!feed) return null;
   const priceToBeat = readPriceToBeatRaw(m);
   return {
-    base: String(m.base ?? ""),
-    target: String(m.target ?? ""),
+    feed,
     interval_minutes: intervalMinutes,
     slot_start: slotStart,
     slot_end: slotEnd,
     ...(priceToBeat ? { priceToBeat } : {}),
   };
+}
+
+/** Finance events carry asset_key and category; crypto events base and target. */
+function parsePriceFeed(
+  event: GammaEvent,
+  m: Record<string, unknown>,
+): UpdownPriceFeed | null {
+  const assetKey = String(m.asset_key ?? "").trim().toLowerCase();
+  if (event.metadataType === FINANCE_UPDOWN_METADATA_TYPE || assetKey) {
+    if (!assetKey) return null;
+    return {
+      kind: "finance",
+      assetKey,
+      category: parseFinanceCategory(m.category),
+    };
+  }
+  return {
+    kind: "crypto",
+    base: String(m.base ?? ""),
+    target: String(m.target ?? ""),
+  };
+}
+
+function parseFinanceCategory(raw: unknown): FinanceCategory | null {
+  const value = String(raw ?? "").trim().toLowerCase();
+  return (FINANCE_CATEGORIES as readonly string[]).includes(value)
+    ? (value as FinanceCategory)
+    : null;
 }
 
 function readPriceToBeatRaw(m: Record<string, unknown>): string | null {
@@ -123,7 +156,7 @@ function meridiemForDate(date: Date): string {
 }
 
 /** e.g. "May 25, 10:20-10:25AM" (UTC, matching slot picker labels). */
-export function formatCryptoSlotTimeRange(meta: CryptoUpdownMetadata): string {
+export function formatCryptoSlotTimeRange(meta: UpdownMetadata): string {
   const start = new Date(meta.slot_start * 1000);
   const end = new Date(meta.slot_end * 1000);
   const datePart = start.toLocaleDateString("en-US", {
@@ -138,18 +171,42 @@ export function formatCryptoSlotTimeRange(meta: CryptoUpdownMetadata): string {
   return `${datePart}, ${timeRange}`;
 }
 
-export function formatCryptoPriceToBeat(
+function fixedDecimals(n: number, decimals: number): string {
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/** Quote currency of a finance asset key, e.g. "jpy" for "fx.usd/jpy". */
+function financeQuote(assetKey: string): string {
+  const slash = assetKey.lastIndexOf("/");
+  return slash >= 0 ? assetKey.slice(slash + 1) : "";
+}
+
+/** FX decimals: 5, or 3 when the quote currency is JPY. */
+function fxDecimals(assetKey: string): number {
+  return financeQuote(assetKey) === "jpy" ? 3 : 5;
+}
+
+/**
+ * Display format of a spot price (price to beat, current price, chart axis).
+ * Crypto: "$" with 2 decimals for USD/USDT quotes. Finance: FX with 5
+ * decimals (1.08523; USD/JPY 153.412); metals, commodities, stocks, indices "$" with 2.
+ */
+export function formatUpdownPrice(
   price: string,
-  target?: string,
+  feed?: UpdownPriceFeed,
 ): string {
   const n = Number(price);
   if (!Number.isFinite(n)) return price;
-  const quote = target?.toLowerCase();
+  if (feed?.kind === "finance") {
+    if (feed.category === "fx") return fixedDecimals(n, fxDecimals(feed.assetKey));
+    return `$${fixedDecimals(n, 2)}`;
+  }
+  const quote = feed?.target.toLowerCase();
   if (quote === "usdt" || quote === "usd") {
-    return `$${n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return `$${fixedDecimals(n, 2)}`;
   }
   if (n >= 1000) {
     return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -160,21 +217,35 @@ export function formatCryptoPriceToBeat(
   return n.toLocaleString("en-US", { maximumFractionDigits: 8 });
 }
 
+/** Absolute distance from the price to beat, e.g. "$12" (crypto), "0.00042" (FX). */
+export function formatUpdownPriceDelta(
+  absDelta: number,
+  feed?: UpdownPriceFeed,
+): string {
+  if (feed?.kind === "finance") {
+    return formatUpdownPrice(String(absDelta), feed);
+  }
+  return `$${absDelta.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
+}
+
 export function cryptoUpdownSlotHeader(
   event: GammaEvent,
   market?: { metadata?: Record<string, unknown> },
 ): { timeLabel: string | null; priceToBeatLabel: string } {
-  const meta = parseCryptoMetadata(event);
+  const meta = parseUpdownMetadata(event);
   const timeLabel = meta ? formatCryptoSlotTimeRange(meta) : null;
   const rawPrice =
     meta?.priceToBeat ?? getCryptoPriceToBeat(event, market) ?? null;
   const priceToBeatLabel = rawPrice
-    ? formatCryptoPriceToBeat(rawPrice, meta?.target)
+    ? formatUpdownPrice(rawPrice, meta?.feed)
     : "-";
   return { timeLabel, priceToBeatLabel };
 }
 
-export function isLiveSlot(meta: CryptoUpdownMetadata, nowMs = Date.now()): boolean {
+export function isLiveSlot(meta: UpdownMetadata, nowMs = Date.now()): boolean {
   const nowSec = nowMs / 1000;
   return meta.slot_start <= nowSec && nowSec < meta.slot_end;
 }
@@ -184,12 +255,12 @@ export function findLiveEvent(
   nowMs = Date.now(),
 ): GammaEvent | null {
   for (const e of events) {
-    const meta = parseCryptoMetadata(e);
+    const meta = parseUpdownMetadata(e);
     if (meta && isLiveSlot(meta, nowMs)) return e;
   }
   const nowSec = nowMs / 1000;
   const upcoming = events
-    .map((e) => ({ e, meta: parseCryptoMetadata(e) }))
+    .map((e) => ({ e, meta: parseUpdownMetadata(e) }))
     .filter((x) => x.meta && x.meta.slot_end > nowSec)
     .sort((a, b) => (a.meta!.slot_start ?? 0) - (b.meta!.slot_start ?? 0));
   if (upcoming.length > 0) return upcoming[0].e;
@@ -210,10 +281,53 @@ export function getActiveLiveEventSlug(
   nowMs = Date.now(),
 ): string | null {
   for (const e of events) {
-    const meta = parseCryptoMetadata(e);
+    const meta = parseUpdownMetadata(e);
     if (meta && isLiveSlot(meta, nowMs)) return e.slug;
   }
   return null;
+}
+
+export interface ClosedHoursState {
+  /** Start (unix seconds) of the next listed slot; null when none is listed yet. */
+  nextSlotStartSec: number | null;
+}
+
+/**
+ * Finance series trade in sessions, so between sessions no slot is live and the
+ * next one may start hours or days later. Returns the closed state then; null
+ * while a slot is live, and always for feeds whose slots run back to back (crypto).
+ */
+export function getClosedHoursState(
+  events: GammaEvent[],
+  nowMs = Date.now(),
+): ClosedHoursState | null {
+  const nowSec = nowMs / 1000;
+  let hasClosedHours = false;
+  let nextSlotStartSec: number | null = null;
+  for (const e of events) {
+    const meta = parseUpdownMetadata(e);
+    if (!meta) continue;
+    if (isLiveSlot(meta, nowMs)) return null;
+    if (priceFeedAdapter(meta.feed).hasClosedHours) hasClosedHours = true;
+    if (
+      meta.slot_start > nowSec &&
+      (nextSlotStartSec == null || meta.slot_start < nextSlotStartSec)
+    ) {
+      nextSlotStartSec = meta.slot_start;
+    }
+  }
+  return hasClosedHours ? { nextSlotStartSec } : null;
+}
+
+/** e.g. "Nov 16, 11:00 PM UTC" — slots are labelled in UTC. */
+export function formatNextMarketTime(slotStartUnix: number): string {
+  const date = new Date(slotStartUnix * 1000);
+  const day = date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: SLOT_LABEL_TZ,
+  });
+  return `${day}, ${formatSlotLabel(slotStartUnix)} UTC`;
 }
 
 const SLOT_LABEL_TZ = "UTC";
@@ -228,7 +342,7 @@ export function formatSlotLabel(slotEndUnix: number): string {
 }
 
 export function slotLabelForEvent(event: GammaEvent): string {
-  const meta = parseCryptoMetadata(event);
+  const meta = parseUpdownMetadata(event);
   if (meta) return formatSlotLabel(meta.slot_end);
   if (event.endDate) {
     const d = new Date(event.endDate);
@@ -255,7 +369,7 @@ export function getLiveEventIndex(
   }
   const nowSec = nowMs / 1000;
   const idx = events.findIndex((e) => {
-    const meta = parseCryptoMetadata(e);
+    const meta = parseUpdownMetadata(e);
     return meta && meta.slot_end > nowSec;
   });
   if (idx >= 0) return idx;
@@ -270,7 +384,7 @@ export function isPastEvent(
   const liveIdx = getLiveEventIndex(events, nowMs);
   const idx = events.findIndex((e) => e.slug === event.slug);
   if (idx >= 0 && idx < liveIdx) return true;
-  const meta = parseCryptoMetadata(event);
+  const meta = parseUpdownMetadata(event);
   if (meta) return meta.slot_end <= nowMs / 1000;
   return false;
 }
@@ -336,7 +450,7 @@ export function getPastEvents(
   const nowSec = nowMs / 1000;
   return events
     .filter((e) => {
-      const meta = parseCryptoMetadata(e);
+      const meta = parseUpdownMetadata(e);
       if (meta) return meta.slot_end <= nowSec;
       if (e.endDate) {
         const endMs = Date.parse(e.endDate);
@@ -371,37 +485,58 @@ export function slotEndAfterForLookback(
 
 export type CryptoChartMode = "live" | "upcoming" | "past";
 
-export function cryptoWsSymbol(meta: CryptoUpdownMetadata): string {
-  const base = meta.base.trim().toLowerCase();
-  const target = (meta.target?.trim() || "usdt").toLowerCase();
-  return `${base}/${target}`;
-}
-
-export function cryptoPriceHistorySymbol(meta: CryptoUpdownMetadata): string {
-  return meta.base.trim().toLowerCase();
-}
-
-export function cryptoWsSubscribeFilters(meta: CryptoUpdownMetadata): string {
-  return JSON.stringify({ symbol: cryptoWsSymbol(meta) });
-}
-
 export function priceHistoryInterval(intervalMinutes: number): string {
   return intervalMinutes <= 15 ? "1m" : "5m";
 }
 
-export function isPastSlot(meta: CryptoUpdownMetadata, nowMs = Date.now()): boolean {
+/** Bucket width of a price-service history interval ("1m", "5m", …). */
+export function priceHistoryBucketMs(interval: string): number {
+  switch (interval) {
+    case "1m":
+      return 60_000;
+    case "5m":
+      return 5 * 60_000;
+    case "15m":
+      return 15 * 60_000;
+    case "1h":
+      return 60 * 60_000;
+    case "4h":
+      return 4 * 60 * 60_000;
+    case "1d":
+      return 24 * 60 * 60_000;
+    default:
+      return 60_000;
+  }
+}
+
+/**
+ * Longest step between two chart points still drawn as one line. Feeds with
+ * closed hours have no candles for closed minutes, so a longer step is a
+ * closure and the chart breaks the line there. Null (never break) for crypto.
+ * Live charts load 1m buckets; past charts use priceHistoryInterval.
+ */
+export function chartGapThresholdMs(
+  meta: UpdownMetadata,
+  liveChart: boolean,
+): number | null {
+  if (!priceFeedAdapter(meta.feed).hasClosedHours) return null;
+  const interval = liveChart ? "1m" : priceHistoryInterval(meta.interval_minutes);
+  return priceHistoryBucketMs(interval) * 1.5;
+}
+
+export function isPastSlot(meta: UpdownMetadata, nowMs = Date.now()): boolean {
   return nowMs / 1000 >= meta.slot_end;
 }
 
 export function isUpcomingSlot(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
 ): boolean {
   return nowMs / 1000 < meta.slot_start;
 }
 
 export function cryptoChartMode(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
 ): CryptoChartMode {
   if (isPastSlot(meta, nowMs)) return "past";
@@ -410,7 +545,7 @@ export function cryptoChartMode(
 }
 
 export function isChartLiveMode(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
 ): boolean {
   const mode = cryptoChartMode(meta, nowMs);
@@ -423,7 +558,7 @@ export function spotChartEvent(
   live: GammaEvent | null,
   nowMs = Date.now(),
 ): GammaEvent {
-  const meta = parseCryptoMetadata(selected);
+  const meta = parseUpdownMetadata(selected);
   if (meta && isUpcomingSlot(meta, nowMs) && live) {
     return live;
   }
@@ -431,12 +566,12 @@ export function spotChartEvent(
 }
 
 /** Live chart fetch + viewport width — matches market interval (5m market → 5 minutes). */
-export function liveChartWindowMs(meta: CryptoUpdownMetadata): number {
+export function liveChartWindowMs(meta: UpdownMetadata): number {
   return meta.interval_minutes * 60 * 1000;
 }
 
 export function priceHistoryWindow(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
 ): { openTimeMs: number; closeTimeMs: number } {
   const mode = cryptoChartMode(meta, nowMs);
@@ -463,7 +598,7 @@ export function priceHistoryWindow(
 }
 
 export function countdownTargetSec(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
 ): number {
   return isUpcomingSlot(meta, nowMs) ? meta.slot_start : meta.slot_end;

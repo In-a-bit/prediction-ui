@@ -48,11 +48,34 @@ export interface GammaMarket {
   metadataType?: string;
 }
 
-export interface CryptoUpdownMetadata {
-  base: string;
-  target: string;
+/** Finance asset categories (keep in sync with prediction-go financeasset.go). */
+export const FINANCE_CATEGORIES = [
+  "fx",
+  "metals",
+  "stocks",
+  "commodities",
+  "indices",
+] as const;
+
+export type FinanceCategory = (typeof FINANCE_CATEGORIES)[number];
+
+/** Where an Up/Down event's spot price comes from. */
+export type UpdownPriceFeed =
+  | { kind: "crypto"; base: string; target: string }
+  | {
+      kind: "finance";
+      /** Lower-cased provider symbol, e.g. "metal.xau/usd". */
+      assetKey: string;
+      category: FinanceCategory | null;
+    };
+
+/** Parsed metadata of a crypto_updown or finance_updown event (one slot). */
+export interface UpdownMetadata {
+  feed: UpdownPriceFeed;
   interval_minutes: number;
+  /** Unix seconds. */
   slot_start: number;
+  /** Unix seconds. */
   slot_end: number;
   priceToBeat?: string;
 }
@@ -97,6 +120,7 @@ export interface GammaEvent {
   tags?: { id: number; label: string; slug: string }[];
   volume24hr?: number;
   metadataType?: string;
-  metadata?: CryptoUpdownMetadata | Record<string, unknown>;
+  /** Raw metadata; Up/Down events are read through parseUpdownMetadata. */
+  metadata?: Record<string, unknown>;
   series?: GammaSeries[];
 }

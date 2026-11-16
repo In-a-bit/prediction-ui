@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useMarketWS } from "@/components/providers/market-ws-provider";
-import { parseCryptoMetadata } from "@/lib/crypto-updown";
+import { parseUpdownMetadata } from "@/lib/crypto-updown";
 import {
   getWinningOutcomeLabel,
-  isCryptoUpdownEvent,
   isMarketAwaitingResolution,
+  isSplitResolution,
+  SPLIT_RESOLUTION_LABEL,
   isUmaResolved,
+  isUpdownEvent,
 } from "@/lib/market/gamma-helpers";
 import type { GammaEvent, GammaMarket } from "@/lib/types/event";
 import {
@@ -41,8 +43,8 @@ export function useMarketResolution({
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
-    if (!event || !isCryptoUpdownEvent(event)) return;
-    const meta = parseCryptoMetadata(event);
+    if (!event || !isUpdownEvent(event)) return;
+    const meta = parseUpdownMetadata(event);
     if (!meta?.slot_end) return;
     const tick = () => setNowSec(Math.floor(Date.now() / 1000));
     const id = setInterval(tick, 1000);
@@ -50,8 +52,8 @@ export function useMarketResolution({
   }, [event]);
 
   const slotEnded = useMemo(() => {
-    if (!event || !isCryptoUpdownEvent(event)) return false;
-    const meta = parseCryptoMetadata(event);
+    if (!event || !isUpdownEvent(event)) return false;
+    const meta = parseUpdownMetadata(event);
     if (!meta?.slot_end) return false;
     return nowSec >= meta.slot_end;
   }, [event, nowSec]);
@@ -74,12 +76,13 @@ export function useMarketResolution({
 
     const handler: MarketEventCallback = (data) => {
       const evt = parseMarketResolvedEvent(data);
-      const outcome = evt?.winning_outcome;
-      if (typeof outcome !== "string" || outcome === "") return;
       if (!evt || !marketResolvedMatchesSubscription(evt, market, tokenIds)) {
         return;
       }
-      setWsWinningOutcome((prev) => (prev === outcome ? prev : outcome));
+      // A 50-50 (split) names no winner: winning_outcome is null.
+      const resolved = evt.split ? SPLIT_RESOLUTION_LABEL : evt.winning_outcome;
+      if (!resolved) return;
+      setWsWinningOutcome((prev) => (prev === resolved ? prev : resolved));
     };
 
     on("market_resolved", handler);
@@ -87,6 +90,9 @@ export function useMarketResolution({
   }, [on, off, market, tokenIds, yesTokenId, noTokenId, connectionGeneration]);
 
   const outcomeText = useMemo(() => {
+    // A 50-50 shows from the live market_resolved event (its split flag) or,
+    // after a reload, from the settled market's prices.
+    if (isSplitResolution(market)) return getWinningOutcomeLabel(market);
     if (wsWinningOutcome) return wsWinningOutcome;
     return getWinningOutcomeLabel(market);
   }, [wsWinningOutcome, market]);

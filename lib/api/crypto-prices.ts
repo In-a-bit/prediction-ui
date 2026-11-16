@@ -1,10 +1,14 @@
 import {
-  cryptoPriceHistorySymbol,
+  priceHistoryBucketMs,
   priceHistoryInterval,
   priceHistoryWindow,
-  type CryptoUpdownMetadata,
+  type UpdownMetadata,
 } from "@/lib/crypto-updown";
 import { predictionServiceBase } from "@/lib/prediction-proxy";
+import { priceFeedAdapter } from "@/lib/updown-price-feed";
+
+// Spot prices of Up/Down events from price-service: /crypto/* for crypto,
+// /finance/* for finance (same params and shapes; see priceFeedAdapter).
 
 export type CryptoPricePoint = {
   timestamp: number;
@@ -15,32 +19,13 @@ function resolvePriceBase(override?: string): string {
   return (override ?? predictionServiceBase("price")).replace(/\/$/, "");
 }
 
-function intervalMs(interval: string): number {
-  switch (interval) {
-    case "1m":
-      return 60_000;
-    case "5m":
-      return 5 * 60_000;
-    case "15m":
-      return 15 * 60_000;
-    case "1h":
-      return 60 * 60_000;
-    case "4h":
-      return 4 * 60 * 60_000;
-    case "1d":
-      return 24 * 60 * 60_000;
-    default:
-      return 60_000;
-  }
-}
-
 export async function fetchCryptoPriceHistory(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
   priceBase?: string,
 ): Promise<CryptoPricePoint[]> {
   const interval = priceHistoryInterval(meta.interval_minutes);
-  const minRange = intervalMs(interval);
+  const minRange = priceHistoryBucketMs(interval);
   const window = priceHistoryWindow(meta, nowMs);
 
   const closeTimeMs = window.closeTimeMs;
@@ -60,28 +45,29 @@ export async function fetchCryptoPriceHistory(
 }
 
 async function fetchPriceHistoryRange(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   openTimeMs: number,
   closeTimeMs: number,
   interval = "1m",
   priceBase?: string,
 ): Promise<CryptoPricePoint[]> {
-  const minRange = intervalMs(interval);
+  const minRange = priceHistoryBucketMs(interval);
   let open = openTimeMs;
   if (closeTimeMs - open < minRange) {
     open = closeTimeMs - minRange;
   }
   if (open >= closeTimeMs) return [];
 
+  const feed = priceFeedAdapter(meta.feed);
   const params = new URLSearchParams({
-    symbol: cryptoPriceHistorySymbol(meta),
+    symbol: feed.restSymbol,
     interval,
     openTime: String(open),
     closeTime: String(closeTimeMs),
     limit: "5000",
   });
 
-  const url = `${resolvePriceBase(priceBase)}/crypto/price-history?${params}`;
+  const url = `${resolvePriceBase(priceBase)}${feed.routePrefix}/price-history?${params}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`price-history failed: ${res.status}`);
@@ -113,7 +99,7 @@ export function mergeHistoryWithLatest(
  * open minute.
  */
 export async function fetchCryptoLivePriceHistory(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
   priceBase?: string,
 ): Promise<CryptoPricePoint[]> {
@@ -133,14 +119,13 @@ export async function fetchCryptoLivePriceHistory(
 
 /** Current spot from Redis (live) or last closed 1m candle (stale). */
 export async function fetchCryptoLatest(
-  meta: CryptoUpdownMetadata,
+  meta: UpdownMetadata,
   nowMs = Date.now(),
   priceBase?: string,
 ): Promise<CryptoPricePoint | null> {
-  const params = new URLSearchParams({
-    symbol: cryptoPriceHistorySymbol(meta),
-  });
-  const url = `${resolvePriceBase(priceBase)}/crypto/latest?${params}`;
+  const feed = priceFeedAdapter(meta.feed);
+  const params = new URLSearchParams({ symbol: feed.restSymbol });
+  const url = `${resolvePriceBase(priceBase)}${feed.routePrefix}/latest?${params}`;
   const res = await fetch(url);
   if (!res.ok) return null;
 
